@@ -163,16 +163,19 @@ interface ReloadableRegistry<T> extends Registry<T> {       // snapshot-based
 
 ### 7.2 Built-in registries
 
-Static: `ResourceCategory`, `ResourceType`, `ResourceComponentType`, `ResourceTag` definitions, `CapabilityType`, `MachineType`, `ProcessType`, `RecipeType`, `NetworkType`, `TransportType`, `UpgradeType`, `ModifierType`, `StorageCodec`, `ResourceConverter`, `EventType`.
+Static: `ResourceCategory`, `ResourceType`, `ResourceComponentType`, `CapabilityType`, `MachineType`, `ProcessType`, `RecipeType`, `NetworkType`, `TransportType`, `UpgradeType`, `ModifierType`, `StorageCodec` (as `VersionedCodec`), `ResourceConverter`, `EventType`.
 
-Reloadable: `Recipe`, tag *contents* (which types belong to a tag), data-driven definitions (future YAML, §29).
+Reloadable: `Recipe`, `ResourceTagContribution` (tag contents, §9.3), data-driven definitions (future YAML, §29).
+
+Implemented in M1: resource category/type/component type, converter, storage codec, event type (static) and resource tag (reloadable). The machine-related registries arrive with M2.
 
 ### 7.3 Reloadable registry semantics
 
 1. A reload builds a complete new snapshot off to the side.
 2. The snapshot is fully validated (§24). If validation fails, the reload is rejected and the old snapshot stays live.
 3. The swap is atomic (single volatile reference). Readers see either the old or the new snapshot, never a mix.
-4. Runtime objects hold `Key` references (e.g. a running process holds its recipe key) and re-resolve when the `generation` changes. If a referenced entry disappeared, the dependent object degrades safely (e.g. the process is cancelled and its in-flight inputs are returned, D15), and an error is recorded on the machine.
+4. **Initial load vs. reload.** At startup there is no previous snapshot, so a provider whose addon causes errors is left out and the others load. On a later reload, any error rejects the whole reload.
+5. Runtime objects hold `Key` references (e.g. a running process holds its recipe key) and re-resolve when the `generation` changes. If a referenced entry disappeared, the dependent object degrades safely (e.g. the process is cancelled and its in-flight inputs are returned, D15), and an error is recorded on the machine.
 
 ---
 
@@ -236,7 +239,10 @@ public final class RefineryAddon extends JavaPlugin {
 }
 ```
 
-- `MachineEngine.registration(...)` and `MachineEngine.api()` are the only static entry points; they delegate to a single instance set once at bootstrap (the only permitted static mutable state, documented as such).
+- `MachineEngine.registration(...)` and `MachineEngine.api()` are the only static entry points; they delegate to a single instance set once at bootstrap (the only permitted static mutable state, documented as such). They belong to the Paper integration (M3). In M1 the engine is started with `MachineEngineBuilder` (core) or `TestEngine` (test harness), both taking `AddonRegistration`s.
+- Implemented API (M1): `AddonRegistration.builder(name, version).requiresApi(range).requires(addon, range).after(addon).register(ctx -> …)`. Definitions carry their own key (`ResourceType.of(key, category)`) and are registered with `ctx.resourceTypes().register(type)`.
+- Ties in the dependency order are broken by addon name, so the order does not depend on plugin load order.
+- Optional ordering (`after`) does not disable an addon when the other one is missing.
 - Dependency errors (missing, incompatible version, cycle) are reported per addon with the full chain.
 
 ---
@@ -248,11 +254,14 @@ public final class RefineryAddon extends JavaPlugin {
 ```text
 ResourceCategory      e.g. energyplugin:energy, mymod:fluid, machineengine:item
   └── ResourceType    e.g. energyplugin:fe, mymod:oil
-        └── ResourceStack = (ResourceType, long amount, ResourceComponents)
+        └── ResourceVariant = (ResourceType, ResourceComponents)   what it is
+              └── ResourceStack = (ResourceVariant, long amount)     how much
 ```
 
-- `ResourceCategory` defines: base unit name, fixed-point scale (D10), default `MergePolicy`, allowed component types, display formatter hook.
-- `ResourceType` belongs to exactly one category, carries default components and tags.
+- `ResourceVariant` is the unit storages and transfers work with: two equal variants always stack.
+
+- `ResourceCategory` defines: base unit name, fixed-point display scale (D10), and its `MergePolicy`. (Allowed component types and a display formatter hook are deferred until a use case needs them.)
+- `ResourceType` belongs to exactly one category and carries default components. Tag membership lives in the reloadable tag registry, not on the type.
 - `ResourceStack` is an immutable value object. Storages SHOULD NOT hold `ResourceStack` objects internally in hot paths; they store `(type, components, amount)` in primitive-friendly structures and materialize stacks on demand.
 - Amount math is saturating (`Math.addExact` guarded); overflow is a validation/transfer rejection, never a wrap-around.
 
@@ -273,10 +282,14 @@ Examples: `mymod:temperature` (long, milli-Kelvin), `mymod:pressure`, `magicplug
 ### 9.3 Matching, predicates, tags
 
 ```java
-ResourcePredicate   (ResourceStack) → boolean, composable (and/or/not)
-ResourceMatcher     ResourcePredicate + optional amount requirement; used by ports, recipes
-ResourceTag         Key-identified set of ResourceTypes; contents are reloadable
+ResourcePredicate         (ResourceVariant, ResourceTags) → boolean, composable (and/or/negate)
+ResourceMatcher           ResourcePredicate + optional amount requirement; used by ports, recipes
+ResourceTagContribution   adds ResourceTypes to a tag Key; reloadable; several addons may
+                          contribute to the same tag, each with its own contribution key
+ResourceTags              snapshot of tag → members, rebuilt on every tag reload
 ```
+
+Predicates take the tag snapshot as an argument, so they stay valid across reloads. `predicate.bind(tags)` turns one into a plain `Predicate<ResourceVariant>` for storage filters.
 
 Built-in predicate builders: by type, by category, by tag, by component (equals / range). Example:
 
@@ -305,22 +318,23 @@ MachineEngine MUST NEVER convert one resource into another automatically (FE→E
 ### 10.1 Interfaces
 
 ```java
-interface ResourceHandler {                         // a view that can accept/provide resources
-    long insert(ResourceStack stack, long maxAmount, Transaction tx);
-    long extract(ResourcePredicate filter, long maxAmount, Transaction tx, StackSink out);
-    Iterable<StorageView> views();                  // read-only snapshot of contents
+interface ResourceHandler {
+    long insert(ResourceVariant variant, long maxAmount, TransactionContext tx);
+    long extract(ResourceVariant variant, long maxAmount, TransactionContext tx);
+    List<StorageView> views();                      // snapshot: (variant, amount, capacity) per slot
 }
-
-interface ResourceStorage extends ResourceHandler, TransactionParticipant { … }  // owns contents
+abstract class SnapshotParticipant<S>               // base for state that takes part in transactions
 ```
+
+Extraction is by exact variant; filtered extraction goes through `views()` (see `Transfers.move`). The API ships `SingleVariantStorage` (one slot, merge-policy aware) and `CombinedResourceHandler` (slots, fills existing stacks first) as building blocks; they live in the API, not core, because addons construct them directly.
 
 Storages are composable (slotted, single-type tank, filtered, capped-rate wrappers). Third parties can implement their own; the transaction contract is mandatory.
 
 ### 10.2 Transactions (D11)
 
 ```java
-try (Transaction tx = Transaction.openOuter(ctx)) {
-    long moved = Transfers.move(source, target, matcher, 1000, tx);
+try (Transaction tx = engine.transactions().openOuter()) {
+    long moved = Transfers.move(source, target, filter, 1000, tx).moved();
     if (moved == 1000) tx.commit();          // otherwise auto-abort on close
 }
 ```
@@ -576,7 +590,7 @@ machineengine:machine
  └── unknown: { … }                    opaque data preserved for missing content (§21)
 ```
 
-- `StorageCodec<T>` encodes to a format-neutral `DataView`/`DataWriter` tree (map, list, primitives, byte arrays). The CE adapter maps it to sparrow-NBT `CompoundTag`; the test harness uses an in-memory implementation. MachineEngine does not adopt DataFixerUpper.
+- `StorageCodec<T>` encodes to a format-neutral immutable `DataValue` tree (`DataMap`, list, string, long, double, boolean, bytes). The CE adapter maps it to sparrow-NBT `CompoundTag`; the test harness uses an in-memory implementation. MachineEngine does not adopt DataFixerUpper.
 - Every codec has a version. Addons register migrations `(fromVersion → toVersion)` that run on load. A missing migration is a validation error at startup, not a runtime crash.
 - Persisted: machine state, storages, process state + in-flight buffer, upgrades, side configuration, custom addon state, escrow, dedupe set.
 
@@ -850,6 +864,7 @@ Gradle multi-module layout (§5), version catalog, `craftengine_version=26.10-SN
 ### M1 — Foundations (headless, `api` + `core` + `test`)
 Keys/`RegistryKey`, static + reloadable registries, lifecycle phases, addon registration & dependency ordering, validation/diagnostics, error model, resource category/type/stack/components/merge policies, predicates/matchers/tags, storages, transactions, converter registry, codecs + `DataView` + migrations, event bus.
 **Accept:** unit tests for all; property tests proving the resource-conservation invariant under random operation/abort sequences; duplicate/missing/cycle diagnostics tested.
+**Status: done (2026-10-01).** 63 tests pass (API module and `machineengine-test`). The conservation property test runs 8 seeds × 200 random rounds with nested commits/aborts across 6 storages, and fails as expected when rollback is deliberately broken. The format-neutral data tree is `DataValue`/`DataMap` (named `DataView` in earlier drafts).
 
 ### M2 — Machines (headless)
 Capabilities, ports & sides, `MachineType/Instance/State/Context/Behavior`, scheduler states & wake reasons, recipes (reloadable) & processes with in-flight buffer, upgrades/modifiers (D16), placeholders (D3), persistence round-trip, handoff protocol over `FakeRegionScheduler`, inspection API.
