@@ -1,0 +1,43 @@
+// Shared Java setup for every MachineEngine module.
+plugins {
+    `java-library`
+}
+
+val libs = the<VersionCatalogsExtension>().named("libs")
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+    withSourcesJar()
+    withJavadocJar()
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+    // Bytecode floor: Java 21 (Minecraft 1.20.6, CraftEngine).
+    options.release = 21
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial"))
+}
+
+tasks.withType<Javadoc>().configureEach {
+    options.encoding = "UTF-8"
+    (options as StandardJavadocDocletOptions).addBooleanOption("Xdoclint:none", true)
+    // javadoc fails on modules that only contain package-info.java so far.
+    onlyIf("module has classes to document") { task ->
+        !(task as Javadoc).source.filter { it.name != "package-info.java" }.isEmpty
+    }
+}
+
+dependencies {
+    compileOnlyApi(libs.findLibrary("jetbrains-annotations").get())
+    testCompileOnly(libs.findLibrary("jetbrains-annotations").get())
+
+    testImplementation(platform(libs.findLibrary("junit-bom").get()))
+    testImplementation(libs.findLibrary("junit-jupiter").get())
+    testRuntimeOnly(libs.findLibrary("junit-platform-launcher").get())
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
+}
