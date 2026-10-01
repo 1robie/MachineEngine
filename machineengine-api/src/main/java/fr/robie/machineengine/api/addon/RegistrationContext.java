@@ -1,6 +1,12 @@
 package fr.robie.machineengine.api.addon;
 
+import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.diagnostic.Validator;
+import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.recipe.Recipe;
+import fr.robie.machineengine.api.recipe.RecipeType;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.UpgradeType;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
@@ -67,5 +73,29 @@ public interface RegistrationContext {
 
     default void resourceTags(@NotNull ReloadableProvider<ResourceTagContribution> provider) {
         reloadable(Registries.RESOURCE_TAG, provider);
+    }
+
+    default @NotNull WritableRegistry<CapabilityType<?>> capabilityTypes() {
+        return registry(Registries.CAPABILITY_TYPE);
+    }
+
+    default @NotNull WritableRegistry<MachineType> machineTypes() {
+        return registry(Registries.MACHINE_TYPE);
+    }
+
+    default @NotNull WritableRegistry<RecipeType<?>> recipeTypes() {
+        return registry(Registries.RECIPE_TYPE);
+    }
+
+    default @NotNull WritableRegistry<ModifierType> modifierTypes() {
+        return registry(Registries.MODIFIER_TYPE);
+    }
+
+    default @NotNull WritableRegistry<UpgradeType> upgradeTypes() {
+        return registry(Registries.UPGRADE_TYPE);
+    }
+
+    default void recipes(@NotNull ReloadableProvider<Recipe> provider) {
+        reloadable(Registries.RECIPE, provider);
     }
 }

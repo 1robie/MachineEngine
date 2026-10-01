@@ -34,12 +34,16 @@ public final class BuiltInValidators {
                 BuiltInValidators::reservedNamespaces,
                 BuiltInValidators::resourceTypes,
                 BuiltInValidators::converters,
-                BuiltInValidators::codecs);
+                BuiltInValidators::codecs,
+                MachineValidators::machineTypes,
+                MachineValidators::upgradeTypes);
     }
 
     /** Validators for one reloadable registry; they run whenever it is (re)built. */
     public static List<Validator> reloadValidators(RegistryType<?> type) {
-        return type.equals(Registries.RESOURCE_TAG) ? List.of(BuiltInValidators::tags) : List.of();
+        if (type.equals(Registries.RESOURCE_TAG)) return List.of(BuiltInValidators::tags);
+        if (type.equals(Registries.RECIPE)) return List.of(MachineValidators::recipes);
+        return List.of();
     }
 
     private static void reservedNamespaces(ValidationContext context) {
@@ -112,7 +116,7 @@ public final class BuiltInValidators {
         }
     }
 
-    private static <T extends Keyed> Diagnostic unregistered(Registry<T> registry, T entry, String what) {
+    static <T extends Keyed> Diagnostic unregistered(Registry<T> registry, T entry, String what) {
         return Diagnostic.error(DiagnosticCodes.UNREGISTERED_REFERENCE,
                         entry.key().asString() + " references " + what + ", which is not registered")
                 .source(registry.owner(entry.key()).orElse(null)).subject(entry.key())

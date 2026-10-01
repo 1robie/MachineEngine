@@ -175,7 +175,7 @@ Implemented in M1: resource category/type/component type, converter, storage cod
 2. The snapshot is fully validated (§24). If validation fails, the reload is rejected and the old snapshot stays live.
 3. The swap is atomic (single volatile reference). Readers see either the old or the new snapshot, never a mix.
 4. **Initial load vs. reload.** At startup there is no previous snapshot, so a provider whose addon causes errors is left out and the others load. On a later reload, any error rejects the whole reload.
-5. Runtime objects hold `Key` references (e.g. a running process holds its recipe key) and re-resolve when the `generation` changes. If a referenced entry disappeared, the dependent object degrades safely (e.g. the process is cancelled and its in-flight inputs are returned, D15), and an error is recorded on the machine.
+5. Runtime objects hold `Key` references and re-resolve when the `generation` changes. If a referenced entry disappeared, the dependent object degrades safely and an error is recorded on the machine. Exception, decided in M2: a **running process captures its outputs, per-tick costs and duration when it starts**, so a recipe reload never changes or cancels a process already running; only processes started afterwards see the new recipes.
 
 ---
 
@@ -423,6 +423,7 @@ MachineController  framework-owned glue between a world host (CE block entity) a
 - `RecipeType` defines recipe shape and matching; `Recipe`s live in a **reloadable** registry (D5).
 - `RecipeMatcher` finds candidate recipes for a machine's inputs; machines SHOULD cache the last matched recipe and re-match only on input change.
 - `ProcessType` defines execution (duration, per-tick or up-front resource costs, parallelism). `ProcessInstance` is persisted in `MachineState` with progress, recipe key, and the **in-flight input buffer** (D15).
+- **M2 implementation:** one built-in timed process behind `MachineContext.process()` (`ProcessControl`: `start`, `advance`, `cancel`) for `ProcessingRecipe`s (inputs consumed at start, per-tick costs, outputs at the end), and a ready-made `ProcessingBehavior` for recipe machines. A `ProcessType` registry is deferred until a second kind of process is needed. A process that cannot pay a per-tick cost pauses (`WAITING_FOR_COST`); cancelling returns the in-flight inputs, keeping in the buffer whatever does not fit.
 - Process start = one transaction that consumes inputs into the in-flight buffer. Process end = one transaction that inserts outputs; if outputs do not fit, the machine goes `BLOCKED` and the process holds its outputs until space is available. Nothing is voided implicitly.
 
 ---
@@ -499,6 +500,8 @@ Source (owner A)                                Target (owner B)
 Rules:
 
 - **At most one in-flight handoff per route** (backpressure). A route with non-empty escrow does not start a new transfer.
+- **Backoff:** a handoff answered with nothing accepted rests its route (20 ticks if the target is missing, 5 if it is full), so a source never ping-pongs messages every tick. Not persisted.
+- **Removed source:** if a machine is removed while a handoff is in flight, the remainder of the answer is dropped into the world (`MachineHost.dropResources`). This record is in memory only, so a crash in that window loses the remainder.
 - If the target is unloaded, removed, or rejects: ack with full remainder; source returns it.
 - Escrow contents are visible in inspection and count toward the source's contents (nothing is "in the air" unaccounted).
 - Messages are scheduled with Paper's `RegionScheduler` for the target location, which also works on non-Folia Paper and follows region migration.
@@ -527,6 +530,7 @@ MachineEngine does not tick every machine every tick. It builds on CraftEngine's
 
 - Wake signals are emitted from transaction commit callbacks, so aborted simulations never wake anything.
 - `wake()` is `@OwnerThread`; cross-thread wakes arrive through handoff messages or the region scheduler.
+- **Elapsed time:** a machine woken from `SCHEDULED` sees the ticks it slept as elapsed (planned work, e.g. a running process). One woken from `WAITING`/`BLOCKED`/`SLEEPING` sees 1 tick, because waiting is not working. Scheduling state and timers are persisted relative to the save.
 - Timed wake-ups use `RegionScheduler.runDelayed`, coalesced per chunk per target tick to bound the task count. (Implementation detail to benchmark in M3; a per-world timer wheel is the fallback on non-Folia Paper.)
 
 ### 17.3 Budgets and fairness
@@ -869,6 +873,8 @@ Keys/`RegistryKey`, static + reloadable registries, lifecycle phases, addon regi
 ### M2 — Machines (headless)
 Capabilities, ports & sides, `MachineType/Instance/State/Context/Behavior`, scheduler states & wake reasons, recipes (reloadable) & processes with in-flight buffer, upgrades/modifiers (D16), placeholders (D3), persistence round-trip, handoff protocol over `FakeRegionScheduler`, inspection API.
 **Accept:** the §36 integration test passes fully headless, including persistence, scheduler, a cross-region variant, injected crash points, and the missing-addon variant.
+**Status: done (2026-10-01).** 90 tests pass. `MachineIntegrationTest` covers the two-addon scenario (same region, cross-region over the handoff protocol, save/reload with identical continued simulation, missing addon → placeholder → rehydration, runtime identity at ports). `HandoffCrashTest` restores mixed saves at each protocol step; resources are conserved in every case except the documented window, which loses exactly the one in-flight transfer. Deliberately disabling dedupe or the in-flight buffer makes these tests fail. The host SPI is `core.machine.MachineHost`; the test harness provides `FakeWorld` (regions, clock, timers, message queues, crash simulation).
+Deferred from M2: per-instance port side configuration, `WorldEffect`s (no world mutation needed before M3), automatic wake of loaded machines on recipe reload (the host does it in M3), and the placeholder break policy (the host decides in M3).
 
 ### M3 — Paper + CraftEngine
 `machineengine:machine` behavior, controller, sleeping ticker, lazy binding & CE reload re-binding, persistence in CE block-entity data with unsaved-flag handling, chunk-load subscriptions, break/item policy, hopper interop, item category, protection, commands, metrics, config, limits/budgets.

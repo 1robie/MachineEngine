@@ -1,6 +1,12 @@
 package fr.robie.machineengine.api.registry;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
+import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.recipe.Recipe;
+import fr.robie.machineengine.api.recipe.RecipeType;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.UpgradeType;
 import fr.robie.machineengine.api.data.VersionedCodec;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.resource.ResourceCategory;
@@ -23,6 +29,21 @@ public final class Registries {
             RegistryType.createStatic(MachineEngineKeys.key("storage_codec"), VersionedCodec.class);
     public static final RegistryType<EventType<?>> EVENT_TYPE =
             RegistryType.createStatic(MachineEngineKeys.key("event_type"), EventType.class);
+
+    public static final RegistryType<CapabilityType<?>> CAPABILITY_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("capability_type"), CapabilityType.class);
+    public static final RegistryType<MachineType> MACHINE_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("machine_type"), MachineType.class);
+    public static final RegistryType<RecipeType<?>> RECIPE_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("recipe_type"), RecipeType.class);
+    public static final RegistryType<ModifierType> MODIFIER_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("modifier_type"), ModifierType.class);
+    public static final RegistryType<UpgradeType> UPGRADE_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("upgrade_type"), UpgradeType.class);
+
+    /** Recipes are reloadable (D5). */
+    public static final RegistryType<Recipe> RECIPE =
+            RegistryType.createReloadable(MachineEngineKeys.key("recipe"), Recipe.class);
 
     /** Tag contents are reloadable; several addons may contribute to one tag. */
     public static final RegistryType<ResourceTagContribution> RESOURCE_TAG =

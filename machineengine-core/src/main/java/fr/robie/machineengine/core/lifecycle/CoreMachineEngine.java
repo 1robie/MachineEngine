@@ -6,7 +6,13 @@ import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
+import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.event.EventBus;
+import fr.robie.machineengine.api.event.EventType;
+import fr.robie.machineengine.api.machine.MachineEvents;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.StandardModifiers;
+import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
 import fr.robie.machineengine.api.registry.RegistrationException;
 import fr.robie.machineengine.api.registry.Registries;
@@ -55,6 +61,7 @@ public final class CoreMachineEngine implements MachineEngine {
     private volatile ResourceTags tags = ResourceTags.EMPTY;
     private ResourceConverterLookup converters;
     private ResourceCodecs resourceCodecs;
+    private CoreMachines machines;
 
     private CoreMachineEngine(Logger logger) {
         this.logger = logger;
@@ -86,8 +93,19 @@ public final class CoreMachineEngine implements MachineEngine {
         this.phase = LifecyclePhase.REGISTRY_CREATION;
         for (RegistryType<?> type : List.of(Registries.RESOURCE_CATEGORY, Registries.RESOURCE_TYPE,
                 Registries.RESOURCE_COMPONENT_TYPE, Registries.RESOURCE_CONVERTER, Registries.STORAGE_CODEC,
-                Registries.EVENT_TYPE, Registries.RESOURCE_TAG)) {
+                Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
+                Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.RECIPE, Registries.RESOURCE_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
+        }
+        // Infrastructure MachineEngine itself provides (never meanings, §4).
+        this.registries.staticRegistry(Registries.CAPABILITY_TYPE).register(AddonId.MACHINE_ENGINE, Capabilities.RESOURCE_HANDLER);
+        for (ModifierType modifier : List.of(StandardModifiers.PROCESS_DURATION, StandardModifiers.PROCESS_COST,
+                StandardModifiers.TRANSFER_RATE)) {
+            this.registries.staticRegistry(Registries.MODIFIER_TYPE).register(AddonId.MACHINE_ENGINE, modifier);
+        }
+        for (EventType<?> event : List.of(MachineEvents.MACHINE_CREATE, MachineEvents.MACHINE_LOAD, MachineEvents.MACHINE_UNLOAD,
+                MachineEvents.MACHINE_REMOVE, MachineEvents.PROCESS_START, MachineEvents.PROCESS_COMPLETE)) {
+            this.registries.staticRegistry(Registries.EVENT_TYPE).register(AddonId.MACHINE_ENGINE, event);
         }
     }
 
@@ -189,6 +207,7 @@ public final class CoreMachineEngine implements MachineEngine {
         this.registries.freezeStatic();
         this.converters = new CoreConverterLookup(this.registries.registry(Registries.RESOURCE_CONVERTER));
         this.resourceCodecs = new ResourceCodecs(this.registries);
+        this.machines = new CoreMachines(this.registries, this.transactions, this::tags, this.events, this.resourceCodecs, this.logger);
         this.phase = LifecyclePhase.FROZEN;
     }
 
@@ -350,6 +369,11 @@ public final class CoreMachineEngine implements MachineEngine {
 
     public @NotNull ResourceCodecs resourceCodecs() {
         return this.resourceCodecs;
+    }
+
+    /** Machine placement, loading and persistence, for hosts. */
+    public @NotNull CoreMachines machines() {
+        return this.machines;
     }
 
     @Override
