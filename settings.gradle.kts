@@ -37,4 +37,5 @@ include(
     "machineengine-zmenu",
     "machineengine-plugin",
     "machineengine-example",
+    "machineengine-mekanized",
 )

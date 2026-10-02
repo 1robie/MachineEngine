@@ -144,6 +144,20 @@ missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes th
 - **Cables:** dots in each network's color, with sparks while the network moves resources.
 - **Action bar:** details of the machine you look at.
 
+## Mekanized (Mekanism-style content)
+
+`machineengine-mekanized` is a content plugin built on MachineEngine; see
+[docs/MEKANIZED_PLAN.md](docs/MEKANIZED_PLAN.md). It is inspired by Mekanism and uses its textures,
+models and recipes (Mekanism by Aidan C. Brady, MIT; `LICENSE-MEKANISM.txt` ships with it). It is not
+affiliated with Mekanism. The build imports one pinned Mekanism commit:
+
+```
+./gradlew :machineengine-mekanized:importMekanism
+```
+
+Review `machineengine-mekanized/build/generated/mekanized/import-report.txt` for what was converted
+and skipped.
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).

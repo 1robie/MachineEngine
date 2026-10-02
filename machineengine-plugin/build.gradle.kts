@@ -26,6 +26,7 @@ dependencies {
     compileOnly("net.momirealms:craft-engine-core:$craftEngineVersion") { isTransitive = false }
     compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }
     devAddons(project(":machineengine-example"))
+    devAddons(project(":machineengine-mekanized"))
 }
 
 paper {
