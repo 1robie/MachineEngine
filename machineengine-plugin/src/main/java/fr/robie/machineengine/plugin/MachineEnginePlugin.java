@@ -70,6 +70,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         List<AddonRegistration> registrations = MachineEngineAccess.closeRegistration();
         MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());
         registrations.forEach(builder::addon);
+        // Data-driven definitions (§29): plugins/MachineEngine/definitions/*.yml
+        fr.robie.machineengine.paper.YamlDefinitions definitions = new fr.robie.machineengine.paper.YamlDefinitions(this);
+        builder.definitions(definitions::load, fr.robie.machineengine.paper.YamlDefinitions.vanillaItems());
         CoreMachineEngine started = builder.start();
         this.engine = started;
         MachineEngineAccess.install(started);

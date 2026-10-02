@@ -52,6 +52,12 @@ public final class TestEngine {
         return this;
     }
 
+    /** Adds data-driven definition files (format-neutral trees, as the YAML loader produces). */
+    public @NotNull TestEngine definitions(@NotNull java.util.List<fr.robie.machineengine.api.definition.DefinitionFile> files) {
+        this.builder.definitions(() -> files, fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver.NONE);
+        return this;
+    }
+
     public @NotNull TestEngine apiVersion(@NotNull String version) {
         this.builder.apiVersion(Version.parse(version));
         return this;

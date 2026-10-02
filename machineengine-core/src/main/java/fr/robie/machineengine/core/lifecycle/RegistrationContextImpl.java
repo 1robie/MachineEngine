@@ -22,11 +22,18 @@ import java.util.Objects;
 final class RegistrationContextImpl implements RegistrationContext {
     private final AddonRecord record;
     private final RegistrySet registries;
+    private final java.util.function.Consumer<Diagnostic> reports;
     private boolean open = true;
 
-    RegistrationContextImpl(AddonRecord record, RegistrySet registries) {
+    RegistrationContextImpl(AddonRecord record, RegistrySet registries, java.util.function.Consumer<Diagnostic> reports) {
         this.record = record;
         this.registries = registries;
+        this.reports = reports;
+    }
+
+    @Override
+    public void report(@NotNull Diagnostic diagnostic) {
+        this.reports.accept(diagnostic.source() == null ? diagnostic.withSource(addon()) : diagnostic);
     }
 
     @Override

@@ -39,6 +39,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D18 | **Java package root `fr.robie.machineengine`**, Maven group `fr.robie`. | Project owner decision (2026-10-01). |
 | D19 | **Supported Minecraft versions: 1.20.6 to 26.3.** Compile against the 1.20.6 Paper API; test on both ends of the range. | Project owner decision (2026-10-01). 1.20.6 is the first version with item data components and Paper's lifecycle command API, both of which MachineEngine relies on. |
 | D20 | **Machine GUIs use zMenu** (latest, 1.1.1.9) as an optional dependency: menus are zMenu inventory files, machine values are zMenu placeholders, interactions are custom zMenu button types. | Project owner decision (2026-10-02): everything customizable by server owners in YAML. |
+| D21 | **YAML definitions are a built-in pseudo-addon `definitions`**, registered after every addon. Static content (resource categories and types, recipe types, machines) is defined at startup and freezes with the rest; recipes are a reloadable provider. Machine behavior comes from registered `BehaviorType`s (built-in `machineengine:processing` and `machineengine:storage`; addons add their own). | Delegated (2026-10-02): server owners can add whole machines without Java, while D5 (freeze) still holds. |
 
 ---
 
@@ -166,7 +167,7 @@ interface ReloadableRegistry<T> extends Registry<T> {       // snapshot-based
 
 Static: `ResourceCategory`, `ResourceType`, `ResourceComponentType`, `CapabilityType`, `MachineType`, `ProcessType`, `RecipeType`, `NetworkType`, `TransportType`, `UpgradeType`, `ModifierType`, `StorageCodec` (as `VersionedCodec`), `ResourceConverter`, `EventType`.
 
-Reloadable: `Recipe`, `ResourceTagContribution` (tag contents, §9.3), data-driven definitions (future YAML, §29).
+Reloadable: `Recipe`, `ResourceTagContribution` (tag contents, §9.3), recipes from data-driven definitions (§29).
 
 Implemented in M1: resource category/type/component type, converter, storage codec, event type (static) and resource tag (reloadable). The machine-related registries arrive with M2.
 
@@ -795,9 +796,9 @@ Real-server tests: `run-paper` with the pinned CraftEngine snapshot jar for smok
 
 ---
 
-# 29. Data-Driven Definitions (future YAML)
+# 29. Data-Driven Definitions (YAML)
 
-Not implemented in the MVP; the extension point is preserved:
+Implemented in M5 (D21):
 
 ```text
 YAML → Parser → Reference resolution → Templates/Inheritance → Validation → Definition compiler
@@ -807,7 +808,11 @@ YAML → Parser → Reference resolution → Templates/Inheritance → Validatio
 - YAML is a declarative layer over the public API, not a separate runtime.
 - YAML references registered IDs only: no class loading, reflection, method invocation, scripts or filesystem access.
 - Behavior comes from registered `MachineBehavior` factories referenced by key; configuration parameters are passed to them.
-- Data-driven definitions go into reloadable registries (D5); static types they need must already be registered in code.
+- Static definitions (resource categories and types, recipe types, machines) are registered at startup by the `definitions` pseudo-addon, after every addon, and freeze with the rest (D5). Recipes are reloadable and re-read from disk on `/machineengine reload recipes`.
+- Behaviors are `BehaviorType`s in the `machineengine:behavior_type` registry. Each parses its own YAML section into a `MachineBehavior.Factory`. Built-in: `machineengine:processing` (keys `recipes`, `inputs`, `output`, `costs`, `push`, `retry-ticks`) and `machineengine:storage`.
+- Filters: `type`, `types`, `category`, `tag`, `item`, `any`, `all`, `any-of`, `not`. `item:` ids are resolved by the platform (vanilla materials on Paper).
+- An invalid entry is skipped with a `machineengine:definition_skipped` warning located at `<file> > <section>.<key>`; the rest still loads. A file with `enabled: false` is ignored.
+- Files: `plugins/MachineEngine/definitions/*.yml`. A commented `example.yml` (disabled) is installed the first time.
 - CraftEngine block YAML already references machine types by key (§22.2) and is the first, minimal data-driven surface.
 
 ---
@@ -910,6 +915,8 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
+
+**YAML definitions: done (2026-10-02), D21.** API `api.definition` (`BehaviorType`, `DefinitionContext`, `BuiltInBehaviors`, `DefinitionFile`), compiler `core.definition.DefinitionCompiler`, Paper loader `YamlDefinitions`. `DefinitionTest` covers a YAML drill feeding a YAML smelter, skipped entries with exact locations, live recipe reload, addon behavior types and disabled files. Verified on Paper 1.20.6: the example machine and recipe register, a broken file is reported with its location, recipes reload.
 
 **GUI: done (2026-10-02), on zMenu 1.1.1.9 (D20).** Module `machineengine-zmenu`, shaded into the plugin; zMenu is an optional dependency (without it, machines have no menus).
 - **Opening:** right-clicking a machine block (not while sneaking) opens its menu, after the `machineengine.use` permission (default: everyone) and CraftEngine's anti-grief check (`OPEN_CONTAINER`, reached reflectively because AntiGriefLib is relocated in CraftEngine's plugin jar; V5 resolved). A placeholder machine tells the player its addon is missing.

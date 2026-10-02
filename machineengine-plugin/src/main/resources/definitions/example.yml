@@ -1,0 +1,55 @@
+# MachineEngine data-driven definitions: resources, recipes and whole machines without Java.
+# Every *.yml file in this folder is read at startup. Recipes reload with /machineengine reload recipes;
+# resources and machines need a restart. Invalid entries are skipped and listed in
+# /machineengine report with their file and path.
+#
+# To use this example, set enabled to true, restart, then add a CraftEngine block with
+#   behavior: { type: machineengine:machine, machine: custom:iron_press }
+# Its menu is menus/machine.yml unless you add menus/custom_iron_press.yml.
+enabled: false
+
+# Resource categories and types (non-item resources: energy, fluids, mana …).
+resource-categories:
+  custom:energy: { unit: FE, scale: 0 }
+resource-types:
+  custom:fe: { category: custom:energy }
+
+# Recipe types machines run.
+recipe-types:
+  - custom:pressing
+
+machines:
+  custom:iron_press:
+    storages:
+      input:  { slots: 1, capacity: 64, filter: { item: minecraft:raw_iron } }
+      output: { slots: 1, capacity: 64 }
+      energy: { capacity: 10000, filter: { type: custom:fe } }
+    # Ports: what neighbors, cables and networks may do on each side (relative to the facing).
+    ports:
+      in:     { storage: input,  direction: input,  sides: [top, back] }
+      out:    { storage: output, direction: output, sides: [bottom] }
+      power:  { storage: energy, direction: input,  sides: [left, right] }
+    upgrade-slots: 2
+    # Ticks caught up after the chunk was unloaded (0 = frozen while unloaded).
+    catch-up: 0
+    # Behavior types: machineengine:processing, machineengine:storage, or any an addon registers.
+    behavior:
+      type: machineengine:processing
+      recipes: custom:pressing
+      inputs: [input]
+      output: output
+      costs: energy
+      # push: front            # also push the output into the neighbor in front
+
+recipes:
+  custom:press_iron:
+    type: custom:pressing
+    duration: 100
+    # Inputs are filters with an amount: {item: id}, {type: key}, {tag: key}, {category: key},
+    # {all: [...]}, {any-of: [...]}, {not: {...}}.
+    inputs:
+      - { item: minecraft:raw_iron, amount: 1 }
+    outputs:
+      - { item: minecraft:iron_ingot, amount: 1 }
+    cost-per-tick:
+      - { type: custom:fe, amount: 20 }

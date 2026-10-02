@@ -19,6 +19,9 @@ public final class MachineEngineBuilder {
     private final List<AddonRegistration> registrations = new ArrayList<>();
     private Logger logger = Logger.getLogger("MachineEngine");
     private Version apiVersion = Version.parse(MachineEngineApi.version());
+    private java.util.function.Supplier<List<fr.robie.machineengine.api.definition.DefinitionFile>> definitions;
+    private fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items =
+            fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver.NONE;
 
     public @NotNull MachineEngineBuilder addon(@NotNull AddonRegistration registration) {
         this.registrations.add(Objects.requireNonNull(registration));
@@ -36,7 +39,26 @@ public final class MachineEngineBuilder {
         return this;
     }
 
+    /**
+     * Adds data-driven definitions (§29), compiled after every addon so they can use addon content.
+     *
+     * @param files read at startup and again on every recipe reload
+     * @param items resolves {@code item:} ids (platform-specific)
+     */
+    public @NotNull MachineEngineBuilder definitions(
+            @NotNull java.util.function.Supplier<List<fr.robie.machineengine.api.definition.DefinitionFile>> files,
+            @NotNull fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items) {
+        this.definitions = Objects.requireNonNull(files);
+        this.items = Objects.requireNonNull(items);
+        return this;
+    }
+
     public @NotNull CoreMachineEngine start() {
-        return CoreMachineEngine.start(List.copyOf(this.registrations), this.apiVersion, this.logger);
+        List<AddonRegistration> all = new ArrayList<>(this.registrations);
+        if (this.definitions != null) {
+            all.add(fr.robie.machineengine.core.definition.DefinitionCompiler.registration(this.definitions, this.items,
+                    this.registrations.stream().map(AddonRegistration::addon).toList(), this.apiVersion));
+        }
+        return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger);
     }
 }

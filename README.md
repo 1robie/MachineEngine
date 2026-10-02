@@ -69,6 +69,15 @@ menu. Menus are ordinary zMenu inventories in `plugins/MachineEngine/menus/`:
 
 Dev servers download zMenu automatically (`-PwithZMenu=false` to leave it out).
 
+## YAML definitions
+
+Server owners can define resources, recipes and whole machines without Java in
+`plugins/MachineEngine/definitions/*.yml`. A commented `example.yml` (disabled) is installed on
+first start. Machines take a `behavior` type: `machineengine:processing` (runs recipes),
+`machineengine:storage`, or one an addon registers. Recipes reload with
+`/machineengine reload recipes`; machines and resources need a restart. Invalid entries are skipped
+and listed in `/machineengine report` with their file and path.
+
 ## Example addon and commands
 
 `machineengine-example` is a small addon built only on the API: a spark generator and a spark

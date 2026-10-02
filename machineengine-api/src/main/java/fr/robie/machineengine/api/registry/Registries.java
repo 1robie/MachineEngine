@@ -2,6 +2,7 @@ package fr.robie.machineengine.api.registry;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.definition.BehaviorType;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
@@ -47,6 +48,10 @@ public final class Registries {
             RegistryType.createStatic(MachineEngineKeys.key("network_type"), NetworkType.class);
     public static final RegistryType<TransportType> TRANSPORT_TYPE =
             RegistryType.createStatic(MachineEngineKeys.key("transport_type"), TransportType.class);
+
+    /** Behaviors data-driven machine definitions can use by key (§29). */
+    public static final RegistryType<BehaviorType> BEHAVIOR_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("behavior_type"), BehaviorType.class);
 
     /** Recipes are reloadable (D5). */
     public static final RegistryType<Recipe> RECIPE =

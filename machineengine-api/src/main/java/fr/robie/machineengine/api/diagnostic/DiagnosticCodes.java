@@ -23,6 +23,8 @@ public final class DiagnosticCodes {
     public static final Key INVALID_CODEC = MachineEngineKeys.key("invalid_codec");
     public static final Key VALIDATOR_FAILED = MachineEngineKeys.key("validator_failed");
     public static final Key RELOAD_FAILED = MachineEngineKeys.key("reload_failed");
+    /** A data-driven definition entry was invalid and skipped; the rest loaded. */
+    public static final Key DEFINITION_SKIPPED = MachineEngineKeys.key("definition_skipped");
 
     private DiagnosticCodes() {
     }

@@ -1,6 +1,8 @@
 package fr.robie.machineengine.api.addon;
 
 import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.definition.BehaviorType;
+import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.Validator;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.network.NetworkType;
@@ -57,6 +59,12 @@ public interface RegistrationContext {
     /** Adds a validator that runs at startup validation and on every reload. */
     void validator(@NotNull Validator validator);
 
+    /**
+     * Adds a finding to the startup report without failing the registration, e.g. a data-driven
+     * entry that was skipped. Attributed to {@link #addon()} if it has no source.
+     */
+    void report(@NotNull Diagnostic diagnostic);
+
     default @NotNull WritableRegistry<ResourceCategory> resourceCategories() {
         return registry(Registries.RESOURCE_CATEGORY);
     }
@@ -103,6 +111,10 @@ public interface RegistrationContext {
 
     default @NotNull WritableRegistry<TransportType> transportTypes() {
         return registry(Registries.TRANSPORT_TYPE);
+    }
+
+    default @NotNull WritableRegistry<BehaviorType> behaviorTypes() {
+        return registry(Registries.BEHAVIOR_TYPE);
     }
 
     default void recipes(@NotNull ReloadableProvider<Recipe> provider) {

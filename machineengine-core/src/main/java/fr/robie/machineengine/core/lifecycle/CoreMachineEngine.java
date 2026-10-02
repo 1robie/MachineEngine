@@ -98,11 +98,16 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.RESOURCE_COMPONENT_TYPE, Registries.RESOURCE_CONVERTER, Registries.STORAGE_CODEC,
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
                 Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
+                Registries.BEHAVIOR_TYPE,
                 Registries.RECIPE, Registries.RESOURCE_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
         // Infrastructure MachineEngine itself provides (never meanings, §4).
         this.registries.staticRegistry(Registries.CAPABILITY_TYPE).register(AddonId.MACHINE_ENGINE, Capabilities.RESOURCE_HANDLER);
+        this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
+                fr.robie.machineengine.api.definition.BuiltInBehaviors.PROCESSING);
+        this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
+                fr.robie.machineengine.api.definition.BuiltInBehaviors.STORAGE);
         // Minecraft items (one resource type; the concrete item is a component, §23.4).
         this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, Items.CATEGORY);
         this.registries.staticRegistry(Registries.RESOURCE_COMPONENT_TYPE).register(AddonId.MACHINE_ENGINE, Items.DATA);
@@ -144,7 +149,7 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     private boolean runCallback(AddonRecord record) {
-        RegistrationContextImpl context = new RegistrationContextImpl(record, this.registries);
+        RegistrationContextImpl context = new RegistrationContextImpl(record, this.registries, this.startupDiagnostics::add);
         try {
             record.registration.callback().accept(context);
             return true;
@@ -293,6 +298,11 @@ public final class CoreMachineEngine implements MachineEngine {
             @Override
             public @NotNull RegistryAccess registries() {
                 return CoreMachineEngine.this.registries;
+            }
+
+            @Override
+            public void report(@NotNull Diagnostic diagnostic) {
+                diagnostics.add(diagnostic.source() == null ? diagnostic.withSource(addon) : diagnostic);
             }
 
             @Override

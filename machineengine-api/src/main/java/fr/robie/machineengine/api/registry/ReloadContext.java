@@ -18,4 +18,10 @@ public interface ReloadContext<T extends Keyed> {
      * @throws RegistrationException if the key is already used in this snapshot
      */
     <V extends T> @NotNull V register(@NotNull V value);
+
+    /**
+     * Adds a finding to the reload report. Errors reject the whole reload (§7.3); use warnings for
+     * entries that are skipped while the rest loads.
+     */
+    void report(@NotNull fr.robie.machineengine.api.diagnostic.Diagnostic diagnostic);
 }
