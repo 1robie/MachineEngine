@@ -41,6 +41,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public static final String BREAK_PLACEHOLDERS = "machineengine.admin.breakplaceholders";
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
+    private @Nullable MachineEngineCommands commands;
     private @Nullable fr.robie.machineengine.zmenu.ZMenuMachineMenus menus;
     private int maxMachinesPerChunk;
     private boolean allowBreakingPlaceholders;
@@ -87,7 +88,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         enableMenus();
 
         getServer().getPluginManager().registerEvents(this, this);
+        getServer().getPluginManager().registerEvents(this.host.keptContents(), this);
         MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host);
+        this.commands = commands;
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> event.registrar().register(commands.build(), "MachineEngine admin commands", List.of("me")));
     }
@@ -111,6 +114,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
+        if (this.commands != null) this.commands.debugView().stopAll();
         if (this.menus != null) this.menus.disable();
         this.menus = null;
         if (this.host != null) this.host.shutdown();

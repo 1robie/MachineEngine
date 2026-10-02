@@ -223,6 +223,27 @@ public final class FakeWorld implements MachineHost {
         return drops;
     }
 
+    /** Breaks a machine keeping its contents for an item (§20.5); empty if it must be removed normally. */
+    public @NotNull java.util.Optional<fr.robie.machineengine.core.machine.CoreMachines.Packed> pack(@NotNull WorldPosition position) {
+        LoadedMachine machine = this.machines.get(position);
+        if (machine == null) throw new IllegalStateException("Nothing loaded at " + position);
+        var packed = inRegionOf(position, () -> this.engine.machines().pack(machine));
+        if (packed.isPresent()) forget(position);
+        return packed;
+    }
+
+    /** Places a machine from an item holding packed contents, as the CraftEngine host does. */
+    public @NotNull LoadedMachine placeWithContents(@NotNull MachineType type, @NotNull WorldPosition position,
+                                                    @NotNull Direction facing, @NotNull DataMap state) {
+        place(type, position, facing);
+        return inRegionOf(position, () -> {
+            LoadedMachine restored = this.engine.machines().restore(this.machines.get(position), state, this);
+            this.machines.put(position, restored);
+            if (restored.instance() != null) activityChanged(restored.instance());
+            return restored;
+        });
+    }
+
     /** Simulates a hard crash: every machine and every queued message is gone, nothing is saved. */
     public void crash() {
         this.machines.clear();

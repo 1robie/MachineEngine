@@ -34,6 +34,7 @@ import static fr.robie.machineengine.test.MachineFixtures.SLOW_CONSUMER;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -97,6 +98,17 @@ class MachineIntegrationTest {
         assertEquals(35, amount(generator.inspect(), "output"), "its own output cannot take another 10 (capacity 40)");
         assertEquals(20, amount(world.inspect(CONSUMER_AT), "input"), "the consumer's input is full");
         assertEquals(5, world.inspect(CONSUMER_AT).process().inFlight().getFirst().amount(), "and 5 are in its slow process");
+        assertNotNull(generator.lastError(), "blocked: says why");
+
+        // Free its output: it runs again and the block reason is no longer reported as an error.
+        ResourceHandler front = generator.capability(Capabilities.RESOURCE_HANDLER, Direction.EAST).orElseThrow();
+        try (Transaction transaction = world.engine().transactions().openOuter()) {
+            front.extract(front.views().getFirst().variant(), 35, transaction);
+            transaction.commit();
+        }
+        world.tick();
+        assertNotEquals(SchedulerState.BLOCKED, generator.schedulerState());
+        assertNull(generator.lastError(), "no stale 'outputs do not fit' once it delivers again");
     }
 
     @Test

@@ -43,9 +43,10 @@ final class CancelProcessButton extends Button {
     public void onClick(@NotNull Player player, @NotNull InventoryClickEvent event, @NotNull InventoryEngine inventory, int slot,
                         @NotNull Placeholders placeholders) {
         super.onClick(player, event, inventory, slot, placeholders);
-        MachineInstanceImpl machine = machine(player);
-        if (machine != null) machine.context().process().cancel();
-        this.menus.refresh(player);
+        MachineInstanceImpl machine = this.menus.ownedMachineOf(player);
+        if (machine == null) return;
+        machine.context().process().cancel();
+        this.menus.changed(player, machine.position());
     }
 
     private @Nullable MachineInstanceImpl machine(Player player) {

@@ -73,6 +73,55 @@ public final class CoreMachines implements MachineServices {
         return loaded;
     }
 
+    /**
+     * Removes a machine, keeping its state for an item (keep-contents, §20.5). The state leaves out
+     * everything tied to the old position (handoff bookkeeping, save time).
+     *
+     * @return empty if there is nothing worth keeping, or a handoff is still in flight (the caller
+     *         then removes the machine normally)
+     */
+    public @NotNull java.util.Optional<Packed> pack(@NotNull LoadedMachine machine) {
+        MachineInstanceImpl instance = machine.instance();
+        if (instance == null || !instance.isValid() || instance.hasEscrow() || !instance.holdsContents()) {
+            return java.util.Optional.empty();
+        }
+        DataMap state = MachineCodec.encode(instance, instance.gameTime())
+                .without(MachineCodec.ESCROW).without(MachineCodec.DEDUPE).without(MachineCodec.SAVED_AT);
+        return java.util.Optional.of(new Packed(instance.type().key(), state, instance.removed()));
+    }
+
+    /**
+     * Replaces a just-placed machine with a packed state (keep-contents, §20.5). The machine resumes
+     * at {@code fresh}'s position and facing; the time spent as an item does not count (no catch-up).
+     *
+     * @return the restored machine, or {@code fresh} unchanged if the state is for another machine type
+     */
+    public @NotNull LoadedMachine restore(@NotNull LoadedMachine fresh, @NotNull DataMap state, @NotNull MachineHost host) {
+        MachineInstanceImpl instance = fresh.instance();
+        if (instance == null || !state.getString(MachineCodec.TYPE).orElse("").equals(instance.type().key().asString())) return fresh;
+        DataMap data = state
+                .with(MachineCodec.SAVED_AT, fr.robie.machineengine.api.data.DataValue.of(host.gameTime(fresh.position().world())))
+                .with(MachineCodec.FACING, fr.robie.machineengine.api.data.DataValue.of(instance.facing().name().toLowerCase(java.util.Locale.ROOT)));
+        instance.discarded();
+        LoadedMachine restored = MachineCodec.decode(data, fresh.position(), this, host);
+        MachineInstanceImpl machine = restored.instance();
+        if (machine != null) {
+            machine.markDirty();
+            machine.loaded();
+        }
+        return restored;
+    }
+
+    /**
+     * A machine packed for an item.
+     *
+     * @param state    what to store in the item, for {@link #restore}
+     * @param contents what the machine held, for hosts that cannot keep {@code state} after all and
+     *                 drop these instead
+     */
+    public record Packed(@NotNull net.kyori.adventure.key.Key type, @NotNull DataMap state, @NotNull List<ResourceStack> contents) {
+    }
+
     public void unload(@NotNull LoadedMachine machine) {
         MachineInstanceImpl instance = machine.instance();
         if (instance != null) instance.unloaded();

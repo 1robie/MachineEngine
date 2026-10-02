@@ -16,7 +16,9 @@ import fr.robie.machineengine.core.machine.MachineStorage;
 import fr.robie.machineengine.paper.PaperItems;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -27,8 +29,13 @@ import java.util.Map;
 /**
  * {@code type: machineengine_slot}: shows one storage slot of the open machine. Item resources are
  * shown as the real item; empty slots and other resources use the button's configured {@code item}
- * (with the machine placeholders). Clicking puts the cursor item in, or takes the contents out, in
- * one transaction (nothing is lost if the player's inventory is full).
+ * (with the machine placeholders). Clicking puts the cursor item in (right-click: one item), or takes
+ * the contents out, in one transaction (nothing is lost if the player's inventory is full).
+ * Shift-clicking an item in the player's inventory puts it into the menu's slots in order.
+ *
+ * <p>zMenu ignores clicks in the player's inventory unless a button asks for them; slots that accept
+ * items do (so players can pick items up), and the clicks that could reach the menu's display items
+ * (shift-click into it, double-click collect) are cancelled.</p>
  *
  * <pre>{@code
  * input-slot:
@@ -71,21 +78,49 @@ final class SlotButton extends Button {
         return true;
     }
 
+    /** zMenu enables clicks in the player's inventory when a button is "draggable". */
+    @Override
+    public boolean isDraggable() {
+        return this.allowInsert;
+    }
+
+    /** Called for every click while the menu is open, once per button. */
+    @Override
+    public void onInventoryClick(@NotNull InventoryClickEvent event, @NotNull Player player, @NotNull InventoryEngine inventory) {
+        InventoryAction action = event.getAction();
+        if (action == InventoryAction.COLLECT_TO_CURSOR) {
+            // Would gather matching display items out of the menu.
+            event.setCancelled(true);
+            return;
+        }
+        if (event.getClickedInventory() == null || event.getClickedInventory().getType() != InventoryType.PLAYER
+                || action != InventoryAction.MOVE_TO_OTHER_INVENTORY) {
+            return;
+        }
+        // Shift-click from the player's inventory: never let it reach the menu's own slots.
+        event.setCancelled(true);
+        ItemStack current = event.getCurrentItem();
+        if (!this.allowInsert || current == null || current.getType().isAir()) return;
+        MachineInstanceImpl machine = this.menus.ownedMachineOf(player);
+        MachineSlot target = slot(machine);
+        if (target == null) return;
+        long inserted = insert(machine, target, current, current.getAmount());
+        if (inserted <= 0) return;
+        event.setCurrentItem(current.getAmount() == inserted ? null : current.asQuantity((int) (current.getAmount() - inserted)));
+        this.menus.changed(player, machine.position());
+    }
+
     @Override
     public void onClick(@NotNull Player player, @NotNull InventoryClickEvent event, @NotNull InventoryEngine inventory, int slot,
                         @NotNull Placeholders placeholders) {
         super.onClick(player, event, inventory, slot, placeholders);
-        MachineSlot target = slot(player);
-        MachineInstanceImpl machine = machine(player);
-        if (target == null || machine == null) return;
+        MachineInstanceImpl machine = this.menus.ownedMachineOf(player);
+        MachineSlot target = slot(machine);
+        if (target == null) return;
         ItemStack cursor = player.getItemOnCursor();
         if (this.allowInsert && !cursor.getType().isAir()) {
-            ResourceStack offered = PaperItems.toResource(cursor);
-            try (Transaction transaction = machine.services().transactions().openOuter()) {
-                long inserted = target.insert(offered.variant(), offered.amount(), transaction);
-                transaction.commit();
-                if (inserted > 0) player.setItemOnCursor(cursor.getAmount() == inserted ? null : cursor.asQuantity((int) (cursor.getAmount() - inserted)));
-            }
+            long inserted = insert(machine, target, cursor, event.isRightClick() ? 1 : cursor.getAmount());
+            if (inserted > 0) player.setItemOnCursor(cursor.getAmount() == inserted ? null : cursor.asQuantity((int) (cursor.getAmount() - inserted)));
         } else if (this.allowTake && !target.isEmpty()) {
             ResourceVariant variant = target.variant();
             ItemStack taken = PaperItems.toItemStack(variant, (int) Math.min(64, target.amount()));
@@ -100,16 +135,20 @@ final class SlotButton extends Button {
                 }
             }
         }
-        this.menus.refresh(player);
+        this.menus.changed(player, machine.position());
     }
 
-    private @Nullable MachineInstanceImpl machine(Player player) {
-        LoadedMachine loaded = this.menus.machineOf(player);
-        return loaded == null ? null : loaded.instance();
+    /** Puts up to {@code amount} of {@code stack} into {@code target}; returns how much went in. */
+    private static long insert(MachineInstanceImpl machine, MachineSlot target, ItemStack stack, int amount) {
+        ResourceStack offered = PaperItems.toResource(stack);
+        try (Transaction transaction = machine.services().transactions().openOuter()) {
+            long inserted = target.insert(offered.variant(), Math.min(amount, offered.amount()), transaction);
+            transaction.commit();
+            return inserted;
+        }
     }
 
-    private @Nullable MachineSlot slot(Player player) {
-        MachineInstanceImpl machine = machine(player);
+    private @Nullable MachineSlot slot(@Nullable MachineInstanceImpl machine) {
         if (machine == null) return null;
         if (!(machine.context().storage(this.storage) instanceof MachineStorage storage)) return null;
         int index = this.storageSlot - 1;
@@ -117,7 +156,8 @@ final class SlotButton extends Button {
     }
 
     private @Nullable StorageView view(Player player) {
-        MachineSlot slot = slot(player);
+        LoadedMachine loaded = this.menus.machineOf(player);
+        MachineSlot slot = slot(loaded == null ? null : loaded.instance());
         return slot == null ? null : slot.view();
     }
 

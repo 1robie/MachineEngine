@@ -147,6 +147,44 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         return position == null ? null : this.locator.machine(position);
     }
 
+    /**
+     * The live machine whose menu {@code player} has open, if the current thread owns it. On Folia a
+     * player at a region border may click a machine owned by another region; that click is ignored
+     * rather than touching the machine from the wrong thread.
+     */
+    @Nullable fr.robie.machineengine.core.machine.MachineInstanceImpl ownedMachineOf(@NotNull OfflinePlayer player) {
+        LoadedMachine machine = machineOf(player);
+        if (machine == null || machine.instance() == null || !machine.instance().isValid()) return null;
+        return this.locator.isOwnedByCurrentThread(machine.position()) ? machine.instance() : null;
+    }
+
+    /**
+     * After {@code player} changed the machine: re-renders their menu now and every other open menu of
+     * the same machine on its viewer's thread, so nobody looks at stale contents. (Stale views cannot
+     * duplicate anything: clicks act on the machine's real contents, in a transaction.)
+     */
+    void changed(@NotNull Player player, @NotNull WorldPosition position) {
+        refresh(player);
+        forViewers(position, viewer -> {
+            if (!viewer.equals(player)) viewer.getScheduler().run(this.plugin, task -> refresh(viewer), null);
+        });
+    }
+
+    @Override
+    public void machineGone(@NotNull WorldPosition position) {
+        forViewers(position, viewer -> viewer.getScheduler().run(this.plugin, task -> {
+            if (position.equals(this.openMachines.get(viewer.getUniqueId()))) viewer.closeInventory();
+        }, null));
+    }
+
+    private void forViewers(WorldPosition position, java.util.function.Consumer<Player> action) {
+        this.openMachines.forEach((id, at) -> {
+            if (!at.equals(position)) return;
+            Player viewer = org.bukkit.Bukkit.getPlayer(id);
+            if (viewer != null) action.accept(viewer);
+        });
+    }
+
     /** Re-renders the player's open menu after a change. */
     void refresh(@NotNull Player player) {
         this.inventories.updateInventory(player, this.plugin);

@@ -15,6 +15,9 @@ public interface MachineLocator {
 
     @NotNull Collection<LoadedMachine> loadedMachines();
 
+    /** Whether the current thread owns {@code position} (Folia: its region; Paper: the main thread). */
+    boolean isOwnedByCurrentThread(@NotNull WorldPosition position);
+
     /** Wakes every loaded machine on its owner thread, e.g. after a recipe reload. */
     void wakeAll(@NotNull WakeReason reason);
 }

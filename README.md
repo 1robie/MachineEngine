@@ -78,6 +78,12 @@ first start. Machines take a `behavior` type: `machineengine:processing` (runs r
 `/machineengine reload recipes`; machines and resources need a restart. Invalid entries are skipped
 and listed in `/machineengine report` with their file and path.
 
+## Keeping contents in the item
+
+Add `keep_contents: true` to a block's `machineengine:machine` behavior, and a player breaking it
+gets one item holding the machine's contents, process and upgrades; placing it resumes the machine.
+Explosions and other non-player breaks drop the contents as usual. Empty machines drop plain items.
+
 ## Bukkit events
 
 Plugins that do not use the MachineEngine API can listen to ordinary Bukkit events in
@@ -108,6 +114,12 @@ name like `world` or a key like `minecraft:overworld`) defaults to yours.
 Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
 `machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,
 `placeholders [<x y z>] [world]`, `registry <name>`, `reload recipes|tags`.
+
+`/machineengine debug` toggles an in-world debug view for you:
+- **Machine dots:** a colored dot above each machine shows its state: green active, blue sleeping, orange blocked, red error.
+- **Port dots:** blue input, orange output, purple both.
+- **Cables:** dots in each network's color, with sparks while the network moves resources.
+- **Action bar:** details of the machine you look at.
 
 ## License
 

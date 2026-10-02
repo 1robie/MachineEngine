@@ -41,11 +41,24 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     private final Map<WorldPosition, MachineBlockEntityController> controllers = new ConcurrentHashMap<>();
     private final CraftEngineProtection protection;
     private volatile @Nullable fr.robie.machineengine.paper.MachineMenuService menus;
+    private final KeptContents keptContents;
 
     private CraftEngineMachineHost(Plugin plugin, CoreMachineEngine engine) {
         this.plugin = plugin;
         this.engine = engine;
         this.protection = new CraftEngineProtection(plugin.getLogger());
+        this.keptContents = new KeptContents(plugin, this);
+    }
+
+    /** Closes the menus of a machine that was removed or unloaded. */
+    void machineGone(@NotNull WorldPosition position) {
+        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+        if (service != null) service.machineGone(position);
+    }
+
+    /** Keep-contents (§20.5); a listener the plugin registers. */
+    public @NotNull KeptContents keptContents() {
+        return this.keptContents;
     }
 
     /** The menu integration (zMenu), or {@code null} for no machine GUIs. */

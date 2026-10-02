@@ -34,6 +34,13 @@ blocks:
     behavior:
       type: machineengine:transport
       transport: example:spark_cable
+    # Drops itself (without loot, CraftEngine blocks drop nothing).
+    loot:
+      pools:
+        - rolls: 1
+          entries:
+            - type: item
+              item: example:spark_cable
     settings:
       template: default:settings/solid_1x1x1
       overrides:
@@ -45,6 +52,15 @@ blocks:
     behavior:
       type: machineengine:machine
       machine: example:crate
+      # Broken by a player, the crate drops as one item holding its contents.
+      keep_contents: true
+    # Drops itself (without loot, CraftEngine blocks drop nothing).
+    loot:
+      pools:
+        - rolls: 1
+          entries:
+            - type: item
+              item: example:crate
     settings:
       template: default:settings/solid_1x1x1
       overrides:
@@ -57,25 +73,95 @@ blocks:
     behavior:
       type: machineengine:machine
       machine: example:generator
+    # Drops itself (without loot, CraftEngine blocks drop nothing).
+    loot:
+      pools:
+        - rolls: 1
+          entries:
+            - type: item
+              item: example:generator
     settings:
       template: default:settings/solid_1x1x1
       overrides:
         hardness: 2
         resistance: 6
         push_reaction: immoveable
-    state:
-      auto_state: solid
-      texture: minecraft:block/iron_block
+    # The front faces the player who places it, like a furnace (MachineEngine reads "facing").
+    states:
+      properties:
+        facing:
+          type: 4-direction
+          default: north
+      appearances:
+        north:
+          auto_state: solid
+          model:
+            path: example:block/generator
+            generation:
+              parent: minecraft:block/orientable
+              textures:
+                top: minecraft:block/iron_block
+                side: minecraft:block/iron_block
+                front: minecraft:block/blast_furnace_front_on
+        east:
+          auto_state: solid
+          model: { path: example:block/generator, y: 90 }
+        south:
+          auto_state: solid
+          model: { path: example:block/generator, y: 180 }
+        west:
+          auto_state: solid
+          model: { path: example:block/generator, y: 270 }
+      variants:
+        facing=north: { appearance: north }
+        facing=east: { appearance: east }
+        facing=south: { appearance: south }
+        facing=west: { appearance: west }
   example:consumer:
     behavior:
       type: machineengine:machine
       machine: example:consumer
+    # Drops itself (without loot, CraftEngine blocks drop nothing).
+    loot:
+      pools:
+        - rolls: 1
+          entries:
+            - type: item
+              item: example:consumer
     settings:
       template: default:settings/solid_1x1x1
       overrides:
         hardness: 2
         resistance: 6
         push_reaction: immoveable
-    state:
-      auto_state: solid
-      texture: minecraft:block/gold_block
+    # The front faces the player who places it, like a furnace (MachineEngine reads "facing").
+    states:
+      properties:
+        facing:
+          type: 4-direction
+          default: north
+      appearances:
+        north:
+          auto_state: solid
+          model:
+            path: example:block/consumer
+            generation:
+              parent: minecraft:block/orientable
+              textures:
+                top: minecraft:block/gold_block
+                side: minecraft:block/gold_block
+                front: minecraft:block/smoker_front_on
+        east:
+          auto_state: solid
+          model: { path: example:block/consumer, y: 90 }
+        south:
+          auto_state: solid
+          model: { path: example:block/consumer, y: 180 }
+        west:
+          auto_state: solid
+          model: { path: example:block/consumer, y: 270 }
+      variants:
+        facing=north: { appearance: north }
+        facing=east: { appearance: east }
+        facing=south: { appearance: south }
+        facing=west: { appearance: west }

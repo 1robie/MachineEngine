@@ -31,13 +31,14 @@ final class ExampleContent {
 
     static final MachineType GENERATOR = MachineType.builder(Key.key("example", "generator"))
             .storage(StorageDefinition.tank("output", 100))
-            .port(PortDefinition.builder("out", "output").direction(PortDirection.OUTPUT).sides(RelativeSide.FRONT).build())
+            // Cables connect on every side; with no cable, it pushes straight into the block in front.
+            .port(PortDefinition.builder("out", "output").direction(PortDirection.OUTPUT).build())
             .behavior(ProcessingBehavior.pushing(GENERATING, new ProcessBinding(List.of(), "output", null), RelativeSide.FRONT, 20))
             .build();
 
     static final MachineType CONSUMER = MachineType.builder(Key.key("example", "consumer"))
             .storage(StorageDefinition.tank("input", 50).filter(ResourcePredicate.type(SPARK)))
-            .port(PortDefinition.builder("in", "input").direction(PortDirection.INPUT).sides(RelativeSide.BACK)
+            .port(PortDefinition.builder("in", "input").direction(PortDirection.INPUT)
                     .filter(ResourcePredicate.type(SPARK)).build())
             .behavior(ProcessingBehavior.of(BURNING, ProcessBinding.of("input", "input")))
             .build();

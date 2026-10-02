@@ -19,4 +19,11 @@ public interface MachineMenuService {
 
     /** Reloads the menu files. */
     void reload();
+
+    /**
+     * The machine at {@code position} was removed or unloaded: close the menus showing it, so nobody
+     * keeps acting on (or looking at) a machine that is gone.
+     */
+    default void machineGone(@NotNull fr.robie.machineengine.api.world.WorldPosition position) {
+    }
 }

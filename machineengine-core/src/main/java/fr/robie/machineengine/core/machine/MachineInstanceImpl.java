@@ -109,6 +109,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     private @Nullable WakeReason pendingWake;
     private @Nullable WakeReason lastWakeReason;
     private @Nullable MachineError lastError;
+    /** Why the machine is blocked; cleared from {@link #lastError} once it is no longer blocked. */
+    private @Nullable MachineError blockedBy;
     private boolean ticking;
     private @Nullable SchedulerState requestedState;
     private long requestedWakeAt = -1;
@@ -245,6 +247,32 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         return drops;
     }
 
+    /** Whether keep-contents has anything to keep: resources, a process or upgrades (§20.5). */
+    boolean holdsContents() {
+        if (this.process.get() != null || !this.upgrades.isEmpty()) return true;
+        for (MachineStorage storage : this.storages.values()) {
+            for (StorageView view : storage.views()) {
+                if (!view.isEmpty()) return true;
+            }
+        }
+        return false;
+    }
+
+    /** Whether a handoff is still waiting for its answer; its resources are not in the machine. */
+    boolean hasEscrow() {
+        return !Objects.requireNonNull(this.escrow.get()).isEmpty() || !this.unknownEscrow.isEmpty();
+    }
+
+    long gameTime() {
+        return gameTimeNow();
+    }
+
+    /** Drops a just-created machine that is replaced by a restored one; no events, nothing to drop. */
+    void discarded() {
+        runBehavior(() -> this.behavior.onUnload(this.context));
+        this.valid = false;
+    }
+
     void postLifecycle(fr.robie.machineengine.api.event.EventType<MachineEvents.Lifecycle> type) {
         if (this.services.events().hasListeners(type, EventPhase.POST)) {
             this.services.events().post(type, EventPhase.POST, new MachineEvents.Lifecycle(this));
@@ -306,12 +334,19 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
 
     private void applyState(SchedulerState newState, long newWakeAt) {
         boolean wasActive = this.state == SchedulerState.ACTIVE;
+        if (newState != SchedulerState.BLOCKED) clearBlocked();
         this.state = newState;
         this.wakeAt = newState == SchedulerState.ACTIVE ? -1 : newWakeAt;
         this.countSleptTicks = newState == SchedulerState.SCHEDULED;
         if (this.wakeAt >= 0) this.host.scheduleWake(this, this.wakeAt);
         markDirty();
         if (wasActive != (newState == SchedulerState.ACTIVE)) this.host.activityChanged(this);
+    }
+
+    /** A block reason is not an error once the machine runs again (it blocks again if still stuck). */
+    private void clearBlocked() {
+        if (this.blockedBy != null && this.lastError == this.blockedBy) this.lastError = null;
+        this.blockedBy = null;
     }
 
     /** Restores scheduling state from persisted data (relative to {@code now}). */
@@ -327,6 +362,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     @Override
     public void wake(@NotNull WakeReason reason) {
         if (!this.valid || !this.state.wakesOn(reason)) return;
+        clearBlocked();
         this.state = SchedulerState.ACTIVE;
         this.wakeAt = -1;
         this.pendingWake = reason;
@@ -656,6 +692,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         @Override
         public void block(@NotNull MachineError reason, long retryTicks) {
             lastError = reason;
+            blockedBy = reason;
             request(SchedulerState.BLOCKED, retryTicks > 0 ? gameTimeNow() + retryTicks : -1);
         }
 

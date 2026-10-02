@@ -101,16 +101,45 @@ public final class MachineBlockEntityController extends BlockEntityController {
         if (host == null || this.machine == null || this.position == null) return;
         host.engine().machines().unload(this.machine);
         host.unregister(this.position, this);
+        host.machineGone(this.position);
     }
 
     @Override
     public void onRemove() {
         CraftEngineMachineHost host = CraftEngineMachineHost.current();
         if (host == null || this.machine == null || this.position == null) return;
-        List<ResourceStack> drops = host.engine().machines().remove(this.machine);
-        host.dropResources(this.position, drops);
+        java.util.Optional<fr.robie.machineengine.core.machine.CoreMachines.Packed> packed = this.behavior.keepsContents()
+                ? host.engine().machines().pack(this.machine) : java.util.Optional.empty();
+        if (packed.isPresent()) {
+            host.keptContents().packed(this.position, packed.get(), this.behavior.block().id());
+        } else {
+            List<ResourceStack> drops = host.engine().machines().remove(this.machine);
+            host.dropResources(this.position, drops);
+        }
         host.unregister(this.position, this);
+        host.machineGone(this.position);
         this.machine = null;
+    }
+
+    /**
+     * The block was placed from an item (after every cancellable place event): restore the contents
+     * it kept, if any (§20.5).
+     */
+    @Override
+    public void loadCustomDataFromItem(net.momirealms.craftengine.core.item.Item item) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host == null || this.machine == null || this.machine.instance() == null) return;
+        org.bukkit.inventory.ItemStack stack = net.momirealms.craftengine.bukkit.util.ItemStackUtils.getBukkitStack(item.minecraftItem());
+        if (stack == null) return;
+        fr.robie.machineengine.api.data.DataMap state = host.keptContents().read(stack);
+        if (state == null) return;
+        LoadedMachine restored = host.engine().machines().restore(this.machine, state, host);
+        if (restored == this.machine) {
+            host.logger().warning("Ignored machine contents for another machine type in the item placed at " + this.position);
+            return;
+        }
+        this.machine = restored;
+        syncTicker();
     }
 
     @Override

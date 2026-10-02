@@ -41,12 +41,19 @@ public final class MachineEngineCommands {
     private final org.bukkit.plugin.Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
+    private final MachineDebugView debugView;
 
     public MachineEngineCommands(@NotNull org.bukkit.plugin.Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
                                  @NotNull Supplier<MachineLocator> locator) {
         this.plugin = plugin;
         this.engine = engine;
         this.locator = locator;
+        this.debugView = new MachineDebugView(plugin, engine, locator);
+    }
+
+    /** The in-world debug view; the plugin stops it on disable. */
+    public @NotNull MachineDebugView debugView() {
+        return this.debugView;
     }
 
     public @NotNull LiteralCommandNode<CommandSourceStack> build() {
@@ -54,6 +61,7 @@ public final class MachineEngineCommands {
                 .requires(source -> source.getSender().hasPermission(PERMISSION))
                 .then(Commands.literal("status").executes(this::status))
                 .then(Commands.literal("report").executes(this::report))
+                .then(Commands.literal("debug").executes(this::debug))
                 // Positions are optional: a player defaults to the block they look at; "~" works.
                 .then(PositionArguments.optionalPosition(Commands.literal("inspect"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
                 .then(PositionArguments.optionalPosition(Commands.literal("machine"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
@@ -91,6 +99,19 @@ public final class MachineEngineCommands {
                 + (machines.size() - active - placeholders) + " sleeping, " + placeholders + " placeholders)"));
         sender.sendMessage(line("Startup problems", running.startupReport().errors().size() + " errors, "
                 + running.startupReport().warnings().size() + " warnings"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int debug(CommandContext<CommandSourceStack> context) {
+        if (!(context.getSource().getExecutor() instanceof org.bukkit.entity.Player player)) {
+            context.getSource().getSender().sendMessage(Component.text("Only players can see the debug view.", NamedTextColor.RED));
+            return 0;
+        }
+        boolean on = this.debugView.toggle(player);
+        player.sendMessage(on
+                ? Component.text("Debug view on: dots show machine states (green active, blue sleeping, orange blocked, red error), "
+                        + "ports (blue in, orange out, purple both) and networks; look at a machine for details.", NamedTextColor.GOLD)
+                : Component.text("Debug view off.", NamedTextColor.GRAY));
         return Command.SINGLE_SUCCESS;
     }
 

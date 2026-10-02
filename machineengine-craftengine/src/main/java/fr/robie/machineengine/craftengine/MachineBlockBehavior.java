@@ -35,6 +35,7 @@ import java.util.Locale;
  *   type: machineengine:machine
  *   machine: mymod:refinery
  *   facing_property: facing     # optional, defaults to "facing" when the block has it
+ *   keep_contents: true         # optional: the dropped item keeps the machine's contents (§20.5)
  * }</pre>
  */
 public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock {
@@ -42,13 +43,20 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
 
     private final Key machine;
     private final @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing;
+    private final boolean keepContents;
     private int controllerId;
 
     private MachineBlockBehavior(BlockDefinition block, Key machine,
-                                 @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing) {
+                                 @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents) {
         super(block);
         this.machine = machine;
         this.facing = facing;
+        this.keepContents = keepContents;
+    }
+
+    /** Whether breaking the block keeps the machine's contents in the dropped item (§20.5). */
+    public boolean keepsContents() {
+        return this.keepContents;
     }
 
     /** The machine type key this block refers to. */
@@ -115,7 +123,7 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
             String facingName = section.getString("facing_property", "facing");
             Property<net.momirealms.craftengine.core.util.Direction> facing =
                     BlockBehaviorFactory.getOptionalProperty(block, facingName, net.momirealms.craftengine.core.util.Direction.class);
-            return new MachineBlockBehavior(block, machine, facing);
+            return new MachineBlockBehavior(block, machine, facing, section.getBoolean("keep_contents", false));
         }
     }
 }

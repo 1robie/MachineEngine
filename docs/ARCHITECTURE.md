@@ -39,6 +39,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D18 | **Java package root `fr.robie.machineengine`**, Maven group `fr.robie`. | Project owner decision (2026-10-01). |
 | D19 | **Supported Minecraft versions: 1.20.6 to 26.3.** Compile against the 1.20.6 Paper API; test on both ends of the range. | Project owner decision (2026-10-01). 1.20.6 is the first version with item data components and Paper's lifecycle command API, both of which MachineEngine relies on. |
 | D20 | **Machine GUIs use zMenu** (latest, 1.1.1.9) as an optional dependency: menus are zMenu inventory files, machine values are zMenu placeholders, interactions are custom zMenu button types. | Project owner decision (2026-10-02): everything customizable by server owners in YAML. |
+| D22 | **Keep-contents is configured per block** (`keep_contents` on the CraftEngine behavior), not per `MachineType`: whether a block keeps its contents is a server/pack choice, and the same machine type can back both kinds of blocks. | Delegated (2026-10-02). |
 | D21 | **YAML definitions are a built-in pseudo-addon `definitions`**, registered after every addon. Static content (resource categories and types, recipe types, machines) is defined at startup and freezes with the rest; recipes are a reloadable provider. Machine behavior comes from registered `BehaviorType`s (built-in `machineengine:processing` and `machineengine:storage`; addons add their own). | Delegated (2026-10-02): server owners can add whole machines without Java, while D5 (freeze) still holds. |
 
 ---
@@ -602,8 +603,10 @@ machineengine:machine
 
 ### 20.4 Machine as item
 
-- Break policy per `MachineType`: `DROP_CONTENTS` (default) or `KEEP_CONTENTS_IN_ITEM`.
-- **[VERIFY]** whether CraftEngine calls `BlockEntityController.loadCustomDataFromItem` for blocks (the hook exists; a call site was only found for furniture). If not, the Paper module stores the encoded state in the item's PDC on break and restores it on `CustomBlockPlaceEvent`.
+Implemented in M5 (D22). The break policy is set per block: `keep_contents: true` on the `machineengine:machine` behavior. The default drops the contents.
+- **Core:** `CoreMachines.pack(machine)` removes a machine and returns its state plus what it held. It returns empty when there is nothing to keep (storages empty, no process, no upgrades), so empty machines stay plain stackable items. It also returns empty while a handoff is in flight, because the escrowed resources are not in the machine. The packed state leaves out the old position's handoff bookkeeping and the save time. `CoreMachines.restore(fresh, state, host)` replaces a just-placed machine with that state, at the new position and facing. Time spent as an item does not count, so there is no catch-up. A state for another machine type is ignored. `DataBinary` is a compressed, versioned byte form of `DataValue` trees.
+- **Breaking (CraftEngine host):** the machine is packed when its block is removed. The player's `BlockDropItemEvent`, fired in the same tick at `LOWEST` so auto-pickup plugins see the full item, writes the state into the dropped block item. That item has the custom id of the block and an amount of 1. The state goes into the PDC (`machineengine:contents`) and a lore summary is added. A break without that event (explosion, creative mode, a drop-less loot table, `breakNaturally`) drops the contents one tick later, so nothing is lost.
+- **Placing:** CraftEngine calls `BlockEntityController.loadCustomDataFromItem` after the block is placed and after every cancellable place event. That is where the state is restored, so a cancelled placement cannot duplicate contents. Non-item resources (energy, fluids) survive in the item, whereas a normal break voids them.
 
 ---
 
@@ -774,6 +777,7 @@ Exceptions are reserved for programmer errors (contract violations). Each machin
 /machineengine registry <name> [filter]
 /machineengine placeholders list|purge
 /machineengine profile start|stop      slow machines, budgets, handoffs
+/machineengine debug                   in-world view: state, port and network particles, action bar (implemented)
 /machineengine debug <flag> on|off     thread assertions, capability-cache checks
 /machineengine reload recipes
 ```
@@ -903,7 +907,7 @@ Deferred from M2: per-instance port side configuration, `WorldEffect`s (no world
 - **MachineEngine removed, then re-added:** CraftEngine warns about the unknown behavior, keeps the raw data, and the machines resume unchanged.
 - Placeholder break protection (`placeholders.allow-breaking`, permission `machineengine.admin.breakplaceholders`), `limits.max-machines-per-chunk`, `neighborChanged` wake-ups, and `MachineEngine.machineAt(position)` for addons.
 
-Deferred to M4/M5: hopper interop (`WorldlyContainerHolder` needs an NMS `WorldlyContainer`), keep-contents-in-item, protection checks for machine interactions (there are no interactions before the GUI/interaction SPI), and metrics export beyond `/machineengine status`. Decision recorded: items are registered by MachineEngine itself in core (not by the Paper module) so headless tests and addon recipes can use them; only the `ItemStack` conversion is Paper-specific.
+Deferred to M4/M5: hopper interop (`WorldlyContainerHolder` needs an NMS `WorldlyContainer`), keep-contents-in-item (done in M5), protection checks for machine interactions (there are no interactions before the GUI/interaction SPI), and metrics export beyond `/machineengine status`. Decision recorded: items are registered by MachineEngine itself in core (not by the Paper module) so headless tests and addon recipes can use them; only the `ItemStack` conversion is Paper-specific.
 
 ### M4 — Networks, transports, Folia
 Network/transport API and implementation (incremental graphs, segment-per-region), bounded catch-up policy, Folia validation (`folia-supported: true`).
@@ -915,6 +919,8 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
+
+**Keep-contents in item: done (2026-10-02), §20.4, D22.** `KeepContentsTest` covers a packed machine resuming elsewhere through the item bytes with no catch-up, empty machines staying plain items, a state for another type being ignored, and corrupt data being rejected. The example crate uses `keep_contents: true`. Verified on Paper 1.20.6: a crate broken without a player (`/mexample crate-test`) still drops all 100 ingots through the fallback. The player path (break, item, place) needs a client and was not automated.
 
 **Bukkit event bridge: done (2026-10-02).** Package `fr.robie.machineengine.paper.event`:
 - **Mirrored events:** `MachineCreateEvent`, `MachineLoadEvent`, `MachineUnloadEvent`, `MachineRemoveEvent`, `MachineProcessStartEvent` and `MachineProcessCompleteEvent` mirror the engine's POST events. They expose the machine, its type key, world and location; the process events also expose the process and recipe. A Bukkit event is only built when a Bukkit listener is registered for it. `events.bukkit-bridge` in `config.yml` turns the bridge off.
@@ -988,7 +994,7 @@ MachineEngine
 |---|------|---------|
 | V1 | ~~Exact CE block YAML schema~~ **Resolved:** `blocks.<id>.behavior.type: machineengine:machine` (§22.2) | §22.2 |
 | V2 | ~~Thread of `saveCustomData`~~ **Resolved:** CE serializes on the calling (owner) thread before encoding async; chunks are written before their block entities unload. `loadCustomData` runs while a chunk is read, so the controller only stores the raw tag and decodes in `onLoad`. | §20.2 |
-| V3 | ~~`loadCustomDataFromItem` for blocks~~ **Resolved:** never called for blocks; keep-contents-in-item will use MachineEngine's own item data (M3b). | §20.4 |
+| V3 | ~~`loadCustomDataFromItem` for blocks~~ **Resolved (M5):** current CraftEngine dev calls it from `BlockItemBehavior` after a placement is accepted (older builds did not); keep-contents restores there and stores its state in the item's PDC. | §20.4 |
 | V4 | ~~Push reaction key~~ **Resolved:** `settings.push_reaction: immoveable` (`BLOCK` is deprecated). | §23.2 |
 | V5 | Anti-grief access: `BukkitCraftEngine.instance().antiGriefProvider().test(player, Flag, location)`; `Flag` comes from AntiGriefLib, not on our compile classpath yet (M3b). | §23.3 |
 | V6 | ~~Re-binding on `/ce reload`~~ **Resolved:** not needed; keys resolve lazily per block entity. | §22.2 |
