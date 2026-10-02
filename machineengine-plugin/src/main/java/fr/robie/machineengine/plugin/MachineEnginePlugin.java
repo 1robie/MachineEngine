@@ -76,6 +76,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         CoreMachineEngine started = builder.start();
         this.engine = started;
         MachineEngineAccess.install(started);
+        if (getConfig().getBoolean("events.bukkit-bridge", true)) {
+            fr.robie.machineengine.paper.event.BukkitEventBridge.install(started.events());
+        }
         this.host = CraftEngineMachineHost.start(this, started);
         started.setMachineLookup(this.host::machineAt);
         getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()

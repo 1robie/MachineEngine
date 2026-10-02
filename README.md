@@ -78,6 +78,17 @@ first start. Machines take a `behavior` type: `machineengine:processing` (runs r
 `/machineengine reload recipes`; machines and resources need a restart. Invalid entries are skipped
 and listed in `/machineengine report` with their file and path.
 
+## Bukkit events
+
+Plugins that do not use the MachineEngine API can listen to ordinary Bukkit events in
+`fr.robie.machineengine.paper.event`:
+- `MachineCreateEvent`, `MachineLoadEvent`, `MachineUnloadEvent` and `MachineRemoveEvent`;
+- `MachineProcessStartEvent` and `MachineProcessCompleteEvent`;
+- `PlayerMachineInteractEvent`, which is cancellable and fires before a menu opens.
+
+They fire on the machine's thread (its region on Folia). `events.bukkit-bridge: false` in
+`config.yml` turns the mirrored events off.
+
 ## Example addon and commands
 
 `machineengine-example` is a small addon built only on the API: a spark generator and a spark

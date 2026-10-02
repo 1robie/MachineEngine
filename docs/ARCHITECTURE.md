@@ -758,7 +758,7 @@ Exceptions are reserved for programmer errors (contract violations). Each machin
 - Simulated transactions fire no events. Commit callbacks fire POST events.
 - No per-transfer events in hot paths: `ResourceTransferEvent` is aggregated per machine per tick, and only emitted if a listener is subscribed for that machine type.
 - Initial set: `MachineCreate/Load/Unload/Remove`, `ResourceInsert/Extract/Transfer` (aggregated), `MachineProcessStart/Complete`, `MachineUpgrade`, `RegistryFrozen`, `RecipesReloaded`, later `NetworkCreate/Change`.
-- An optional bridge MAY mirror selected events as Bukkit events in the Paper module.
+- An optional bridge MAY mirror selected events as Bukkit events in the Paper module. Implemented in M5: `fr.robie.machineengine.paper.event`.
 
 ---
 
@@ -915,6 +915,13 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
+
+**Bukkit event bridge: done (2026-10-02).** Package `fr.robie.machineengine.paper.event`:
+- **Mirrored events:** `MachineCreateEvent`, `MachineLoadEvent`, `MachineUnloadEvent`, `MachineRemoveEvent`, `MachineProcessStartEvent` and `MachineProcessCompleteEvent` mirror the engine's POST events. They expose the machine, its type key, world and location; the process events also expose the process and recipe. A Bukkit event is only built when a Bukkit listener is registered for it. `events.bukkit-bridge` in `config.yml` turns the bridge off.
+- **Cancellable interact event:** `PlayerMachineInteractEvent` fires before a machine menu opens, after the permission and protection checks. It is a Bukkit-only event; cancelling it keeps the menu closed.
+- **Threading:** events fire on the machine's owner thread, so on Folia that is its region thread. They are synchronous there because Folia treats region threads as primary.
+- **Verified** on Paper 1.20.6 and Folia 1.20.6: the example's plain Bukkit listener receives create and remove events.
+- **Known issue (dev servers only):** with zMenu installed, Folia on Windows crashes in jansi's native console code after the final save, when stdin is a pipe (automated runs). It is not MachineEngine code and data is already saved.
 
 **YAML definitions: done (2026-10-02), D21.** API `api.definition` (`BehaviorType`, `DefinitionContext`, `BuiltInBehaviors`, `DefinitionFile`), compiler `core.definition.DefinitionCompiler`, Paper loader `YamlDefinitions`. `DefinitionTest` covers a YAML drill feeding a YAML smelter, skipped entries with exact locations, live recipe reload, addon behavior types and disabled files. Verified on Paper 1.20.6: the example machine and recipe register, a broken file is reported with its location, recipes reload.
 

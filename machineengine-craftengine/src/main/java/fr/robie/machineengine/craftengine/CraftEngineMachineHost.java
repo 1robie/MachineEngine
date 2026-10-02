@@ -74,6 +74,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
                 position.position().x(), position.position().y(), position.position().z()))) {
             return true;
         }
+        var event = new fr.robie.machineengine.paper.event.PlayerMachineInteractEvent(player, machine.instance());
+        if (!event.callEvent()) return true;
         return service.open(player, machine);
     }
 

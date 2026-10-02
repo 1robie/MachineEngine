@@ -51,6 +51,7 @@ public final class ExamplePlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        getServer().getPluginManager().registerEvents(new ExampleBukkitListener(getLogger()), this);
         ExampleCommands commands = new ExampleCommands(this);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> event.registrar().register(commands.build(), "MachineEngine example commands"));

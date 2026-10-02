@@ -11,6 +11,12 @@ menus:
   by-type: {}
   #   example:generator: machine
 
+events:
+  # Mirror machine events (create, load, unload, remove, process start/complete) as Bukkit events
+  # (fr.robie.machineengine.paper.event) for plugins that do not use the MachineEngine API.
+  # Events nobody listens to cost nothing.
+  bukkit-bridge: true
+
 placeholders:
   # Whether players without machineengine.admin.breakplaceholders may break placeholder machines
   # (machines whose addon is not installed). Breaking one destroys its data.
