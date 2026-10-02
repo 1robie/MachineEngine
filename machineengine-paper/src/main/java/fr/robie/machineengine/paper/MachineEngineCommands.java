@@ -42,10 +42,13 @@ import java.util.function.Supplier;
 public final class MachineEngineCommands {
     public static final String PERMISSION = "machineengine.admin";
 
+    private final org.bukkit.plugin.Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
 
-    public MachineEngineCommands(@NotNull Supplier<CoreMachineEngine> engine, @NotNull Supplier<MachineLocator> locator) {
+    public MachineEngineCommands(@NotNull org.bukkit.plugin.Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
+                                 @NotNull Supplier<MachineLocator> locator) {
+        this.plugin = plugin;
         this.engine = engine;
         this.locator = locator;
     }
@@ -63,6 +66,12 @@ public final class MachineEngineCommands {
                                                 .executes(context -> inspectAt(context, null))
                                                 .then(Commands.argument("world", StringArgumentType.greedyString())
                                                         .executes(context -> inspectAt(context, StringArgumentType.getString(context, "world"))))))))
+                .then(Commands.literal("network")
+                        .then(Commands.argument("x", IntegerArgumentType.integer())
+                                .then(Commands.argument("y", IntegerArgumentType.integer())
+                                        .then(Commands.argument("z", IntegerArgumentType.integer())
+                                                .then(Commands.argument("world", StringArgumentType.greedyString())
+                                                        .executes(this::network))))))
                 .then(Commands.literal("registry")
                         .then(Commands.argument("registry", StringArgumentType.greedyString())
                                 .suggests((context, builder) -> {
@@ -135,8 +144,39 @@ public final class MachineEngineCommands {
             sender.sendMessage(Component.text("Unknown world.", NamedTextColor.RED));
             return 0;
         }
-        return inspect(sender, WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
-                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z")));
+        WorldPosition position = WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
+                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
+        // Machines are read on the thread that owns them (Folia: their region).
+        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
+                () -> inspect(sender, position));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int network(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        CoreMachineEngine running = this.engine.get();
+        World world = Bukkit.getWorld(StringArgumentType.getString(context, "world"));
+        if (running == null || world == null) {
+            sender.sendMessage(Component.text("Unknown world, or MachineEngine is not running.", NamedTextColor.RED));
+            return 0;
+        }
+        WorldPosition position = WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
+                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
+        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
+                () -> describeNetwork(sender, running, position));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void describeNetwork(CommandSender sender, CoreMachineEngine running, WorldPosition position) {
+        var network = running.machines().networks().network(position).orElse(null);
+        if (network == null) {
+            sender.sendMessage(Component.text("No loaded transport at " + position + ".", NamedTextColor.RED));
+            return;
+        }
+        sender.sendMessage(Component.text("Network " + network.type().key().asString() + ": " + network.transports().size()
+                + " transports, rate " + network.ratePerTick() + "/tick, " + (network.active() ? "active" : "sleeping")
+                + ", moved " + network.movedLastTick() + " last tick", NamedTextColor.GOLD));
+        network.endpoints().forEach(endpoint -> sender.sendMessage(line("  endpoint", endpoint)));
     }
 
     private int inspect(CommandSender sender, WorldPosition position) {

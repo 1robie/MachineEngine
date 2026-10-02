@@ -97,7 +97,8 @@ public final class CoreMachineEngine implements MachineEngine {
         for (RegistryType<?> type : List.of(Registries.RESOURCE_CATEGORY, Registries.RESOURCE_TYPE,
                 Registries.RESOURCE_COMPONENT_TYPE, Registries.RESOURCE_CONVERTER, Registries.STORAGE_CODEC,
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
-                Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.RECIPE, Registries.RESOURCE_TAG)) {
+                Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
+                Registries.RECIPE, Registries.RESOURCE_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
         // Infrastructure MachineEngine itself provides (never meanings, §4).

@@ -3,6 +3,8 @@ package fr.robie.machineengine.api.addon;
 import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.diagnostic.Validator;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.network.NetworkType;
+import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.upgrade.ModifierType;
@@ -93,6 +95,14 @@ public interface RegistrationContext {
 
     default @NotNull WritableRegistry<UpgradeType> upgradeTypes() {
         return registry(Registries.UPGRADE_TYPE);
+    }
+
+    default @NotNull WritableRegistry<NetworkType> networkTypes() {
+        return registry(Registries.NETWORK_TYPE);
+    }
+
+    default @NotNull WritableRegistry<TransportType> transportTypes() {
+        return registry(Registries.TRANSPORT_TYPE);
     }
 
     default void recipes(@NotNull ReloadableProvider<Recipe> provider) {

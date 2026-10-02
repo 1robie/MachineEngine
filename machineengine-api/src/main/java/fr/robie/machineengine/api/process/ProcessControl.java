@@ -28,6 +28,9 @@ public interface ProcessControl {
      */
     @NotNull ProcessStatus advance();
 
+    /** Like {@link #advance()}, but by exactly {@code ticks} ticks (at most what remains). */
+    @NotNull ProcessStatus advance(long ticks);
+
     /** Cancels the process and returns its in-flight inputs to the input storages. */
     @NotNull ProcessStatus cancel();
 }

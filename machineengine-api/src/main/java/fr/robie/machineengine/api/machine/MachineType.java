@@ -24,6 +24,7 @@ public final class MachineType implements Keyed {
     private final int upgradeSlots;
     private final Predicate<UpgradeType> acceptsUpgrade;
     private final MachineBehavior.Factory behavior;
+    private final CatchUpPolicy catchUp;
 
     private MachineType(Builder builder) {
         this.key = builder.key;
@@ -34,6 +35,7 @@ public final class MachineType implements Keyed {
         this.upgradeSlots = builder.upgradeSlots;
         this.acceptsUpgrade = builder.acceptsUpgrade;
         this.behavior = Objects.requireNonNull(builder.behavior, "behavior(...) is required");
+        this.catchUp = builder.catchUp;
     }
 
     public static @NotNull Builder builder(@NotNull Key key) {
@@ -78,6 +80,10 @@ public final class MachineType implements Keyed {
         return this.behavior;
     }
 
+    public @NotNull CatchUpPolicy catchUp() {
+        return this.catchUp;
+    }
+
     @Override
     public String toString() {
         return "MachineType[" + this.key.asString() + "]";
@@ -92,6 +98,7 @@ public final class MachineType implements Keyed {
         private int upgradeSlots;
         private Predicate<UpgradeType> acceptsUpgrade = type -> true;
         private MachineBehavior.Factory behavior;
+        private CatchUpPolicy catchUp = CatchUpPolicy.NONE;
 
         private Builder(Key key) {
             this.key = Objects.requireNonNull(key);
@@ -125,6 +132,12 @@ public final class MachineType implements Keyed {
 
         public @NotNull Builder behavior(@NotNull MachineBehavior.Factory behavior) {
             this.behavior = Objects.requireNonNull(behavior);
+            return this;
+        }
+
+        /** Opt in to catching up time spent unloaded (D4). */
+        public @NotNull Builder catchUp(@NotNull CatchUpPolicy policy) {
+            this.catchUp = Objects.requireNonNull(policy);
             return this;
         }
 

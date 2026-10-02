@@ -28,5 +28,7 @@ public interface MachineServices {
 
     @NotNull HandoffService handoff();
 
+    @NotNull fr.robie.machineengine.core.network.CoreNetworks networks();
+
     @NotNull Logger logger();
 }

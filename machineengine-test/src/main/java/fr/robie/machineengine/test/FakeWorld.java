@@ -89,6 +89,16 @@ public final class FakeWorld implements MachineHost {
         });
     }
 
+    /** Places a transport block (cable, pipe …); it joins neighboring networks. */
+    public void placeTransport(@NotNull fr.robie.machineengine.api.network.TransportType type, @NotNull WorldPosition position) {
+        runInRegionOf(position, () -> this.engine.machines().networks().addTransport(type, position, this));
+    }
+
+    /** Removes (or unloads) a transport block. */
+    public void removeTransport(@NotNull WorldPosition position) {
+        runInRegionOf(position, () -> this.engine.machines().networks().removeTransport(position));
+    }
+
     /** @throws IllegalStateException if no live machine is at {@code position} */
     public @NotNull MachineInstanceImpl machine(@NotNull WorldPosition position) {
         LoadedMachine loaded = this.machines.get(position);
@@ -113,6 +123,11 @@ public final class FakeWorld implements MachineHost {
     public void tick() {
         advance();
         for (Region region : List.copyOf(this.regions.values())) run(region);
+    }
+
+    /** Moves the clock forward without running anything, e.g. to simulate time spent unloaded. */
+    public void skipTime(long ticks) {
+        this.time += ticks;
     }
 
     /** Advances the clock without running anything (use with {@link #step(String)}). */

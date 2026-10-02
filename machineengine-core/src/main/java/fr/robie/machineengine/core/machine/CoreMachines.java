@@ -31,6 +31,7 @@ public final class CoreMachines implements MachineServices {
     private final ResourceCodecs codecs;
     private final RecipeLookup recipes;
     private final HandoffService handoff = new HandoffService();
+    private final fr.robie.machineengine.core.network.CoreNetworks networks;
     private final Logger logger;
 
     public CoreMachines(@NotNull RegistryAccess registries, @NotNull TransactionManager transactions,
@@ -44,6 +45,7 @@ public final class CoreMachines implements MachineServices {
         this.recipes = new CoreRecipeLookup((fr.robie.machineengine.api.registry.ReloadableRegistry<fr.robie.machineengine.api.recipe.Recipe>)
                 registries.registry(Registries.RECIPE));
         this.logger = logger;
+        this.networks = new fr.robie.machineengine.core.network.CoreNetworks(transactions, tags, logger);
     }
 
     /**
@@ -120,6 +122,11 @@ public final class CoreMachines implements MachineServices {
     @Override
     public @NotNull HandoffService handoff() {
         return this.handoff;
+    }
+
+    @Override
+    public @NotNull fr.robie.machineengine.core.network.CoreNetworks networks() {
+        return this.networks;
     }
 
     @Override

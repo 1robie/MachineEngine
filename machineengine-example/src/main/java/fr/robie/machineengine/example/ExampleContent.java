@@ -42,6 +42,11 @@ final class ExampleContent {
             .behavior(ProcessingBehavior.of(BURNING, ProcessBinding.of("input", "input")))
             .build();
 
+    static final fr.robie.machineengine.api.network.NetworkType SPARK_NETWORK = fr.robie.machineengine.api.network.NetworkType.of(
+            Key.key("example", "spark_network"), fr.robie.machineengine.api.network.NetworkBehavior.distributing());
+    static final fr.robie.machineengine.api.network.TransportType SPARK_CABLE = fr.robie.machineengine.api.network.TransportType.of(
+            Key.key("example", "spark_cable"), SPARK_NETWORK, 8, ResourcePredicate.type(SPARK));
+
     /** Holds items on all sides; used to check that broken machines drop their items. */
     static final MachineType CRATE = MachineType.builder(Key.key("example", "crate"))
             .storage(StorageDefinition.slots("items", 9, 64).filter(fr.robie.machineengine.api.item.Items.anyItem()))
@@ -60,6 +65,8 @@ final class ExampleContent {
         context.machineTypes().register(GENERATOR);
         context.machineTypes().register(CONSUMER);
         context.machineTypes().register(CRATE);
+        context.networkTypes().register(SPARK_NETWORK);
+        context.transportTypes().register(SPARK_CABLE);
         context.recipes(reload -> {
             reload.register(ProcessingRecipe.builder(Key.key("example", "make_sparks"), GENERATING)
                     .output(SPARK.stack(10)).duration(20).build());

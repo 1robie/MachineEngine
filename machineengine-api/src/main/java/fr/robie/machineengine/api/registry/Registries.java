@@ -3,6 +3,8 @@ package fr.robie.machineengine.api.registry;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.network.NetworkType;
+import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.upgrade.ModifierType;
@@ -40,6 +42,11 @@ public final class Registries {
             RegistryType.createStatic(MachineEngineKeys.key("modifier_type"), ModifierType.class);
     public static final RegistryType<UpgradeType> UPGRADE_TYPE =
             RegistryType.createStatic(MachineEngineKeys.key("upgrade_type"), UpgradeType.class);
+
+    public static final RegistryType<NetworkType> NETWORK_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("network_type"), NetworkType.class);
+    public static final RegistryType<TransportType> TRANSPORT_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("transport_type"), TransportType.class);
 
     /** Recipes are reloadable (D5). */
     public static final RegistryType<Recipe> RECIPE =

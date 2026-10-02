@@ -46,15 +46,37 @@ final class ExampleCommands {
     LiteralCommandNode<CommandSourceStack> build() {
         return Commands.literal("mexample")
                 .requires(source -> source.getSender().hasPermission("machineengine.admin"))
-                .then(Commands.literal("place").then(position(this::place)))
-                .then(Commands.literal("crate-test").then(position(this::crateTest)))
+                .then(Commands.literal("place").then(position(onRegion(this::place))))
+                .then(Commands.literal("crate-test").then(position(onRegion(this::crateTest))))
+                .then(Commands.literal("network-line").then(position(onRegion(this::networkLine))))
                 .then(Commands.literal("fill")
                         .then(Commands.argument("x", IntegerArgumentType.integer())
                                 .then(Commands.argument("y", IntegerArgumentType.integer())
                                         .then(Commands.argument("z", IntegerArgumentType.integer())
                                                 .then(Commands.argument("size", IntegerArgumentType.integer(1, 200))
-                                                        .then(Commands.argument("world", StringArgumentType.word()).executes(this::fill)))))))
+                                                        .then(Commands.argument("world", StringArgumentType.word()).executes(onRegion(this::fill))))))))
                 .build();
+    }
+
+    /**
+     * Runs {@code action} on the thread owning the target position (Folia: its region; Paper: the main
+     * thread), because it touches the world there.
+     */
+    private Command<CommandSourceStack> onRegion(Command<CommandSourceStack> action) {
+        return context -> {
+            World world = world(context);
+            if (world == null) return 0;
+            Location location = new Location(world, IntegerArgumentType.getInteger(context, "x"), 0,
+                    IntegerArgumentType.getInteger(context, "z"));
+            Bukkit.getRegionScheduler().execute(this.plugin, location, () -> {
+                try {
+                    action.run(context);
+                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                    reply(context, e.getMessage());
+                }
+            });
+            return Command.SINGLE_SUCCESS;
+        };
     }
 
     private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Integer> position(
@@ -74,6 +96,20 @@ final class ExampleCommands {
         boolean placed = place(world, x, y, z, "generator") && place(world, x, y, z - 1, "consumer");
         reply(context, placed ? "Placed a generator at " + x + " " + y + " " + z + " and a consumer north of it."
                 : "Placement failed (are the example blocks loaded in CraftEngine?)");
+        return placed ? Command.SINGLE_SUCCESS : 0;
+    }
+
+    /** A generator, three cables and a consumer, along north (the generator's front faces the cables). */
+    private int networkLine(CommandContext<CommandSourceStack> context) {
+        World world = world(context);
+        if (world == null) return 0;
+        int x = IntegerArgumentType.getInteger(context, "x");
+        int y = IntegerArgumentType.getInteger(context, "y");
+        int z = IntegerArgumentType.getInteger(context, "z");
+        boolean placed = place(world, x, y, z, "generator");
+        for (int i = 1; i <= 3; i++) placed &= place(world, x, y, z - i, "spark_cable");
+        placed &= place(world, x, y, z - 4, "consumer");
+        reply(context, placed ? "Placed generator, 3 cables and a consumer from z=" + z + " to z=" + (z - 4) : "Placement failed");
         return placed ? Command.SINGLE_SUCCESS : 0;
     }
 
@@ -100,7 +136,7 @@ final class ExampleCommands {
             transaction.commit();
         }
         CraftEngineBlocks.remove(world.getBlockAt(x, y, z));
-        Bukkit.getScheduler().runTaskLater(this.plugin, () -> {
+        Bukkit.getRegionScheduler().runDelayed(this.plugin, new Location(world, x, y, z), task -> {
             int dropped = world.getNearbyEntitiesByType(Item.class, new Location(world, x + 0.5, y + 0.5, z + 0.5), 3).stream()
                     .filter(item -> item.getItemStack().getType() == Material.IRON_INGOT)
                     .mapToInt(item -> item.getItemStack().getAmount()).sum();

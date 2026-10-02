@@ -78,6 +78,17 @@ final class MachineValidators {
         }
     }
 
+    static void transportTypes(ValidationContext context) {
+        Registry<fr.robie.machineengine.api.network.TransportType> transports = context.registries().registry(Registries.TRANSPORT_TYPE);
+        var networks = context.registries().registry(Registries.NETWORK_TYPE);
+        for (var transport : transports) {
+            if (!networks.containsValue(transport.network())) {
+                context.report(BuiltInValidators.unregistered(transports, transport, "network type " + transport.network().key().asString()));
+            }
+            if (transport.ratePerTick() < 1) new Reporter(context, transports, transport).error("rate must be positive");
+        }
+    }
+
     static void recipes(ValidationContext context) {
         Registry<Recipe> recipes = context.registries().registry(Registries.RECIPE);
         var recipeTypes = context.registries().registry(Registries.RECIPE_TYPE);

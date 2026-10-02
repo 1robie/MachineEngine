@@ -36,7 +36,8 @@ public final class BuiltInValidators {
                 BuiltInValidators::converters,
                 BuiltInValidators::codecs,
                 MachineValidators::machineTypes,
-                MachineValidators::upgradeTypes);
+                MachineValidators::upgradeTypes,
+                MachineValidators::transportTypes);
     }
 
     /** Validators for one reloadable registry; they run whenever it is (re)built. */

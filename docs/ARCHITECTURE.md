@@ -901,6 +901,11 @@ Deferred to M4/M5: hopper interop (`WorldlyContainerHolder` needs an NMS `Worldl
 
 ### M4 — Networks, transports, Folia
 Network/transport API and implementation (incremental graphs, segment-per-region), bounded catch-up policy, Folia validation (`folia-supported: true`).
+**Status: done (2026-10-02).**
+- **Networks:** `NetworkType` (a distribution strategy, the `NetworkBehavior` SPI; built-in `NetworkBehavior.distributing()`) and `TransportType` (a cable kind: network type, rate per tick, filter). Adjacent transports of the same network type form a network. Its rate is the slowest transport's, its filter is the intersection of their filters, and its endpoints are the machine ports facing it, sorted for deterministic distribution. Graphs are rebuilt incrementally from loaded transports: add joins or merges, remove splits with a search limited to the old network. Nothing is persisted. Networks sleep when a tick moves nothing and wake on endpoint storage changes and topology changes. A network stays within one owner thread (Folia region). Cross-region flow goes machine-to-machine through handoff; network-to-network links across regions are not supported.
+- **CraftEngine:** `machineengine:transport` block behavior (`transport: <key>`), plus `/machineengine network <x y z> <world>`.
+- **Catch-up:** `CatchUpPolicy.bounded(maxTicks)` on `MachineType` and `MachineBehavior.catchUp(context, ticks)`; `ProcessingBehavior` runs its processes for the caught-up ticks without pushing. Ticks a scheduled machine slept before unloading count too (uncapped, since they were planned work). Tests check exact equivalence with an uninterrupted run under the cap, and the cap above it.
+- **Folia:** verified on Folia 1.20.6 and 26.2 (there is no Folia 26.3 build): direct transfers, networks, item drops and restarts, with no errors. Console commands that touch the world now run on the target region (`RegionScheduler`). Dev servers: `runFolia-1.20.6`, `runFolia-26.2`.
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.

@@ -42,6 +42,8 @@ The plugin jar is written to `machineengine-plugin/build/libs/`.
 ```bash
 ./gradlew :machineengine-plugin:runPaper-1.20.6
 ./gradlew :machineengine-plugin:runPaper-26.3
+./gradlew :machineengine-plugin:runFolia-1.20.6
+./gradlew :machineengine-plugin:runFolia-26.2
 ```
 
 By default the dev servers use CraftEngine built from its `dev` branch (`craftengine_dev_ref`), the

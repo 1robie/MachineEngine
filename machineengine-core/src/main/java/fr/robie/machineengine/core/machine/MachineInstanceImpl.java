@@ -133,12 +133,14 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             public void inserted() {
                 markDirty();
                 wake(WakeReason.RESOURCE_INSERTED);
+                services.networks().machineActivity(position);
             }
 
             @Override
             public void extracted() {
                 markDirty();
                 wake(WakeReason.RESOURCE_EXTRACTED);
+                services.networks().machineActivity(position);
             }
         };
         for (StorageDefinition definition : type.storages()) {
@@ -186,15 +188,36 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     // Lifecycle (called by CoreMachines and hosts)
     // ------------------------------------------------------------------------------------------
 
+    /** Ticks to catch up on load (D4); set by the codec. */
+    long pendingCatchUp;
+
     void loaded() {
         runBehavior(() -> this.behavior.onLoad(this.context));
+        if (this.pendingCatchUp > 0) {
+            // Ticks slept before unloading (planned work, e.g. a running process) count too, uncapped.
+            long sleptBeforeUnload = this.countSleptTicks ? Math.max(0, gameTimeNow() - this.lastTick) : 0;
+            long ticks = this.pendingCatchUp + sleptBeforeUnload;
+            this.pendingCatchUp = 0;
+            this.lastTick = gameTimeNow();
+            this.ticking = true;
+            try {
+                runBehavior(() -> this.behavior.catchUp(this.context, ticks));
+            } finally {
+                this.ticking = false;
+            }
+            this.requestedState = null;
+            // Re-evaluate from scratch: the saved schedule no longer matches the caught-up state.
+            applyState(SchedulerState.ACTIVE, -1);
+        }
         this.services.handoff().resume(this);
+        this.services.networks().machineChanged(this.position);
         postLifecycle(MachineEvents.MACHINE_LOAD);
     }
 
     void unloaded() {
         runBehavior(() -> this.behavior.onUnload(this.context));
         this.valid = false;
+        this.services.networks().machineChanged(this.position);
         postLifecycle(MachineEvents.MACHINE_UNLOAD);
     }
 
@@ -217,6 +240,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             // In-flight handoffs are answered later; their remainder is dropped then (HandoffService).
             if (pending.returning()) drops.addAll(pending.stacks());
         }
+        this.services.networks().machineChanged(this.position);
         postLifecycle(MachineEvents.MACHINE_REMOVE);
         return drops;
     }
@@ -362,6 +386,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         if (this.facing == facing) return;
         this.facing = facing;
         rebuildSides();
+        this.services.networks().machineChanged(this.position);
         markDirty();
         wake(WakeReason.CONFIG_CHANGED);
     }
@@ -747,10 +772,16 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
 
         @Override
         public @NotNull ProcessStatus advance() {
+            return advance(elapsed);
+        }
+
+        @Override
+        public @NotNull ProcessStatus advance(long ticks) {
+            if (ticks < 0) throw new IllegalArgumentException("ticks must not be negative");
             ProcessState running = process.get();
             if (running == null) return ProcessStatus.IDLE;
             return switch (running.status()) {
-                case RUNNING, WAITING_FOR_COST -> progress(running);
+                case RUNNING, WAITING_FOR_COST -> progress(running, ticks);
                 case OUTPUT_BLOCKED -> deliver(running);
                 case RETURNING -> giveBack(running);
                 case IDLE, COMPLETED -> running.status();
@@ -765,8 +796,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             return giveBack(running.withInFlight(ProcessStatus.RETURNING, running.inFlight()));
         }
 
-        private ProcessStatus progress(ProcessState running) {
-            long steps = Math.min(elapsed, running.duration() - running.progress());
+        private ProcessStatus progress(ProcessState running, long ticks) {
+            long steps = Math.min(ticks, running.duration() - running.progress());
             long progress = running.progress();
             ProcessStatus status = ProcessStatus.RUNNING;
             if (running.costPerTick().isEmpty()) {

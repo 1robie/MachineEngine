@@ -34,8 +34,8 @@ paper {
     apiVersion = "1.20"
     // Static registries must be frozen before worlds load (§8.1).
     load = BukkitPluginDescription.PluginLoadOrder.STARTUP
-    // Enabled once Folia is validated in M4 (D8).
-    foliaSupported = false
+    // Validated on Folia in M4 (D8).
+    foliaSupported = true
     serverDependencies {
         // D7: CraftEngine is required; Paper refuses to load MachineEngine without it.
         register("CraftEngine") {
@@ -79,12 +79,17 @@ val buildCraftEngineDev = tasks.register<BuildCraftEngineDev>("buildCraftEngineD
     outputJar = craftEngineDevDir.file("craftengine-dev.jar")
 }
 
-fun registerDevServer(minecraftVersion: String, javaVersion: Int) {
-    tasks.register<RunServer>("runPaper-$minecraftVersion") {
+fun registerDevServer(minecraftVersion: String, javaVersion: Int, folia: Boolean = false) {
+    val software = if (folia) "Folia" else "Paper"
+    tasks.register<RunServer>("run$software-$minecraftVersion") {
         group = "run dev server"
-        description = "Runs a Paper $minecraftVersion dev server with MachineEngine and CraftEngine."
+        description = "Runs a $software $minecraftVersion dev server with MachineEngine and CraftEngine."
         minecraftVersion(minecraftVersion)
-        runDirectory = rootProject.layout.projectDirectory.dir("run/paper-$minecraftVersion")
+        runDirectory = rootProject.layout.projectDirectory.dir("run/${software.lowercase()}-$minecraftVersion")
+        if (folia) {
+            downloadsApiService.convention(xyz.jpenilla.runtask.service.DownloadsAPIService.folia(project))
+            pluginDownloadService.convention(xyz.jpenilla.runtask.pluginsapi.PluginDownloadService.paper(project))
+        }
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(javaVersion)
         }
@@ -106,6 +111,8 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int) {
 
 registerDevServer("1.20.6", javaVersion = 21)
 registerDevServer("26.3", javaVersion = 25)
+registerDevServer("1.20.6", javaVersion = 21, folia = true)
+registerDevServer("26.2", javaVersion = 25, folia = true)
 
 // The stock runServer task has no version configured; point people at the explicit ones.
 tasks.named<RunServer>("runServer") {

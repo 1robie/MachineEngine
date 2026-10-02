@@ -84,6 +84,23 @@ public final class ProcessingBehavior implements MachineBehavior {
         }
     }
 
+    /** Runs processes for the caught-up ticks, without pushing (own storages only, §18). */
+    @Override
+    public void catchUp(@NotNull MachineContext context, long ticks) {
+        long budget = ticks;
+        while (budget > 0) {
+            ProcessView process = context.process().current();
+            if (process == null) {
+                if (!startNext(context)) return;
+                process = Objects.requireNonNull(context.process().current());
+            }
+            long step = Math.min(budget, process.remaining());
+            ProcessStatus status = context.process().advance(step);
+            budget -= Math.max(step, 1);
+            if (status != ProcessStatus.COMPLETED) return;
+        }
+    }
+
     private boolean startNext(MachineContext context) {
         for (ProcessingRecipe recipe : context.recipes().all(this.recipeType)) {
             Result<ProcessView> started = context.process().start(recipe, this.binding);

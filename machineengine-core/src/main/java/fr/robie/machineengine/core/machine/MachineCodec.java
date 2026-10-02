@@ -221,6 +221,10 @@ final class MachineCodec {
         SchedulerState state = scheduler.flatMap(map -> map.getString("state")).flatMap(MachineCodec::parseState).orElse(SchedulerState.ACTIVE);
         long wakeIn = scheduler.flatMap(map -> map.getLong("wakeIn")).orElse(-1L);
         machine.restoreSchedule(state, wakeIn, data.getLong(SINCE_TICK).orElse(0L));
+        if (type.catchUp().catchesUp()) {
+            long unloaded = host.gameTime(position.world()) - data.getLong(SAVED_AT).orElse(Long.MAX_VALUE);
+            if (unloaded > 0) machine.pendingCatchUp = Math.min(unloaded, type.catchUp().maxTicks());
+        }
         if (!problems.isEmpty()) machine.context().error(problems.getFirst());
         return machine;
     }

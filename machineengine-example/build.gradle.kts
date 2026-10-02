@@ -25,6 +25,7 @@ paper {
     version = project.version.toString()
     description = "Example MachineEngine addon."
     apiVersion = "1.20"
+    foliaSupported = true
     serverDependencies {
         register("MachineEngine") {
             required = true

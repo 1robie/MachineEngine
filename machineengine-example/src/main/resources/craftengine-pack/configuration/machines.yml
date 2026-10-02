@@ -22,7 +22,25 @@ items:
     behavior:
       type: block_item
       block: example:crate
+  example:spark_cable:
+    data:
+      item_name: "<!i>Spark Cable"
+    model: minecraft:block/copper_block
+    behavior:
+      type: block_item
+      block: example:spark_cable
 blocks:
+  example:spark_cable:
+    behavior:
+      type: machineengine:transport
+      transport: example:spark_cable
+    settings:
+      template: default:settings/solid_1x1x1
+      overrides:
+        hardness: 1
+    state:
+      auto_state: solid
+      texture: minecraft:block/copper_block
   example:crate:
     behavior:
       type: machineengine:machine

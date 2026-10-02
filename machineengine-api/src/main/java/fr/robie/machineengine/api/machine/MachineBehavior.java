@@ -26,6 +26,14 @@ public interface MachineBehavior {
     default void onUnload(@NotNull MachineContext context) {
     }
 
+    /**
+     * Called once after loading when the type's {@link CatchUpPolicy} catches up: {@code ticks} is the
+     * time spent unloaded, capped. Must be closed-form and touch only the machine's own storages
+     * (no neighbors, no networks, no world). The machine is woken afterwards.
+     */
+    default void catchUp(@NotNull MachineContext context, long ticks) {
+    }
+
     /** Called when the machine is removed from the world. */
     default void onRemove(@NotNull MachineContext context) {
     }

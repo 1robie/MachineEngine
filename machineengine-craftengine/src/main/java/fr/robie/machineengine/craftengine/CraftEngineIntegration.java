@@ -19,6 +19,7 @@ public final class CraftEngineIntegration {
     /** Must run in MachineEngine's {@code onLoad}, while CraftEngine's behavior registry is open. */
     public static void registerBlockBehavior() {
         BlockBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("machine")), MachineBlockBehavior.FACTORY);
+        BlockBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("transport")), TransportBlockBehavior.FACTORY);
     }
 
     /** @return whether {@code state} is a block with the {@code machineengine:machine} behavior */
@@ -37,6 +38,11 @@ public final class CraftEngineIntegration {
             if (behavior != null && behavior.resolve(registries) == null) {
                 problems.add("CraftEngine block " + block.id().asString() + " refers to machine type "
                         + behavior.machineKey().asString() + ", which is not registered");
+            }
+            TransportBlockBehavior transport = block.defaultState().behavior().getFirst(TransportBlockBehavior.class);
+            if (transport != null && transport.resolve(registries) == null) {
+                problems.add("CraftEngine block " + block.id().asString() + " refers to transport type "
+                        + transport.transportKey().asString() + ", which is not registered");
             }
         }
         return problems;

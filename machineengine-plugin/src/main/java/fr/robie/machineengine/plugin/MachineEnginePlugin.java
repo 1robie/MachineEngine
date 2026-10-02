@@ -79,7 +79,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         checkBlockBindings();
 
         getServer().getPluginManager().registerEvents(this, this);
-        MachineEngineCommands commands = new MachineEngineCommands(() -> this.engine, () -> this.host);
+        MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host);
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> event.registrar().register(commands.build(), "MachineEngine admin commands", List.of("me")));
     }
