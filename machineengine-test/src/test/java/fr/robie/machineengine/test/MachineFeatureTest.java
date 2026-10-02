@@ -261,6 +261,20 @@ class MachineFeatureTest {
         assertTrue(generator.context().neighbor(RelativeSide.BACK, Capabilities.RESOURCE_HANDLER).isEmpty());
     }
 
+    @Test
+    void aTimerThatFiresEarlyIsRescheduledNotLost() {
+        // Regression: Paper's region scheduler ran timers one tick before the world clock reached them.
+        FakeWorld world = FakeWorld.singleRegion(MachineFixtures.bothAddons());
+        MachineInstanceImpl consumer = world.place(CONSUMER, HERE, Direction.NORTH);
+        MachineFixtures.fill(consumer, "input", B.stack(5));
+        world.tick();
+        assertEquals(SchedulerState.SCHEDULED, consumer.schedulerState());
+        consumer.timerFired(world.time() + 1); // early
+        assertEquals(SchedulerState.SCHEDULED, consumer.schedulerState());
+        world.tick(12);
+        assertNull(consumer.inspect().process(), "the process still completed");
+    }
+
     // -- validation ------------------------------------------------------------------------------
 
     @Test

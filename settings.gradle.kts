@@ -32,4 +32,5 @@ include(
     "machineengine-paper",
     "machineengine-craftengine",
     "machineengine-plugin",
+    "machineengine-example",
 )

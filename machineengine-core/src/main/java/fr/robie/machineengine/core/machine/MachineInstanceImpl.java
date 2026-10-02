@@ -259,7 +259,12 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
 
     /** Called by the host when a timer set through {@link MachineHost#scheduleWake} fires. */
     public void timerFired(long gameTime) {
-        if (!this.valid || this.wakeAt < 0 || gameTime < this.wakeAt || this.state == SchedulerState.ACTIVE) return;
+        if (!this.valid || this.wakeAt < 0 || this.state == SchedulerState.ACTIVE) return;
+        if (gameTime < this.wakeAt) {
+            // Early (host schedulers may run a tick ahead of the world clock): wait for the rest.
+            this.host.scheduleWake(this, this.wakeAt);
+            return;
+        }
         wake(WakeReason.TIMER);
     }
 

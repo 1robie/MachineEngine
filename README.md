@@ -53,6 +53,21 @@ CraftEngine (MachineEngine must then refuse to load).
 Servers run in `run/paper-<version>/`. On first start Paper stops and asks you to accept the
 Minecraft EULA in `run/paper-<version>/eula.txt`.
 
+## Example addon and commands
+
+`machineengine-example` is a small addon built only on the API: a spark generator and a spark
+consumer, with the CraftEngine pack that defines their blocks. Dev servers install it by default
+(`-PwithExample=false` to leave it out). From the server console:
+
+```text
+forceload add 0 -16 15 15
+mexample place 0 100 0 world
+machineengine machine 0 100 0 world
+```
+
+Admin commands (`machineengine.admin`): `/machineengine status`, `report`, `inspect` (the block you
+look at), `machine <x> <y> <z> [world]`, `registry <name>`, `reload recipes|tags`.
+
 ## License
 
 GPL-3.0. See [LICENSE](LICENSE).

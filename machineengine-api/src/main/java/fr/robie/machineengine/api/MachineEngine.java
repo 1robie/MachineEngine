@@ -18,6 +18,31 @@ import java.util.Set;
 @ApiStatus.NonExtendable
 public interface MachineEngine {
 
+    /**
+     * Submits an addon's registration. Call it from the plugin's {@code onLoad()}; MachineEngine runs
+     * all registrations in dependency order when it enables, before worlds load (D13).
+     *
+     * <pre>{@code
+     * MachineEngine.register(AddonRegistration.builder(getName(), getPluginMeta().getVersion())
+     *         .requiresApi("[0.1,1.0)")
+     *         .register(ctx -> ctx.machineTypes().register(MY_MACHINE))
+     *         .build());
+     * }</pre>
+     *
+     * @throws IllegalStateException if registration is already closed
+     */
+    static void register(@NotNull fr.robie.machineengine.api.addon.AddonRegistration registration) {
+        MachineEngineAccess.submit(registration);
+    }
+
+    /**
+     * @return the running engine
+     * @throws IllegalStateException before MachineEngine has enabled
+     */
+    static @NotNull MachineEngine get() {
+        return MachineEngineAccess.engine();
+    }
+
     @NotNull LifecyclePhase phase();
 
     @NotNull RegistryAccess registries();

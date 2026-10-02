@@ -1,0 +1,44 @@
+# CraftEngine blocks of the example addon. Each block carries the machineengine:machine behavior and
+# names the MachineEngine machine type it hosts (resolved after MachineEngine starts, D14).
+items:
+  example:generator:
+    data:
+      item_name: "<!i>Spark Generator"
+    model: minecraft:block/iron_block
+    behavior:
+      type: block_item
+      block: example:generator
+  example:consumer:
+    data:
+      item_name: "<!i>Spark Consumer"
+    model: minecraft:block/gold_block
+    behavior:
+      type: block_item
+      block: example:consumer
+blocks:
+  example:generator:
+    behavior:
+      type: machineengine:machine
+      machine: example:generator
+    settings:
+      template: default:settings/solid_1x1x1
+      overrides:
+        hardness: 2
+        resistance: 6
+        push_reaction: immoveable
+    state:
+      auto_state: solid
+      texture: minecraft:block/iron_block
+  example:consumer:
+    behavior:
+      type: machineengine:machine
+      machine: example:consumer
+    settings:
+      template: default:settings/solid_1x1x1
+      overrides:
+        hardness: 2
+        resistance: 6
+        push_reaction: immoveable
+    state:
+      auto_state: solid
+      texture: minecraft:block/gold_block

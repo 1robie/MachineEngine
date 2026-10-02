@@ -640,17 +640,28 @@ The adapter is the only place CraftEngine classes appear. CraftEngine's extensio
 ### 22.2 Block behavior registration
 
 - In `MachineEngine.onLoad`: `BlockBehaviors.register(Key.of("machineengine", "machine"), MachineBlockBehavior.FACTORY)` (CraftEngine's `BlockBehaviors.register` writes into its built-in behavior-type registry; extension plugins such as *craft-engine-blocks* do this in `onLoad`).
-- Server owners (or addons shipping CE resource packs) attach the behavior in CraftEngine block config, referencing a machine type by key. Illustrative — **[VERIFY]** exact CE block YAML schema:
+- Server owners (or addons shipping CE resource packs) attach the behavior in CraftEngine block config, referencing a machine type by key. Verified schema (V1), as used by the example addon's pack:
 
 ```yaml
-# CraftEngine block config (illustrative)
-behavior:
-  type: machineengine:machine
-  machine: mymod:refinery          # MachineType key, resolved lazily (D14)
-  facing-property: facing          # optional, for side mapping
+items:
+  example:generator:
+    model: minecraft:block/iron_block
+    behavior: { type: block_item, block: example:generator }
+blocks:
+  example:generator:
+    behavior:
+      type: machineengine:machine
+      machine: example:generator       # MachineType key, resolved lazily (D14)
+      facing_property: facing          # optional; defaults to "facing" if the block has it
+    settings:
+      template: default:settings/solid_1x1x1
+      overrides: { push_reaction: immoveable }
+    state: { auto_state: solid, texture: minecraft:block/iron_block }
 ```
 
-- The factory stores the unresolved key. After MachineEngine's freeze, and after every `CraftEngineReloadEvent`, the adapter binds each behavior to its `MachineType`. Unknown key → validation error naming the CE block and file; affected blocks load as placeholders.
+- The factory stores the unresolved key and every controller resolves it when its block entity loads, so CraftEngine reloads need no re-binding (V6). After CraftEngine loads or reloads block configs (`CraftEngineReloadEvent`), MachineEngine logs a warning for every block whose machine key is not registered. Such blocks stay inert, and blocks that already hold machine data load as placeholders.
+- CraftEngine parses its block configs in its delayed init, after MachineEngine has enabled; lazy resolution makes this order irrelevant.
+- The published CraftEngine jars relocate sparrow NBT to `net.momirealms.craftengine.libraries.nbt` (inside `craft-engine-core`); the adapter compiles against that package.
 
 ### 22.3 Block entity lifecycle mapping
 
@@ -879,6 +890,8 @@ Deferred from M2: per-instance port side configuration, `WorldEffect`s (no world
 ### M3 — Paper + CraftEngine
 `machineengine:machine` behavior, controller, sleeping ticker, lazy binding & CE reload re-binding, persistence in CE block-entity data with unsaved-flag handling, chunk-load subscriptions, break/item policy, hopper interop, item category, protection, commands, metrics, config, limits/budgets.
 **Accept:** §36 test runs as two real addon jars on a `run-paper` server; state survives restart; removing an addon yields placeholders that rehydrate when it returns; removing MachineEngine and re-adding preserves data; 10k idle machines show negligible tick cost.
+**Status: core done (2026-10-01), rest split into M3b.** Verified on Paper 1.20.6 and 26.3 with CraftEngine `26.10-SNAPSHOT`, using the `machineengine-example` addon (a generator and a consumer, placed by `/mexample place`): machines are created in CraftEngine block entities, sleep and wake through CraftEngine's sleeping ticker and Paper's region scheduler, transfer through ports, survive restarts (state stored in the block-entity data, chunks flagged through `CEWorld.blockEntityChanged`), turn into placeholders when the addon is removed, and rehydrate unchanged when it returns. The server run found one bug: region-scheduler timers fire one tick before the world clock reaches the wake time. Early timers now reschedule themselves (regression test added). Commands: `/machineengine status|report|inspect|machine <x y z> [world]|registry <name>|reload recipes|tags`.
+**M3b (remaining):** the item resource category and dropping item resources on break, hopper interop (`WorldlyContainerHolder` needs an NMS container), keep-contents-in-item, protection checks for interactions, the placeholder break policy, `neighborChanged` wake-ups, metrics, configuration and limits, the 10k-idle-machines benchmark, and the "remove MachineEngine and re-add" run. Until the item category exists, resources of a broken machine have no world form and are voided (logged at FINE).
 
 ### M4 — Networks, transports, Folia
 Network/transport API and implementation (incremental graphs, segment-per-region), bounded catch-up policy, Folia validation (`folia-supported: true`).
@@ -939,12 +952,12 @@ MachineEngine
 
 | # | Item | Section |
 |---|------|---------|
-| V1 | Exact CE block YAML schema for attaching a behavior with custom keys | §22.2 |
-| V2 | Thread on which `saveCustomData` is invoked during CE chunk saves | §20.2 |
-| V3 | Whether CE calls `loadCustomDataFromItem` for blocks | §20.4 |
-| V4 | CE block setting key for push reaction | §23.2 |
-| V5 | Access path to CE's anti-grief provider from an external plugin | §23.3 |
-| V6 | CE behavior on `/ce reload` for existing block entities (controller recreation?) | §22.2 |
+| V1 | ~~Exact CE block YAML schema~~ **Resolved:** `blocks.<id>.behavior.type: machineengine:machine` (§22.2) | §22.2 |
+| V2 | ~~Thread of `saveCustomData`~~ **Resolved:** CE serializes on the calling (owner) thread before encoding async; chunks are written before their block entities unload. `loadCustomData` runs while a chunk is read, so the controller only stores the raw tag and decodes in `onLoad`. | §20.2 |
+| V3 | ~~`loadCustomDataFromItem` for blocks~~ **Resolved:** never called for blocks; keep-contents-in-item will use MachineEngine's own item data (M3b). | §20.4 |
+| V4 | ~~Push reaction key~~ **Resolved:** `settings.push_reaction: immoveable` (`BLOCK` is deprecated). | §23.2 |
+| V5 | Anti-grief access: `BukkitCraftEngine.instance().antiGriefProvider().test(player, Flag, location)`; `Flag` comes from AntiGriefLib, not on our compile classpath yet (M3b). | §23.3 |
+| V6 | ~~Re-binding on `/ce reload`~~ **Resolved:** not needed; keys resolve lazily per block entity. | §22.2 |
 
 ### CraftEngine facts confirmed (dev branch, commit `d50b4c9`, 2026-09-30)
 

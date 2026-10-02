@@ -1,0 +1,178 @@
+package fr.robie.machineengine.craftengine;
+
+import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
+import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.core.machine.MachineHost;
+import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.machineengine.paper.MachineLocator;
+import net.kyori.adventure.key.Key;
+import net.momirealms.craftengine.core.block.entity.BlockEntity;
+import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.World;
+import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+/**
+ * Hosts machines in CraftEngine block entities on Paper (§22, §23). Timers and cross-region
+ * messages use Paper's region scheduler, which runs on the main thread on Paper and on the owning
+ * region on Folia.
+ *
+ * <p>The current host is held statically because CraftEngine creates controllers from block configs
+ * parsed before MachineEngine enables; this is internal to the adapter.</p>
+ */
+public final class CraftEngineMachineHost implements MachineHost, MachineLocator {
+    private static volatile @Nullable CraftEngineMachineHost current;
+
+    private final Plugin plugin;
+    private final CoreMachineEngine engine;
+    private final Map<WorldPosition, MachineBlockEntityController> controllers = new ConcurrentHashMap<>();
+
+    private CraftEngineMachineHost(Plugin plugin, CoreMachineEngine engine) {
+        this.plugin = plugin;
+        this.engine = engine;
+    }
+
+    public static @NotNull CraftEngineMachineHost start(@NotNull Plugin plugin, @NotNull CoreMachineEngine engine) {
+        CraftEngineMachineHost host = new CraftEngineMachineHost(plugin, engine);
+        current = host;
+        return host;
+    }
+
+    static @Nullable CraftEngineMachineHost current() {
+        return current;
+    }
+
+    /**
+     * Snapshots every loaded machine into its block entity and detaches it, so CraftEngine's final
+     * world save keeps the data without calling back into MachineEngine (§8.2 shutdown).
+     */
+    public void shutdown() {
+        for (MachineBlockEntityController controller : this.controllers.values()) {
+            LoadedMachine machine = controller.machine();
+            if (machine == null) continue;
+            try {
+                controller.detachForShutdown(gameTime(machine.position().world()));
+            } catch (RuntimeException e) {
+                logger().log(Level.SEVERE, "Failed to save the machine at " + machine.position(), e);
+            }
+        }
+        this.controllers.clear();
+        current = null;
+    }
+
+    public @NotNull CoreMachineEngine engine() {
+        return this.engine;
+    }
+
+    @NotNull Logger logger() {
+        return this.plugin.getLogger();
+    }
+
+    WorldPosition position(BlockEntity blockEntity) {
+        World world = (World) blockEntity.world().world().platformWorld();
+        return WorldPosition.of(world.getKey(), blockEntity.pos().x(), blockEntity.pos().y(), blockEntity.pos().z());
+    }
+
+    void register(WorldPosition position, MachineBlockEntityController controller) {
+        this.controllers.put(position, controller);
+    }
+
+    void unregister(WorldPosition position, MachineBlockEntityController controller) {
+        this.controllers.remove(position, controller);
+    }
+
+    // -- MachineLocator ------------------------------------------------------------------------
+
+    @Override
+    public @Nullable LoadedMachine machine(@NotNull WorldPosition position) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        return controller == null ? null : controller.machine();
+    }
+
+    @Override
+    public @NotNull Collection<LoadedMachine> loadedMachines() {
+        return this.controllers.values().stream().map(MachineBlockEntityController::machine)
+                .filter(java.util.Objects::nonNull).toList();
+    }
+
+    @Override
+    public void wakeAll(@NotNull WakeReason reason) {
+        for (MachineBlockEntityController controller : this.controllers.values()) {
+            MachineInstanceImpl instance = controller.instance();
+            if (instance != null) post(instance.position(), () -> instance.wake(reason));
+        }
+    }
+
+    // -- MachineHost ---------------------------------------------------------------------------
+
+    @Override
+    public long gameTime(@NotNull Key world) {
+        World bukkit = world(world);
+        return bukkit == null ? 0 : bukkit.getGameTime();
+    }
+
+    @Override
+    public boolean isOwnedByCurrentThread(@NotNull WorldPosition position) {
+        World world = world(position.world());
+        return world != null && Bukkit.isOwnedByCurrentRegion(world, position.position().chunkX(), position.position().chunkZ());
+    }
+
+    @Override
+    public @Nullable MachineInstanceImpl machineAt(@NotNull WorldPosition position) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        return controller == null ? null : controller.instance();
+    }
+
+    @Override
+    public void scheduleWake(@NotNull MachineInstanceImpl machine, long gameTime) {
+        WorldPosition position = machine.position();
+        World world = world(position.world());
+        if (world == null) return;
+        long delay = Math.max(1, gameTime - world.getGameTime());
+        Bukkit.getRegionScheduler().runDelayed(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
+                task -> machine.timerFired(world.getGameTime()), delay);
+    }
+
+    @Override
+    public void markDirty(@NotNull MachineInstanceImpl machine) {
+        MachineBlockEntityController controller = this.controllers.get(machine.position());
+        if (controller != null) controller.markDirty();
+    }
+
+    @Override
+    public void activityChanged(@NotNull MachineInstanceImpl machine) {
+        MachineBlockEntityController controller = this.controllers.get(machine.position());
+        if (controller != null) controller.syncTicker();
+    }
+
+    @Override
+    public void post(@NotNull WorldPosition target, @NotNull Runnable task) {
+        World world = world(target.world());
+        if (world == null) return;
+        Bukkit.getRegionScheduler().execute(this.plugin, world, target.position().chunkX(), target.position().chunkZ(), task);
+    }
+
+    @Override
+    public void dropResources(@NotNull WorldPosition position, @NotNull List<ResourceStack> resources) {
+        // Resources have no world form until a category provides one (the item category, M3b).
+        if (!resources.isEmpty()) {
+            logger().fine("Voided " + resources + " at " + position + ": no world form for these resources");
+        }
+    }
+
+    private static @Nullable World world(Key key) {
+        return Bukkit.getWorld(new NamespacedKey(key.namespace(), key.value()));
+    }
+}

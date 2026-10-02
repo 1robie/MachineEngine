@@ -1,0 +1,226 @@
+package fr.robie.machineengine.paper;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.StringArgumentType;
+import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.tree.LiteralCommandNode;
+import fr.robie.machineengine.api.diagnostic.Diagnostic;
+import fr.robie.machineengine.api.diagnostic.ValidationReport;
+import fr.robie.machineengine.api.machine.MachineInspection;
+import fr.robie.machineengine.api.machine.SchedulerState;
+import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.registry.Registries;
+import fr.robie.machineengine.api.registry.Registry;
+import fr.robie.machineengine.api.registry.RegistryType;
+import fr.robie.machineengine.api.transfer.StorageView;
+import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
+import fr.robie.machineengine.core.machine.LoadedMachine;
+import io.papermc.paper.command.brigadier.CommandSourceStack;
+import io.papermc.paper.command.brigadier.Commands;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Bukkit;
+import org.bukkit.NamespacedKey;
+import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
+
+import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
+
+/**
+ * {@code /machineengine} admin commands (§27): status, startup report, machine inspection, registry
+ * listing and reloads. Debug output must be useful without attaching a debugger.
+ */
+@SuppressWarnings("UnstableApiUsage")
+public final class MachineEngineCommands {
+    public static final String PERMISSION = "machineengine.admin";
+
+    private final Supplier<CoreMachineEngine> engine;
+    private final Supplier<MachineLocator> locator;
+
+    public MachineEngineCommands(@NotNull Supplier<CoreMachineEngine> engine, @NotNull Supplier<MachineLocator> locator) {
+        this.engine = engine;
+        this.locator = locator;
+    }
+
+    public @NotNull LiteralCommandNode<CommandSourceStack> build() {
+        return Commands.literal("machineengine")
+                .requires(source -> source.getSender().hasPermission(PERMISSION))
+                .then(Commands.literal("status").executes(this::status))
+                .then(Commands.literal("report").executes(this::report))
+                .then(Commands.literal("inspect").executes(this::inspectTarget))
+                .then(Commands.literal("machine")
+                        .then(Commands.argument("x", IntegerArgumentType.integer())
+                                .then(Commands.argument("y", IntegerArgumentType.integer())
+                                        .then(Commands.argument("z", IntegerArgumentType.integer())
+                                                .executes(context -> inspectAt(context, null))
+                                                .then(Commands.argument("world", StringArgumentType.greedyString())
+                                                        .executes(context -> inspectAt(context, StringArgumentType.getString(context, "world"))))))))
+                .then(Commands.literal("registry")
+                        .then(Commands.argument("registry", StringArgumentType.greedyString())
+                                .suggests((context, builder) -> {
+                                    CoreMachineEngine running = this.engine.get();
+                                    if (running != null) running.registries().types().forEach(type -> builder.suggest(type.key().asString()));
+                                    return builder.buildFuture();
+                                })
+                                .executes(this::registry)))
+                .then(Commands.literal("reload")
+                        .then(Commands.literal("recipes").executes(context -> reload(context, Registries.RECIPE)))
+                        .then(Commands.literal("tags").executes(context -> reload(context, Registries.RESOURCE_TAG))))
+                .build();
+    }
+
+    private int status(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        CoreMachineEngine running = this.engine.get();
+        if (running == null) {
+            sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
+            return 0;
+        }
+        List<LoadedMachine> machines = List.copyOf(this.locator.get().loadedMachines());
+        long active = machines.stream().filter(machine -> machine.instance() != null
+                && machine.instance().schedulerState() == SchedulerState.ACTIVE).count();
+        long placeholders = machines.stream().filter(machine -> machine.instance() == null).count();
+        sender.sendMessage(Component.text("MachineEngine " + running.phase(), NamedTextColor.GOLD));
+        sender.sendMessage(line("Enabled addons", running.enabledAddons().toString()));
+        sender.sendMessage(line("Disabled addons", running.disabledAddons().toString()));
+        sender.sendMessage(line("Loaded machines", machines.size() + " (" + active + " active, "
+                + (machines.size() - active - placeholders) + " sleeping, " + placeholders + " placeholders)"));
+        sender.sendMessage(line("Startup problems", running.startupReport().errors().size() + " errors, "
+                + running.startupReport().warnings().size() + " warnings"));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int report(CommandContext<CommandSourceStack> context) {
+        CoreMachineEngine running = this.engine.get();
+        if (running == null) return 0;
+        sendReport(context.getSource().getSender(), running.startupReport());
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int inspectTarget(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(Component.text("Look at a machine, or use /machineengine machine <x> <y> <z> [world].", NamedTextColor.RED));
+            return 0;
+        }
+        Block block = player.getTargetBlockExact(8);
+        if (block == null) {
+            sender.sendMessage(Component.text("You are not looking at a block.", NamedTextColor.RED));
+            return 0;
+        }
+        return inspect(sender, WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ()));
+    }
+
+    private int inspectAt(CommandContext<CommandSourceStack> context, String worldName) {
+        CommandSender sender = context.getSource().getSender();
+        World world;
+        if (worldName != null) {
+            world = Bukkit.getWorld(worldName);
+            if (world == null) {
+                NamespacedKey key = NamespacedKey.fromString(worldName);
+                world = key == null ? null : Bukkit.getWorld(key);
+            }
+        } else {
+            world = context.getSource().getLocation().getWorld();
+        }
+        if (world == null) {
+            sender.sendMessage(Component.text("Unknown world.", NamedTextColor.RED));
+            return 0;
+        }
+        return inspect(sender, WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
+                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z")));
+    }
+
+    private int inspect(CommandSender sender, WorldPosition position) {
+        LoadedMachine machine = this.locator.get().machine(position);
+        if (machine == null) {
+            sender.sendMessage(Component.text("No machine is loaded at " + position + ".", NamedTextColor.RED));
+            return 0;
+        }
+        for (String line : describe(machine.inspect())) sender.sendMessage(Component.text(line));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /** Human-readable inspection; also used in logs. */
+    public static @NotNull List<String> describe(@NotNull MachineInspection inspection) {
+        List<String> lines = new java.util.ArrayList<>();
+        lines.add("Machine " + inspection.type().asString() + (inspection.placeholder() ? " (PLACEHOLDER: type not installed)" : "")
+                + " at " + inspection.position() + " facing " + inspection.facing());
+        lines.add("  state: " + inspection.state() + (inspection.lastWakeReason() == null ? "" : ", last woken by " + inspection.lastWakeReason()));
+        if (inspection.lastError() != null) lines.add("  last error: " + inspection.lastError().format());
+        for (Map.Entry<String, List<StorageView>> storage : inspection.storages().entrySet()) {
+            StringBuilder contents = new StringBuilder();
+            for (StorageView view : storage.getValue()) {
+                if (contents.length() > 0) contents.append(", ");
+                contents.append(view.isEmpty() ? "empty" : view.amount() + " " + view.variant()).append(" / ").append(view.capacity());
+            }
+            lines.add("  storage " + storage.getKey() + ": " + contents);
+        }
+        if (inspection.process() != null) {
+            var process = inspection.process();
+            lines.add("  process " + process.recipe().asString() + ": " + process.status() + " " + process.progress() + "/"
+                    + process.duration() + " ticks, in flight " + process.inFlight());
+        }
+        if (!inspection.upgrades().isEmpty()) lines.add("  upgrades: " + inspection.upgrades());
+        if (!inspection.escrow().isEmpty()) lines.add("  in escrow: " + inspection.escrow());
+        if (!inspection.lockedSlots().isEmpty()) lines.add("  locked slots (resource type not installed): " + inspection.lockedSlots());
+        if (!inspection.unknownData().isEmpty()) lines.add("  kept unknown data: " + inspection.unknownData());
+        return lines;
+    }
+
+    private int registry(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        CoreMachineEngine running = this.engine.get();
+        if (running == null) return 0;
+        String name = StringArgumentType.getString(context, "registry").trim();
+        Key key = Key.key(name.contains(":") ? name : "machineengine:" + name);
+        Registry<?> registry = running.registries().find(key).orElse(null);
+        if (registry == null) {
+            sender.sendMessage(Component.text("No registry " + key.asString() + ".", NamedTextColor.RED));
+            return 0;
+        }
+        sender.sendMessage(Component.text("Registry " + key.asString() + " (" + registry.size() + " entries)", NamedTextColor.GOLD));
+        for (Key entry : registry.keys()) {
+            sender.sendMessage(line(entry.asString(), registry.owner(entry).map(Object::toString).orElse("?")));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int reload(CommandContext<CommandSourceStack> context, RegistryType<?> type) {
+        CommandSender sender = context.getSource().getSender();
+        CoreMachineEngine running = this.engine.get();
+        if (running == null) return 0;
+        ValidationReport report = running.reload(type);
+        if (report.hasErrors()) {
+            sender.sendMessage(Component.text("Reload of " + type + " rejected; the previous content stays live.", NamedTextColor.RED));
+        } else {
+            sender.sendMessage(Component.text("Reloaded " + type + ".", NamedTextColor.GREEN));
+            if (type.equals(Registries.RECIPE)) this.locator.get().wakeAll(WakeReason.RECIPES_RELOADED);
+        }
+        sendReport(sender, report);
+        return report.hasErrors() ? 0 : Command.SINGLE_SUCCESS;
+    }
+
+    private static void sendReport(CommandSender sender, ValidationReport report) {
+        if (report.diagnostics().isEmpty()) {
+            sender.sendMessage(Component.text("No problems found.", NamedTextColor.GREEN));
+            return;
+        }
+        for (Diagnostic diagnostic : report.diagnostics()) {
+            NamedTextColor color = diagnostic.isError() ? NamedTextColor.RED : NamedTextColor.YELLOW;
+            sender.sendMessage(Component.text(diagnostic.format(), color));
+        }
+    }
+
+    private static Component line(String label, String value) {
+        return Component.text(label + ": ", NamedTextColor.GRAY).append(Component.text(value, NamedTextColor.WHITE));
+    }
+}

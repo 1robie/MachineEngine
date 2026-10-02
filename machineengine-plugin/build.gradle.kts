@@ -11,9 +11,18 @@ plugins {
 
 description = "The MachineEngine Paper plugin jar (api + core + paper + craftengine)."
 
+val craftEngineVersion = providers.gradleProperty("craftengine_version").get()
+
+/** Addon jars installed on dev servers next to MachineEngine (the example addon). */
+val devAddons: Configuration by configurations.creating {
+    isTransitive = false
+}
+
 dependencies {
     implementation(project(":machineengine-craftengine"))
     compileOnly(libs.paper.api)
+    compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }
+    devAddons(project(":machineengine-example"))
 }
 
 paper {
@@ -79,6 +88,7 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int) {
             languageVersion = JavaLanguageVersion.of(javaVersion)
         }
         pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
+        if (providers.gradleProperty("withExample").orElse("true").get() == "true") pluginJars.from(devAddons)
         when (craftEngineRuntime) {
             "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
             "modrinth" -> downloadPlugins {
