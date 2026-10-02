@@ -1,0 +1,39 @@
+# Menu of example:consumer: its spark buffer and the burning process, refreshed live.
+size: 27
+name: "&8Spark Consumer"
+update-interval: 250
+
+items:
+  background:
+    is-permanent: true
+    item:
+      material: GRAY_STAINED_GLASS_PANE
+      name: "&8"
+    slots:
+      - 0-26
+  buffer:
+    slot: 11
+    update: true
+    item:
+      material: GLOWSTONE_DUST
+      name: "&eSparks"
+      lore:
+        - "&f%zmenu_machineengine_storage_input_amount%&7/&f%zmenu_machineengine_storage_input_capacity%"
+        - "&e%zmenu_machineengine_storage_input_bar%"
+  burning:
+    slot: 15
+    update: true
+    item:
+      material: BLAZE_POWDER
+      name: "&6Burning &7(%zmenu_machineengine_process_status%)"
+      lore:
+        - "&6%zmenu_machineengine_process_bar% &f%zmenu_machineengine_process_percent%%"
+        - "&7State: &f%zmenu_machineengine_state%"
+  cancel:
+    type: machineengine_cancel_process
+    slot: 22
+    item:
+      material: BARRIER
+      name: "&cStop burning"
+      lore:
+        - "&7The sparks go back to the buffer."

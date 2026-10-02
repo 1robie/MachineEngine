@@ -41,6 +41,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public static final String BREAK_PLACEHOLDERS = "machineengine.admin.breakplaceholders";
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
+    private @Nullable fr.robie.machineengine.zmenu.ZMenuMachineMenus menus;
     private int maxMachinesPerChunk;
     private boolean allowBreakingPlaceholders;
 
@@ -77,6 +78,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()
                 + (started.disabledAddons().isEmpty() ? "" : "; disabled: " + started.disabledAddons()));
         checkBlockBindings();
+        enableMenus();
 
         getServer().getPluginManager().registerEvents(this, this);
         MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host);
@@ -84,12 +86,36 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
                 event -> event.registrar().register(commands.build(), "MachineEngine admin commands", List.of("me")));
     }
 
+    /** Machine GUIs need zMenu (optional dependency); without it machines simply have no menu. */
+    private void enableMenus() {
+        Plugin zMenu = getServer().getPluginManager().getPlugin("zMenu");
+        if (zMenu == null || this.host == null) {
+            getLogger().info("zMenu is not installed: machines have no menus");
+            return;
+        }
+        // MachineEngine enables at STARTUP (before worlds); zMenu enables later, so wait for it.
+        if (!zMenu.isEnabled()) return;
+        try {
+            this.menus = fr.robie.machineengine.zmenu.ZMenuMachineMenus.enable(this, this.host);
+            this.host.setMenus(this.menus);
+        } catch (LinkageError | RuntimeException e) {
+            getLogger().log(java.util.logging.Level.WARNING, "Could not enable zMenu machine menus", e);
+        }
+    }
+
     @Override
     public void onDisable() {
+        if (this.menus != null) this.menus.disable();
+        this.menus = null;
         if (this.host != null) this.host.shutdown();
         this.host = null;
         this.engine = null;
         MachineEngineAccess.reset();
+    }
+
+    @EventHandler
+    public void onPluginEnable(org.bukkit.event.server.PluginEnableEvent event) {
+        if (event.getPlugin().getName().equals("zMenu") && this.menus == null) enableMenus();
     }
 
     @EventHandler

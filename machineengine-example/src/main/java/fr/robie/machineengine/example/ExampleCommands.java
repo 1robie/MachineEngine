@@ -2,7 +2,6 @@ package fr.robie.machineengine.example;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
-import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import fr.robie.machineengine.api.MachineEngine;
@@ -14,6 +13,7 @@ import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.paper.PositionArguments;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
@@ -27,12 +27,13 @@ import org.bukkit.plugin.Plugin;
 
 /**
  * Commands for trying the example addon from the console.
+ * Positions are {@code [<x y z>] [<world>]}, defaulting for players to the block above the one they
+ * look at.
  * <ul>
- *   <li>{@code /mexample place <x> <y> <z> <world>}: a generator with a consumer north of it</li>
- *   <li>{@code /mexample crate-test <x> <y> <z> <world>}: fill a crate with 100 iron ingots, break
- *       it, and count the dropped items</li>
- *   <li>{@code /mexample fill <x> <y> <z> <size> <world>}: a size×size grid of idle consumers, for
- *       measuring the cost of sleeping machines</li>
+ *   <li>{@code /mexample place}: a generator with a consumer north of it</li>
+ *   <li>{@code /mexample network-line}: generator, three cables, consumer</li>
+ *   <li>{@code /mexample crate-test}: fill a crate with 100 iron ingots, break it, count the drops</li>
+ *   <li>{@code /mexample fill <size>}: a size×size grid of idle consumers (idle-cost benchmark)</li>
  * </ul>
  */
 @SuppressWarnings("UnstableApiUsage")
@@ -44,17 +45,15 @@ final class ExampleCommands {
     }
 
     LiteralCommandNode<CommandSourceStack> build() {
+        // Positions are optional: a player defaults to the block above the one they look at; "~" works.
         return Commands.literal("mexample")
                 .requires(source -> source.getSender().hasPermission("machineengine.admin"))
-                .then(Commands.literal("place").then(position(onRegion(this::place))))
-                .then(Commands.literal("crate-test").then(position(onRegion(this::crateTest))))
-                .then(Commands.literal("network-line").then(position(onRegion(this::networkLine))))
+                .then(PositionArguments.optionalPosition(Commands.literal("place"), PositionArguments.Default.PLACEMENT, onRegion(this::place)))
+                .then(PositionArguments.optionalPosition(Commands.literal("crate-test"), PositionArguments.Default.PLACEMENT, onRegion(this::crateTest)))
+                .then(PositionArguments.optionalPosition(Commands.literal("network-line"), PositionArguments.Default.PLACEMENT, onRegion(this::networkLine)))
                 .then(Commands.literal("fill")
-                        .then(Commands.argument("x", IntegerArgumentType.integer())
-                                .then(Commands.argument("y", IntegerArgumentType.integer())
-                                        .then(Commands.argument("z", IntegerArgumentType.integer())
-                                                .then(Commands.argument("size", IntegerArgumentType.integer(1, 200))
-                                                        .then(Commands.argument("world", StringArgumentType.word()).executes(onRegion(this::fill))))))))
+                        .then(PositionArguments.optionalPosition(Commands.argument("size", IntegerArgumentType.integer(1, 200)),
+                                PositionArguments.Default.PLACEMENT, onRegion(this::fill))))
                 .build();
     }
 
@@ -62,15 +61,11 @@ final class ExampleCommands {
      * Runs {@code action} on the thread owning the target position (Folia: its region; Paper: the main
      * thread), because it touches the world there.
      */
-    private Command<CommandSourceStack> onRegion(Command<CommandSourceStack> action) {
-        return context -> {
-            World world = world(context);
-            if (world == null) return 0;
-            Location location = new Location(world, IntegerArgumentType.getInteger(context, "x"), 0,
-                    IntegerArgumentType.getInteger(context, "z"));
-            Bukkit.getRegionScheduler().execute(this.plugin, location, () -> {
+    private PositionArguments.PositionCommand onRegion(PositionArguments.PositionCommand action) {
+        return (context, world, x, y, z) -> {
+            Bukkit.getRegionScheduler().execute(this.plugin, new Location(world, x, y, z), () -> {
                 try {
-                    action.run(context);
+                    action.run(context, world, x, y, z);
                 } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
                     reply(context, e.getMessage());
                 }
@@ -79,20 +74,7 @@ final class ExampleCommands {
         };
     }
 
-    private static com.mojang.brigadier.builder.RequiredArgumentBuilder<CommandSourceStack, Integer> position(
-            Command<CommandSourceStack> command) {
-        return Commands.argument("x", IntegerArgumentType.integer())
-                .then(Commands.argument("y", IntegerArgumentType.integer())
-                        .then(Commands.argument("z", IntegerArgumentType.integer())
-                                .then(Commands.argument("world", StringArgumentType.word()).executes(command))));
-    }
-
-    private int place(CommandContext<CommandSourceStack> context) {
-        World world = world(context);
-        if (world == null) return 0;
-        int x = IntegerArgumentType.getInteger(context, "x");
-        int y = IntegerArgumentType.getInteger(context, "y");
-        int z = IntegerArgumentType.getInteger(context, "z");
+    private int place(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         boolean placed = place(world, x, y, z, "generator") && place(world, x, y, z - 1, "consumer");
         reply(context, placed ? "Placed a generator at " + x + " " + y + " " + z + " and a consumer north of it."
                 : "Placement failed (are the example blocks loaded in CraftEngine?)");
@@ -100,12 +82,7 @@ final class ExampleCommands {
     }
 
     /** A generator, three cables and a consumer, along north (the generator's front faces the cables). */
-    private int networkLine(CommandContext<CommandSourceStack> context) {
-        World world = world(context);
-        if (world == null) return 0;
-        int x = IntegerArgumentType.getInteger(context, "x");
-        int y = IntegerArgumentType.getInteger(context, "y");
-        int z = IntegerArgumentType.getInteger(context, "z");
+    private int networkLine(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         boolean placed = place(world, x, y, z, "generator");
         for (int i = 1; i <= 3; i++) placed &= place(world, x, y, z - i, "spark_cable");
         placed &= place(world, x, y, z - 4, "consumer");
@@ -113,12 +90,7 @@ final class ExampleCommands {
         return placed ? Command.SINGLE_SUCCESS : 0;
     }
 
-    private int crateTest(CommandContext<CommandSourceStack> context) {
-        World world = world(context);
-        if (world == null) return 0;
-        int x = IntegerArgumentType.getInteger(context, "x");
-        int y = IntegerArgumentType.getInteger(context, "y");
-        int z = IntegerArgumentType.getInteger(context, "z");
+    private int crateTest(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         if (!place(world, x, y, z, "crate")) {
             reply(context, "Crate placement failed");
             return 0;
@@ -145,12 +117,7 @@ final class ExampleCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int fill(CommandContext<CommandSourceStack> context) {
-        World world = world(context);
-        if (world == null) return 0;
-        int x = IntegerArgumentType.getInteger(context, "x");
-        int y = IntegerArgumentType.getInteger(context, "y");
-        int z = IntegerArgumentType.getInteger(context, "z");
+    private int fill(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         int size = IntegerArgumentType.getInteger(context, "size");
         int placed = 0;
         for (int dx = 0; dx < size; dx++) {
@@ -164,12 +131,6 @@ final class ExampleCommands {
 
     private static boolean place(World world, int x, int y, int z, String name) {
         return CraftEngineBlocks.place(new Location(world, x, y, z), net.momirealms.craftengine.core.util.Key.of("example", name), false);
-    }
-
-    private static World world(CommandContext<CommandSourceStack> context) {
-        World world = Bukkit.getWorld(StringArgumentType.getString(context, "world"));
-        if (world == null) reply(context, "Unknown world");
-        return world;
     }
 
     private static void reply(CommandContext<CommandSourceStack> context, String message) {

@@ -38,6 +38,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D17 | **License: GPL-3.0.** | Project owner decision (2026-10-01); compatible with CraftEngine (GPL-3.0). |
 | D18 | **Java package root `fr.robie.machineengine`**, Maven group `fr.robie`. | Project owner decision (2026-10-01). |
 | D19 | **Supported Minecraft versions: 1.20.6 to 26.3.** Compile against the 1.20.6 Paper API; test on both ends of the range. | Project owner decision (2026-10-01). 1.20.6 is the first version with item data components and Paper's lifecycle command API, both of which MachineEngine relies on. |
+| D20 | **Machine GUIs use zMenu** (latest, 1.1.1.9) as an optional dependency: menus are zMenu inventory files, machine values are zMenu placeholders, interactions are custom zMenu button types. | Project owner decision (2026-10-02): everything customizable by server owners in YAML. |
 
 ---
 
@@ -909,6 +910,14 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
+
+**GUI: done (2026-10-02), on zMenu 1.1.1.9 (D20).** Module `machineengine-zmenu`, shaded into the plugin; zMenu is an optional dependency (without it, machines have no menus).
+- **Opening:** right-clicking a machine block (not while sneaking) opens its menu, after the `machineengine.use` permission (default: everyone) and CraftEngine's anti-grief check (`OPEN_CONTAINER`, reached reflectively because AntiGriefLib is relocated in CraftEngine's plugin jar; V5 resolved). A placeholder machine tells the player its addon is missing.
+- **Fully configurable menus:** standard zMenu inventory files in `plugins/MachineEngine/menus/`. A machine type opens `menus.by-type` from `config.yml`, else the file `<namespace>_<value>.yml` (how addons ship menus; the example installs `example_crate.yml` and `example_consumer.yml` without overwriting edits), else `menus.default` (`machine.yml`, shipped).
+- **Placeholders** `%zmenu_machineengine_<key>%` work in any zMenu button and in PlaceholderAPI. They cover type, state, facing, position, storages (per storage and per slot: amount, capacity, free, percent, bar, resource), process (status, progress, percent, bar, remaining seconds), upgrades and escrow, and resolve against the machine the player has open. The logic is `MachinePlaceholders` (Paper module, unit-tested); `/machineengine placeholders <x y z> <world>` prints them for a machine.
+- **Button types:** `machineengine_slot` shows a storage slot as the real item and lets players put the cursor item in or take the stack out (`storage`, `storage-slot`, `allow-insert`, `allow-take`); `machineengine_cancel_process` cancels the process and returns its inputs (`always-show`). Both act through transactions, so nothing is lost when the player's inventory is full.
+- **Load order:** MachineEngine enables at `STARTUP`, zMenu after the worlds, so the menus are set up on zMenu's `PluginEnableEvent`.
+- **Verified** on Paper 1.20.6: zMenu loads the three menus with the custom button types, and placeholders resolve against a real machine. Clicking menus needs a player client and was not automated. The Folia run of the GUI was interrupted and is still to do.
 
 ---
 

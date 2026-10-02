@@ -1,0 +1,63 @@
+# Default MachineEngine machine menu (zMenu inventory).
+# Opens for every machine type not listed under menus.by-type in config.yml.
+#
+# Machine placeholders (any zMenu button, name or lore): %zmenu_machineengine_<key>%
+#   type, type_namespace, type_value, state, last_wake, error, facing, x, y, z, world
+#   storage_<id>_amount | _capacity | _free | _percent | _bar | _resource
+#   storage_<id>_slot_<n>_amount | _capacity | _resource      (n starts at 1)
+#   process_active | _recipe | _status | _progress | _duration | _remaining | _remaining_seconds | _percent | _bar
+#   upgrades, upgrade_<namespace>_<value>, escrow
+#
+# MachineEngine button types:
+#   machineengine_slot            shows a storage slot; click to put the cursor item in or take items out
+#                                 keys: storage, storage-slot (1-based), allow-insert, allow-take
+#   machineengine_cancel_process  cancels the running process (inputs go back); key: always-show
+#
+# Documentation of everything else: https://docs.groupez.dev/zmenu/getting-started
+
+size: 27
+name: "&8Machine &7%zmenu_machineengine_type_value%"
+# Live values: buttons with "update: true" are re-rendered every update-interval milliseconds.
+update-interval: 500
+
+items:
+  background:
+    is-permanent: true
+    item:
+      material: GRAY_STAINED_GLASS_PANE
+      name: "&8"
+    slots:
+      - 0-26
+
+  info:
+    slot: 4
+    update: true
+    item:
+      material: COMPARATOR
+      name: "&e%zmenu_machineengine_type%"
+      lore:
+        - "&7State: &f%zmenu_machineengine_state%"
+        - "&7Facing: &f%zmenu_machineengine_facing%"
+        - "&7Position: &f%zmenu_machineengine_x% %zmenu_machineengine_y% %zmenu_machineengine_z%"
+        - "&7Upgrades: &f%zmenu_machineengine_upgrades%"
+        - "&c%zmenu_machineengine_error%"
+
+  process:
+    slot: 13
+    update: true
+    item:
+      material: CLOCK
+      name: "&6Process &7(%zmenu_machineengine_process_status%)"
+      lore:
+        - "&7Recipe: &f%zmenu_machineengine_process_recipe%"
+        - "&a%zmenu_machineengine_process_bar% &f%zmenu_machineengine_process_percent%%"
+        - "&7Remaining: &f%zmenu_machineengine_process_remaining_seconds%s"
+
+  cancel:
+    type: machineengine_cancel_process
+    slot: 22
+    item:
+      material: BARRIER
+      name: "&cCancel the process"
+      lore:
+        - "&7Its inputs go back to the machine."

@@ -19,6 +19,9 @@ dependencyResolutionManagement {
         maven("https://repo.momirealms.net/snapshots/") {
             mavenContent { snapshotsOnly() }
         }
+        maven("https://repo.groupez.dev/releases") {
+            mavenContent { includeGroup("fr.maxlego08.menu") }
+        }
         maven("https://repo.momirealms.net/releases/") {
             mavenContent { releasesOnly() }
         }
@@ -31,6 +34,7 @@ include(
     "machineengine-test",
     "machineengine-paper",
     "machineengine-craftengine",
+    "machineengine-zmenu",
     "machineengine-plugin",
     "machineengine-example",
 )

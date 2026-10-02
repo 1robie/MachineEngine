@@ -81,6 +81,23 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
         if (machine != null) machine.wake(WakeReason.NEIGHBOR_CHANGED);
     }
 
+    /** Right-click: open the machine's menu (§23.3). */
+    @Override
+    public net.momirealms.craftengine.core.entity.player.InteractionResult useWithoutItem(
+            net.momirealms.craftengine.core.world.context.UseOnContext context, ImmutableBlockState state) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        net.momirealms.craftengine.core.entity.player.Player player = context.getPlayer();
+        if (host == null || player == null || player.isSecondaryUseActive()) {
+            return net.momirealms.craftengine.core.entity.player.InteractionResult.PASS;
+        }
+        org.bukkit.World world = (org.bukkit.World) context.getLevel().platformWorld();
+        BlockPos pos = context.getClickedPos();
+        boolean opened = host.interact((org.bukkit.entity.Player) player.platformPlayer(),
+                WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
+        return opened ? net.momirealms.craftengine.core.entity.player.InteractionResult.SUCCESS_AND_CANCEL
+                : net.momirealms.craftengine.core.entity.player.InteractionResult.PASS;
+    }
+
     @Override
     public BlockEntityController createBlockEntityController(BlockEntity blockEntity) {
         return new MachineBlockEntityController(blockEntity, this);

@@ -26,6 +26,27 @@ public final class ExamplePlugin extends JavaPlugin {
                 .register(ExampleContent::register)
                 .build());
         installCraftEnginePack();
+        installMenus();
+    }
+
+    /**
+     * Installs the example's machine menus into MachineEngine's menus folder. Menu files are named
+     * {@code <namespace>_<value>.yml}, which MachineEngine maps to that machine type. Existing files
+     * are kept, so server owners can edit them.
+     */
+    private void installMenus() {
+        Path menus = getDataFolder().toPath().getParent().resolve("MachineEngine/menus");
+        for (String file : List.of("example_crate.yml", "example_consumer.yml")) {
+            Path destination = menus.resolve(file);
+            if (Files.exists(destination)) continue;
+            try (InputStream in = getResource("machineengine-menus/" + file)) {
+                if (in == null) throw new IOException("missing resource " + file);
+                Files.createDirectories(menus);
+                Files.copy(in, destination);
+            } catch (IOException e) {
+                getLogger().warning("Could not install the menu " + file + ": " + e.getMessage());
+            }
+        }
     }
 
     @Override

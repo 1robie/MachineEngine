@@ -4,6 +4,13 @@ limits:
   # Most machines a single chunk may hold (players with machineengine.admin are exempt). 0 = no limit.
   max-machines-per-chunk: 256
 
+menus:
+  # Machine menus use zMenu (https://modrinth.com/plugin/zmenu). Menu files live in menus/.
+  # A machine opens menus.by-type, else the file <namespace>_<value>.yml, else this default.
+  default: machine
+  by-type: {}
+  #   example:generator: machine
+
 placeholders:
   # Whether players without machineengine.admin.breakplaceholders may break placeholder machines
   # (machines whose addon is not installed). Breaking one destroys its data.

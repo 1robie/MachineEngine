@@ -39,10 +39,42 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     private final Plugin plugin;
     private final CoreMachineEngine engine;
     private final Map<WorldPosition, MachineBlockEntityController> controllers = new ConcurrentHashMap<>();
+    private final CraftEngineProtection protection;
+    private volatile @Nullable fr.robie.machineengine.paper.MachineMenuService menus;
 
     private CraftEngineMachineHost(Plugin plugin, CoreMachineEngine engine) {
         this.plugin = plugin;
         this.engine = engine;
+        this.protection = new CraftEngineProtection(plugin.getLogger());
+    }
+
+    /** The menu integration (zMenu), or {@code null} for no machine GUIs. */
+    public void setMenus(@Nullable fr.robie.machineengine.paper.MachineMenuService menus) {
+        this.menus = menus;
+    }
+
+    /**
+     * A player right-clicked a machine block (player's thread): checks permission and claims, then
+     * opens the machine's menu.
+     *
+     * @return whether the click was handled
+     */
+    boolean interact(@NotNull org.bukkit.entity.Player player, @NotNull WorldPosition position) {
+        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+        LoadedMachine machine = machine(position);
+        if (service == null || machine == null) return false;
+        if (machine.instance() == null) {
+            player.sendMessage(net.kyori.adventure.text.Component.text("This machine belongs to an addon that is not installed ("
+                    + machine.inspect().type().asString() + ").", net.kyori.adventure.text.format.NamedTextColor.RED));
+            return true;
+        }
+        if (!player.hasPermission("machineengine.use")) return false;
+        World world = world(position.world());
+        if (world != null && !this.protection.canOpen(player, new org.bukkit.Location(world,
+                position.position().x(), position.position().y(), position.position().z()))) {
+            return true;
+        }
+        return service.open(player, machine);
     }
 
     public static @NotNull CraftEngineMachineHost start(@NotNull Plugin plugin, @NotNull CoreMachineEngine engine) {

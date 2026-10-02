@@ -55,6 +55,20 @@ CraftEngine (MachineEngine must then refuse to load).
 Servers run in `run/paper-<version>/`. On first start Paper stops and asks you to accept the
 Minecraft EULA in `run/paper-<version>/eula.txt`.
 
+## Machine menus (zMenu)
+
+With [zMenu](https://modrinth.com/plugin/zmenu) installed, right-clicking a machine opens its
+menu. Menus are ordinary zMenu inventories in `plugins/MachineEngine/menus/`:
+
+- `machine.yml` is the default menu; `<namespace>_<value>.yml` (e.g. `example_crate.yml`) is used
+  for that machine type; `menus.by-type` in `config.yml` overrides both.
+- `%zmenu_machineengine_<key>%` placeholders show live machine values (state, storages, process
+  bar …); see the comments in `machine.yml` for the full list.
+- Button types `machineengine_slot` (a storage slot players can put items into or take from) and
+  `machineengine_cancel_process`.
+
+Dev servers download zMenu automatically (`-PwithZMenu=false` to leave it out).
+
 ## Example addon and commands
 
 `machineengine-example` is a small addon built only on the API: a spark generator and a spark
@@ -67,8 +81,13 @@ mexample place 0 100 0 world
 machineengine machine 0 100 0 world
 ```
 
-Admin commands (`machineengine.admin`): `/machineengine status`, `report`, `inspect` (the block you
-look at), `machine <x> <y> <z> [world]`, `registry <name>`, `reload recipes|tags`.
+In game, positions are optional: `/mexample place` builds on the block you look at, and
+`/machineengine machine` inspects the block you look at. Coordinates accept `~`, and the world (a
+name like `world` or a key like `minecraft:overworld`) defaults to yours.
+
+Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
+`machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,
+`placeholders [<x y z>] [world]`, `registry <name>`, `reload recipes|tags`.
 
 ## License
 

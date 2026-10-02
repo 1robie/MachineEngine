@@ -1,0 +1,164 @@
+package fr.robie.machineengine.zmenu;
+
+import fr.maxlego08.menu.api.ButtonManager;
+import fr.maxlego08.menu.api.Inventory;
+import fr.maxlego08.menu.api.InventoryListener;
+import fr.maxlego08.menu.api.InventoryManager;
+import fr.maxlego08.menu.api.engine.BaseInventory;
+import fr.maxlego08.menu.api.placeholder.LocalPlaceholder;
+import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.paper.MachineLocator;
+import fr.robie.machineengine.paper.MachineMenuService;
+import fr.robie.machineengine.paper.MachinePlaceholders;
+import net.kyori.adventure.key.Key;
+import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
+import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
+
+import java.io.File;
+import java.util.LinkedHashMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+
+/**
+ * Machine menus on zMenu (§23.3). Everything is configured in YAML:
+ * <ul>
+ *   <li>menu files in {@code plugins/MachineEngine/menus/} (standard zMenu inventories);</li>
+ *   <li>a machine type opens {@code menus.by-type} from {@code config.yml}, else the menu file
+ *       {@code <namespace>_<value>.yml}, else {@code menus.default};</li>
+ *   <li>placeholders {@code %zmenu_machineengine_<key>%} ({@link MachinePlaceholders}) resolve
+ *       against the machine the player has open, in any zMenu button;</li>
+ *   <li>button types {@code machineengine_slot} and {@code machineengine_cancel_process} interact
+ *       with the machine.</li>
+ * </ul>
+ */
+public final class ZMenuMachineMenus implements MachineMenuService {
+    public static final String PLACEHOLDER_PREFIX = "machineengine_";
+    static final String DEFAULT_MENU_RESOURCE = "menus/machine.yml";
+
+    private final Plugin plugin;
+    private final InventoryManager inventories;
+    private final ButtonManager buttons;
+    private final MachineLocator locator;
+    private final Map<String, Inventory> menus = new LinkedHashMap<>();
+    private final Map<UUID, WorldPosition> openMachines = new ConcurrentHashMap<>();
+    private final InventoryListener listener;
+    private Map<Key, String> menuByType = Map.of();
+    private String defaultMenu = "machine";
+
+    private ZMenuMachineMenus(Plugin plugin, InventoryManager inventories, ButtonManager buttons, MachineLocator locator) {
+        this.plugin = plugin;
+        this.inventories = inventories;
+        this.buttons = buttons;
+        this.locator = locator;
+        this.listener = new InventoryListener() {
+            @Override
+            public void onInventoryClose(Player player, BaseInventory baseInventory) {
+                ZMenuMachineMenus.this.openMachines.remove(player.getUniqueId());
+            }
+        };
+    }
+
+    /**
+     * Must run in {@code onEnable}, after zMenu enabled: button types must exist before menu files load.
+     *
+     * @return {@code null} if zMenu's services are not available
+     */
+    public static @Nullable ZMenuMachineMenus enable(@NotNull Plugin plugin, @NotNull MachineLocator locator) {
+        InventoryManager inventories = plugin.getServer().getServicesManager().load(InventoryManager.class);
+        ButtonManager buttons = plugin.getServer().getServicesManager().load(ButtonManager.class);
+        if (inventories == null || buttons == null) return null;
+        ZMenuMachineMenus menus = new ZMenuMachineMenus(plugin, inventories, buttons, locator);
+        buttons.register(new SlotButton.Loader(plugin, menus));
+        buttons.register(new CancelProcessButton.Loader(plugin, menus));
+        LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
+        inventories.registerInventoryListener(menus.listener);
+        menus.reload();
+        return menus;
+    }
+
+    public void disable() {
+        this.inventories.unregisterInventoryListener(this.listener);
+        this.inventories.deleteInventories(this.plugin);
+        this.buttons.unregisters(this.plugin);
+        this.openMachines.clear();
+    }
+
+    @Override
+    public void reload() {
+        this.inventories.deleteInventories(this.plugin);
+        this.menus.clear();
+        var config = this.plugin.getConfig();
+        this.defaultMenu = config.getString("menus.default", "machine");
+        Map<Key, String> byType = new LinkedHashMap<>();
+        var section = config.getConfigurationSection("menus.by-type");
+        if (section != null) {
+            for (String type : section.getKeys(false)) byType.put(Key.key(type), section.getString(type));
+        }
+        this.menuByType = Map.copyOf(byType);
+
+        File folder = new File(this.plugin.getDataFolder(), "menus");
+        if (!new File(this.plugin.getDataFolder(), DEFAULT_MENU_RESOURCE).exists()) {
+            this.plugin.saveResource(DEFAULT_MENU_RESOURCE, false);
+        }
+        File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
+        if (files == null) return;
+        for (File file : files) {
+            String name = file.getName().substring(0, file.getName().length() - 4);
+            try {
+                Inventory inventory = this.inventories.loadInventory(this.plugin, file);
+                if (inventory != null) this.menus.put(name, inventory);
+            } catch (Exception e) {
+                this.plugin.getLogger().log(Level.WARNING, "Could not load machine menu " + file.getName() + ": " + e.getMessage(), e);
+            }
+        }
+        this.plugin.getLogger().info("Loaded " + this.menus.size() + " machine menu(s) " + this.menus.keySet());
+    }
+
+    @Override
+    public boolean open(@NotNull Player player, @NotNull LoadedMachine machine) {
+        Inventory menu = this.menus.get(menuName(machine.inspect().type()));
+        if (menu == null) return false;
+        this.openMachines.put(player.getUniqueId(), machine.position());
+        this.inventories.openInventory(player, menu);
+        return true;
+    }
+
+    /**
+     * Which menu a machine type opens: {@code menus.by-type} in config.yml, else a menu file named
+     * {@code <namespace>_<value>.yml} (how addons ship menus), else {@code menus.default}.
+     */
+    @NotNull String menuName(@NotNull Key type) {
+        String configured = this.menuByType.get(type);
+        if (configured != null) return configured;
+        String conventional = type.namespace() + "_" + type.value();
+        return this.menus.containsKey(conventional) ? conventional : this.defaultMenu;
+    }
+
+    /** The machine whose menu {@code player} has open, if it is still loaded. */
+    @Nullable LoadedMachine machineOf(@NotNull OfflinePlayer player) {
+        WorldPosition position = this.openMachines.get(player.getUniqueId());
+        return position == null ? null : this.locator.machine(position);
+    }
+
+    /** Re-renders the player's open menu after a change. */
+    void refresh(@NotNull Player player) {
+        this.inventories.updateInventory(player, this.plugin);
+    }
+
+    private @Nullable String placeholder(OfflinePlayer player, String key) {
+        LoadedMachine machine = machineOf(player);
+        return machine == null ? "" : MachinePlaceholders.resolve(machine.inspect(), key);
+    }
+
+    /** Menu file names loaded, for status output. */
+    public @NotNull java.util.Set<String> menuNames() {
+        return java.util.Collections.unmodifiableSet(this.menus.keySet());
+    }
+}

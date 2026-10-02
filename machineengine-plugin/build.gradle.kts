@@ -20,6 +20,8 @@ val devAddons: Configuration by configurations.creating {
 
 dependencies {
     implementation(project(":machineengine-craftengine"))
+    implementation(project(":machineengine-zmenu"))
+    compileOnly(libs.zmenu.api)
     compileOnly(libs.paper.api)
     compileOnly("net.momirealms:craft-engine-core:$craftEngineVersion") { isTransitive = false }
     compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }
@@ -42,6 +44,22 @@ paper {
             required = true
             load = PaperPluginDescription.RelativeLoadOrder.BEFORE
             joinClasspath = true
+        }
+        // Machine menus (optional).
+        register("zMenu") {
+            required = false
+            load = PaperPluginDescription.RelativeLoadOrder.BEFORE
+            joinClasspath = true
+        }
+    }
+    permissions {
+        register("machineengine.use") {
+            description = "Open machine menus"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
+        }
+        register("machineengine.admin") {
+            description = "MachineEngine admin commands"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
         }
     }
 }
@@ -104,6 +122,9 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int, folia: Boolean
             }
             "none" -> {} // checks that MachineEngine refuses to load without CraftEngine
             else -> error("Unknown craftengine_runtime '$craftEngineRuntime' (expected dev, modrinth or none)")
+        }
+        if (providers.gradleProperty("withZMenu").orElse("true").get() == "true") {
+            downloadPlugins { modrinth("zmenu", libs.versions.zmenu.get()) }
         }
         jvmArgs("-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
     }

@@ -1,7 +1,6 @@
 package fr.robie.machineengine.paper;
 
 import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
@@ -23,11 +22,8 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
@@ -58,20 +54,11 @@ public final class MachineEngineCommands {
                 .requires(source -> source.getSender().hasPermission(PERMISSION))
                 .then(Commands.literal("status").executes(this::status))
                 .then(Commands.literal("report").executes(this::report))
-                .then(Commands.literal("inspect").executes(this::inspectTarget))
-                .then(Commands.literal("machine")
-                        .then(Commands.argument("x", IntegerArgumentType.integer())
-                                .then(Commands.argument("y", IntegerArgumentType.integer())
-                                        .then(Commands.argument("z", IntegerArgumentType.integer())
-                                                .executes(context -> inspectAt(context, null))
-                                                .then(Commands.argument("world", StringArgumentType.greedyString())
-                                                        .executes(context -> inspectAt(context, StringArgumentType.getString(context, "world"))))))))
-                .then(Commands.literal("network")
-                        .then(Commands.argument("x", IntegerArgumentType.integer())
-                                .then(Commands.argument("y", IntegerArgumentType.integer())
-                                        .then(Commands.argument("z", IntegerArgumentType.integer())
-                                                .then(Commands.argument("world", StringArgumentType.greedyString())
-                                                        .executes(this::network))))))
+                // Positions are optional: a player defaults to the block they look at; "~" works.
+                .then(PositionArguments.optionalPosition(Commands.literal("inspect"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
+                .then(PositionArguments.optionalPosition(Commands.literal("machine"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
+                .then(PositionArguments.optionalPosition(Commands.literal("placeholders"), PositionArguments.Default.TARGET_BLOCK, this::placeholders))
+                .then(PositionArguments.optionalPosition(Commands.literal("network"), PositionArguments.Default.TARGET_BLOCK, this::network))
                 .then(Commands.literal("registry")
                         .then(Commands.argument("registry", StringArgumentType.greedyString())
                                 .suggests((context, builder) -> {
@@ -114,57 +101,50 @@ public final class MachineEngineCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private int inspectTarget(CommandContext<CommandSourceStack> context) {
+    private int inspectAt(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         CommandSender sender = context.getSource().getSender();
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage(Component.text("Look at a machine, or use /machineengine machine <x> <y> <z> [world].", NamedTextColor.RED));
-            return 0;
-        }
-        Block block = player.getTargetBlockExact(8);
-        if (block == null) {
-            sender.sendMessage(Component.text("You are not looking at a block.", NamedTextColor.RED));
-            return 0;
-        }
-        return inspect(sender, WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ()));
-    }
-
-    private int inspectAt(CommandContext<CommandSourceStack> context, String worldName) {
-        CommandSender sender = context.getSource().getSender();
-        World world;
-        if (worldName != null) {
-            world = Bukkit.getWorld(worldName);
-            if (world == null) {
-                NamespacedKey key = NamespacedKey.fromString(worldName);
-                world = key == null ? null : Bukkit.getWorld(key);
-            }
-        } else {
-            world = context.getSource().getLocation().getWorld();
-        }
-        if (world == null) {
-            sender.sendMessage(Component.text("Unknown world.", NamedTextColor.RED));
-            return 0;
-        }
-        WorldPosition position = WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
-                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
+        WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         // Machines are read on the thread that owns them (Folia: their region).
-        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
-                () -> inspect(sender, position));
+        onRegion(position, world, () -> inspect(sender, position));
         return Command.SINGLE_SUCCESS;
     }
 
-    private int network(CommandContext<CommandSourceStack> context) {
+    private int network(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
         CommandSender sender = context.getSource().getSender();
         CoreMachineEngine running = this.engine.get();
-        World world = Bukkit.getWorld(StringArgumentType.getString(context, "world"));
-        if (running == null || world == null) {
-            sender.sendMessage(Component.text("Unknown world, or MachineEngine is not running.", NamedTextColor.RED));
+        if (running == null) {
+            sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
             return 0;
         }
-        WorldPosition position = WorldPosition.of(world.getKey(), IntegerArgumentType.getInteger(context, "x"),
-                IntegerArgumentType.getInteger(context, "y"), IntegerArgumentType.getInteger(context, "z"));
-        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
-                () -> describeNetwork(sender, running, position));
+        WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
+        onRegion(position, world, () -> describeNetwork(sender, running, position));
         return Command.SINGLE_SUCCESS;
+    }
+
+    /** Prints the menu placeholders of a machine, e.g. to check a menu without opening it. */
+    private int placeholders(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
+        CommandSender sender = context.getSource().getSender();
+        WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
+        onRegion(position, world, () -> {
+            LoadedMachine machine = this.locator.get().machine(position);
+            if (machine == null) {
+                sender.sendMessage(Component.text("No machine is loaded at " + position + ".", NamedTextColor.RED));
+                return;
+            }
+            MachineInspection inspection = machine.inspect();
+            List<String> keys = new java.util.ArrayList<>(List.of("type", "state", "facing", "process_status", "process_bar",
+                    "process_percent", "process_remaining_seconds", "upgrades"));
+            inspection.storages().keySet().forEach(id -> keys.addAll(List.of("storage_" + id + "_amount",
+                    "storage_" + id + "_capacity", "storage_" + id + "_bar", "storage_" + id + "_resource")));
+            for (String key : keys) {
+                sender.sendMessage(line("%zmenu_machineengine_" + key + "%", String.valueOf(MachinePlaceholders.resolve(inspection, key))));
+            }
+        });
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private void onRegion(WorldPosition position, World world, Runnable task) {
+        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(), task);
     }
 
     private void describeNetwork(CommandSender sender, CoreMachineEngine running, WorldPosition position) {
@@ -179,14 +159,13 @@ public final class MachineEngineCommands {
         network.endpoints().forEach(endpoint -> sender.sendMessage(line("  endpoint", endpoint)));
     }
 
-    private int inspect(CommandSender sender, WorldPosition position) {
+    private void inspect(CommandSender sender, WorldPosition position) {
         LoadedMachine machine = this.locator.get().machine(position);
         if (machine == null) {
             sender.sendMessage(Component.text("No machine is loaded at " + position + ".", NamedTextColor.RED));
-            return 0;
+            return;
         }
         for (String line : describe(machine.inspect())) sender.sendMessage(Component.text(line));
-        return Command.SINGLE_SUCCESS;
     }
 
     /** Human-readable inspection; also used in logs. */
