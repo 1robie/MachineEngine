@@ -49,6 +49,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     @Override
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
+        // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
+        fr.robie.machineengine.paper.ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/");
         CraftEngineIntegration.registerBlockBehavior();
         installCraftEnginePack();
     }

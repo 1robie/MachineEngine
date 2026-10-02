@@ -246,6 +246,37 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
+    public @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null || !(block.getBlockData() instanceof org.bukkit.block.data.Levelled levelled)) return null;
+        Key fluid = switch (block.getType()) {
+            case WATER -> Key.key("minecraft", "water");
+            case LAVA -> Key.key("minecraft", "lava");
+            default -> null;
+        };
+        return fluid == null ? null : new fr.robie.machineengine.api.world.WorldFluid(fluid, levelled.getLevel() == 0);
+    }
+
+    @Override
+    public boolean takeWorldFluid(@NotNull WorldPosition position) {
+        var fluid = worldFluidAt(position);
+        if (fluid == null || !fluid.source()) return false;
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null) return false;
+        block.setType(org.bukkit.Material.AIR, true);
+        return true;
+    }
+
+    /** The block at {@code position} if its chunk is loaded and this thread owns it, else null. */
+    private @Nullable org.bukkit.block.Block ownedBlock(WorldPosition position) {
+        World world = world(position.world());
+        if (world == null || !isOwnedByCurrentThread(position)) return null;
+        var at = position.position();
+        if (!world.isChunkLoaded(at.chunkX(), at.chunkZ())) return null;
+        return world.getBlockAt(at.x(), at.y(), at.z());
+    }
+
+    @Override
     public void activeChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.activeChanged();

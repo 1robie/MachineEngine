@@ -12,13 +12,19 @@ internal object CableModels {
     val DIRECTIONS = listOf("north", "south", "east", "west", "up", "down")
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
-    /** Writes `models/block/cable/<name>/center.json` and one per direction; returns the model paths. */
-    fun write(modelsRoot: File, name: String, texture: String): Map<String, String> {
+    /**
+     * Writes `models/block/cable/<name>/center.json` and one per direction; returns the model paths.
+     *
+     * @param low the low edge of the square section, in pixels: 5 for small transmitters (cables,
+     *            tubes: 32x32 textures, center at UV 5..11), 4 for large ones (pipes: 16x16, 4..12)
+     */
+    fun write(modelsRoot: File, name: String, texture: String, low: Int = 5): Map<String, String> {
+        val high = 16 - low
         val textures = mapOf("center" to "mekanized:block/models/multipart/$texture",
             "side" to "mekanized:block/models/multipart/${texture}_vertical", "particle" to "mekanized:block/models/multipart/$texture")
         val paths = linkedMapOf<String, String>()
-        paths["center"] = model(modelsRoot, name, "center", textures, listOf(cube(5, 5, 5, 11, 11, 11, null)))
-        for (direction in DIRECTIONS) paths[direction] = model(modelsRoot, name, direction, textures, listOf(arm(direction)))
+        paths["center"] = model(modelsRoot, name, "center", textures, listOf(cube(low, low, low, high, high, high, null, low)))
+        for (direction in DIRECTIONS) paths[direction] = model(modelsRoot, name, direction, textures, listOf(arm(direction, low)))
         return paths
     }
 
@@ -37,32 +43,41 @@ internal object CableModels {
     }
 
     /** An arm from the center piece to the block's edge in [direction]. */
-    private fun arm(direction: String): Map<String, Any> = when (direction) {
-        "north" -> cube(5, 5, 0, 11, 11, 5, "z")
-        "south" -> cube(5, 5, 11, 11, 11, 16, "z")
-        "west" -> cube(0, 5, 5, 5, 11, 11, "x")
-        "east" -> cube(11, 5, 5, 16, 11, 11, "x")
-        "down" -> cube(5, 0, 5, 11, 5, 11, "y")
-        else -> cube(5, 11, 5, 11, 16, 11, "y")
+    private fun arm(direction: String, l: Int): Map<String, Any> {
+        val h = 16 - l
+        return when (direction) {
+            "north" -> cube(l, l, 0, h, h, l, "z", l)
+            "south" -> cube(l, l, h, h, h, 16, "z", l)
+            "west" -> cube(0, l, l, l, h, h, "x", l)
+            "east" -> cube(h, l, l, 16, h, h, "x", l)
+            "down" -> cube(l, 0, l, h, l, h, "y", l)
+            else -> cube(l, h, l, h, 16, h, "y", l)
+        }
     }
 
     /**
      * A box with all six faces. For an arm ([axis] = its length axis), faces along the length use the
      * side strip, turned so the strip follows the arm; the end caps and the center use the center square.
      */
-    private fun cube(x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int, axis: String?): Map<String, Any> {
+    private fun cube(x1: Int, y1: Int, z1: Int, x2: Int, y2: Int, z2: Int, axis: String?, low: Int): Map<String, Any> {
+        val high = 16 - low
+        // Mekanism's OBJ UVs. Small (32x32 textures): the center square 5..11, the side strip [5,0,11,5].
+        // Large (16x16): the whole center texture, the side texture across its width, along rows 4..12.
+        val large = low == 4
+        val centerUv = if (large) listOf(0, 0, 16, 16) else listOf(low, low, high, high)
+        val sideUv = if (large) listOf(0, 4, 16, 12) else listOf(low, 0, high, low)
         val faces = linkedMapOf<String, Any>()
         for (face in listOf("north", "south", "east", "west", "up", "down")) {
             val faceAxis = when (face) { "north", "south" -> "z"; "east", "west" -> "x"; else -> "y" }
             if (axis == null || faceAxis == axis) {
-                faces[face] = mapOf("uv" to listOf(5, 5, 11, 11), "texture" to "#center")
+                faces[face] = mapOf("uv" to centerUv, "texture" to "#center")
                 continue
             }
             // u is x on north/south and up/down faces, z on east/west faces; v is y, or z on up/down.
             val uAxis = when (face) { "east", "west" -> "z"; else -> "x" }
             val alongU = uAxis == axis
-            faces[face] = if (alongU) mapOf("uv" to listOf(5, 0, 11, 5), "rotation" to 90, "texture" to "#side")
-            else mapOf("uv" to listOf(5, 0, 11, 5), "texture" to "#side")
+            faces[face] = if (alongU) mapOf("uv" to sideUv, "rotation" to 90, "texture" to "#side")
+            else mapOf("uv" to sideUv, "texture" to "#side")
         }
         return linkedMapOf("from" to listOf(x1, y1, z1), "to" to listOf(x2, y2, z2), "faces" to faces)
     }

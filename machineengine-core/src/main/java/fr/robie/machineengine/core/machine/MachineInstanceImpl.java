@@ -183,7 +183,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.sideHandlers.clear();
         Map<Direction, List<ResourceHandler>> bySide = new EnumMap<>(Direction.class);
         for (PortHandler port : this.ports) {
-            if (port.definition().direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            if (port.direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
             for (RelativeSide side : port.definition().sides()) {
                 bySide.computeIfAbsent(side.toAbsolute(this.facing), direction -> new ArrayList<>()).add(port);
             }
@@ -816,6 +816,38 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         @Override
         public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment() {
             return host.environment(position);
+        }
+
+        @Override
+        public @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.worldFluidAt(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public boolean takeWorldFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.takeWorldFluid(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public void setPortDirection(@NotNull String id, @NotNull fr.robie.machineengine.api.machine.PortDirection direction) {
+            PortHandler port = port(id);
+            if (port.direction() == direction) return;
+            port.setDirection(direction);
+            rebuildSides();
+            // Networks re-read their endpoints; a sleeping one may have something to move now.
+            services.networks().machineChanged(position);
+        }
+
+        @Override
+        public @NotNull fr.robie.machineengine.api.machine.PortDirection portDirection(@NotNull String id) {
+            return port(id).direction();
+        }
+
+        private PortHandler port(String id) {
+            for (PortHandler port : ports) {
+                if (port.definition().id().equals(id)) return port;
+            }
+            throw new IllegalArgumentException(type.key().asString() + " has no port '" + id + "'");
         }
 
         @Override

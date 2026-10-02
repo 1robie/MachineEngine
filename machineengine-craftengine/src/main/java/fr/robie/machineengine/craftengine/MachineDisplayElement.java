@@ -30,6 +30,7 @@ import java.util.UUID;
  */
 final class MachineDisplayElement implements BlockEntityElement {
     private final String displayItem;
+    private final int rotation;
     private final BlockPos pos;
     private final int id = EntityUtils.ENTITY_COUNTER.incrementAndGet();
     private final UUID uuid = UUID.randomUUID();
@@ -38,8 +39,9 @@ final class MachineDisplayElement implements BlockEntityElement {
     private volatile boolean active;
     private volatile @Nullable List<Object> packets;
 
-    MachineDisplayElement(@NotNull String displayItem, @NotNull BlockPos pos) {
+    MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull BlockPos pos) {
         this.displayItem = displayItem;
+        this.rotation = rotation;
         this.pos = pos;
         IntArrayList ids = new IntArrayList();
         ids.add(this.id);
@@ -78,12 +80,13 @@ final class MachineDisplayElement implements BlockEntityElement {
         if (stack == null && this.active) stack = stack(this.displayItem);
         if (stack == null) return null;
         // The model's north side faces the entity's facing: yaw south 0, west 90, north 180, east 270.
-        float yaw = switch (this.facing) {
+        // Plus the model's own turn when facing north (blockstate "y"), clockwise from above like yaw.
+        float yaw = (switch (this.facing) {
             case SOUTH -> 0f;
             case WEST -> 90f;
             case EAST -> 270f;
             default -> 180f;
-        };
+        } + this.rotation) % 360f;
         float pitch = this.facing == Direction.UP ? -90f : this.facing == Direction.DOWN ? 90f : 0f;
         Object add = ClientboundAddEntityPacketProxy.INSTANCE.newInstance(this.id, this.uuid,
                 this.pos.x() + 0.5, this.pos.y() + 0.5, this.pos.z() + 0.5, pitch, yaw, EntityTypesProxy.ITEM_DISPLAY, 0, Vec3Proxy.ZERO, yaw);

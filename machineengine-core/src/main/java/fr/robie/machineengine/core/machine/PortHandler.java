@@ -1,6 +1,7 @@
 package fr.robie.machineengine.core.machine;
 
 import fr.robie.machineengine.api.machine.PortDefinition;
+import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
@@ -23,6 +24,8 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
     private final Supplier<ResourceTags> tags;
     private final LongSupplier gameTime;
     private final LongSupplier rate;
+    /** The type's direction, or what the machine set ({@code MachineContext#setPortDirection}). */
+    private volatile PortDirection direction;
     private long usageTick = Long.MIN_VALUE;
     private long used;
 
@@ -33,15 +36,24 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
         this.tags = tags;
         this.gameTime = gameTime;
         this.rate = rate;
+        this.direction = definition.direction();
     }
 
     PortDefinition definition() {
         return this.definition;
     }
 
+    PortDirection direction() {
+        return this.direction;
+    }
+
+    void setDirection(PortDirection direction) {
+        this.direction = direction;
+    }
+
     @Override
     public long insert(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
-        if (!this.definition.direction().allowsInsertion()) return 0;
+        if (!this.direction.allowsInsertion()) return 0;
         long allowed = allowed(variant, maxAmount);
         if (allowed == 0) return 0;
         return consume(this.storage.insert(variant, allowed, transaction), transaction);
@@ -49,7 +61,7 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
 
     @Override
     public long extract(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
-        if (!this.definition.direction().allowsExtraction()) return 0;
+        if (!this.direction.allowsExtraction()) return 0;
         long allowed = allowed(variant, maxAmount);
         if (allowed == 0) return 0;
         return consume(this.storage.extract(variant, allowed, transaction), transaction);
@@ -62,12 +74,12 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
 
     @Override
     public boolean supportsInsertion() {
-        return this.definition.direction().allowsInsertion();
+        return this.direction.allowsInsertion();
     }
 
     @Override
     public boolean supportsExtraction() {
-        return this.definition.direction().allowsExtraction();
+        return this.direction.allowsExtraction();
     }
 
     private long allowed(ResourceVariant variant, long maxAmount) {

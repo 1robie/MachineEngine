@@ -77,6 +77,29 @@ public final class FakeWorld implements MachineHost {
     }
 
     private fr.robie.machineengine.api.machine.MachineEnvironment environment = fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
+    private final Map<WorldPosition, fr.robie.machineengine.api.world.WorldFluid> fluids = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Puts a fluid (e.g. {@code minecraft:water}) at {@code position}, or removes it ({@code null}). */
+    public void setFluid(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid fluid) {
+        if (fluid == null) this.fluids.remove(position);
+        else this.fluids.put(position, fluid);
+    }
+
+    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid fluidAt(@NotNull WorldPosition position) {
+        return this.fluids.get(position);
+    }
+
+    @Override
+    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+        return isOwnedByCurrentThread(position) ? this.fluids.get(position) : null;
+    }
+
+    @Override
+    public boolean takeWorldFluid(@NotNull WorldPosition position) {
+        if (!isOwnedByCurrentThread(position)) return false;
+        var fluid = this.fluids.get(position);
+        return fluid != null && fluid.source() && this.fluids.remove(position, fluid);
+    }
 
     /** What every machine in this world sees of the sky (E3). */
     public void setEnvironment(@NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment) {

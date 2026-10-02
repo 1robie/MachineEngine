@@ -10,7 +10,9 @@ import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.RelativeSide;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -97,6 +99,30 @@ public interface MachineContext {
 
     /** What the machine's block sees of the world: sky, daytime, weather (E3). */
     @NotNull MachineEnvironment environment();
+
+    /**
+     * The fluid in the world block at {@code position}, or {@code null} if there is none, or the block
+     * is not loaded or not owned by this thread (Folia: another region), E5.
+     */
+    default @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull BlockPosition position) {
+        return null;
+    }
+
+    /** Removes the world's fluid source block at {@code position}; same rules as {@link #worldFluidAt}. */
+    default boolean takeWorldFluid(@NotNull BlockPosition position) {
+        return false;
+    }
+
+    /**
+     * Changes how one of this machine's ports works, e.g. a machine whose mode turns an input into an
+     * output. Not saved: a behavior sets it again from its own data in {@link MachineBehavior#onLoad}.
+     *
+     * @param port a {@link PortDefinition#id()} of this machine's type
+     */
+    void setPortDirection(@NotNull String port, @NotNull PortDirection direction);
+
+    /** The port's current direction ({@link #setPortDirection}, or the type's). */
+    @NotNull PortDirection portDirection(@NotNull String port);
 
     // -- neighbors -----------------------------------------------------------------------------
 

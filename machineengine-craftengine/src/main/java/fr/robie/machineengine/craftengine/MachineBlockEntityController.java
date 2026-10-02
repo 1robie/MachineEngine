@@ -46,7 +46,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
         this.behavior = behavior;
-        this.display = behavior.displayItem() == null ? null : new MachineDisplayElement(behavior.displayItem(), blockEntity.pos());
+        this.display = behavior.displayItem() == null ? null : new MachineDisplayElement(behavior.displayItem(),
+                behavior.displayRotation(), blockEntity.pos());
     }
 
     @Override

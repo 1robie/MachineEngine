@@ -37,6 +37,16 @@ public interface MachineHost {
         return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
     }
 
+    /** The fluid in the block at {@code position}, or null (none, not loaded, not owned): E5. */
+    default @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+        return null;
+    }
+
+    /** Removes the fluid source block at {@code position}; false if there is none or it is not owned. */
+    default boolean takeWorldFluid(@NotNull WorldPosition position) {
+        return false;
+    }
+
     /** The machine started or stopped working visibly ({@link fr.robie.machineengine.api.machine.MachineContext#setActive}). */
     default void activeChanged(@NotNull MachineInstanceImpl machine) {
     }

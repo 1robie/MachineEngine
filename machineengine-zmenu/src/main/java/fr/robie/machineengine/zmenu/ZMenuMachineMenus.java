@@ -34,7 +34,7 @@ import java.util.logging.Level;
  *       {@code <namespace>_<value>.yml}, else {@code menus.default};</li>
  *   <li>placeholders {@code %zmenu_machineengine_<key>%} ({@link MachinePlaceholders}) resolve
  *       against the machine the player has open, in any zMenu button;</li>
- *   <li>button types {@code machineengine_slot} and {@code machineengine_cancel_process} interact
+ *   <li>button types {@code machineengine_slot}, {@code machineengine_cancel_process}, {@code machineengine_upgrades} and {@code machineengine_data} interact
  *       with the machine.</li>
  * </ul>
  */
@@ -78,6 +78,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         buttons.register(new SlotButton.Loader(plugin, menus));
         buttons.register(new CancelProcessButton.Loader(plugin, menus));
         buttons.register(new UpgradeButton.Loader(plugin, menus));
+        buttons.register(new DataButton.Loader(plugin, menus));
         LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
         inventories.registerInventoryListener(menus.listener);
         menus.reload();
@@ -207,10 +208,9 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         // Rebuild the machine buttons in place. zMenu's updateInventory reopens the menu instead, which
         // fires a close (losing the open machine) and reopens a closed menu if it runs too late.
         if (!this.openMachines.containsKey(player.getUniqueId())) return;
-        if (!(topHolder(player) instanceof fr.maxlego08.menu.api.engine.InventoryEngine engine)) {
-            this.openMachines.remove(player.getUniqueId());
-            return;
-        }
+        // Not a zMenu menu (or unreadable): nothing to re-render. The close listener, not this, forgets
+        // the open machine; forgetting it here would blank every placeholder of a menu still open.
+        if (!(topHolder(player) instanceof fr.maxlego08.menu.api.engine.InventoryEngine engine)) return;
         // Only slots: their item changes. Gauges (energy, progress) keep their own periodic update,
         // which re-reads the placeholders; rebuilding them would restart that timer before it fires.
         for (fr.maxlego08.menu.api.button.Button button : engine.getButtons()) {
@@ -225,19 +225,42 @@ public final class ZMenuMachineMenus implements MachineMenuService {
      * class on 1.20.6 and an interface on 1.21+, so a direct call compiled against one version fails
      * on the other ({@code IncompatibleClassChangeError}).
      */
-    private static @Nullable Object topHolder(Player player) {
+    private @Nullable Object topHolder(Player player) {
         try {
             Object view = Player.class.getMethod("getOpenInventory").invoke(player);
-            Object top = view.getClass().getMethod("getTopInventory").invoke(view);
+            // The method of InventoryView itself: the server's implementation class may not be public.
+            Object top = GET_TOP_INVENTORY.invoke(view);
             return ((org.bukkit.inventory.Inventory) top).getHolder();
         } catch (ReflectiveOperationException | ClassCastException e) {
+            if (!this.topHolderFailed) {
+                this.topHolderFailed = true;
+                this.plugin.getLogger().log(Level.WARNING, "Could not read open menus; machine menus will not refresh", e);
+            }
             return null;
         }
     }
 
+    private static final java.lang.reflect.Method GET_TOP_INVENTORY;
+
+    static {
+        try {
+            GET_TOP_INVENTORY = org.bukkit.inventory.InventoryView.class.getMethod("getTopInventory");
+        } catch (NoSuchMethodException e) {
+            throw new ExceptionInInitializerError(e);
+        }
+    }
+
+    private volatile boolean topHolderFailed;
+
     private @Nullable String placeholder(OfflinePlayer player, String key) {
         LoadedMachine machine = machineOf(player);
-        return machine == null ? "" : MachinePlaceholders.resolve(machine.inspect(), key);
+        if (machine == null) return "";
+        // data_<id>: a setting the machine type declares (machineengine_data buttons change them).
+        if (key.startsWith("data_") && machine.instance() != null) {
+            var data = DataButton.key(machine.instance(), key.substring("data_".length()));
+            if (data != null) return String.valueOf(machine.instance().context().get(data));
+        }
+        return MachinePlaceholders.resolve(machine.inspect(), key);
     }
 
     /** Menu file names loaded, for status output. */
