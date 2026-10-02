@@ -29,7 +29,7 @@ public final class MachineSlot extends SingleVariantStorage {
     public long insert(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
         if (this.lockedData != null) return 0;
         long inserted = super.insert(variant, maxAmount, transaction);
-        if (inserted > 0) transaction.onCommit(this.listener::inserted);
+        if (inserted > 0) transaction.onCommit(() -> this.listener.inserted(variant, inserted));
         return inserted;
     }
 
@@ -37,7 +37,7 @@ public final class MachineSlot extends SingleVariantStorage {
     public long extract(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
         if (this.lockedData != null) return 0;
         long extracted = super.extract(variant, maxAmount, transaction);
-        if (extracted > 0) transaction.onCommit(this.listener::extracted);
+        if (extracted > 0) transaction.onCommit(() -> this.listener.extracted(variant, extracted));
         return extracted;
     }
 
@@ -50,14 +50,19 @@ public final class MachineSlot extends SingleVariantStorage {
         return this.lockedData;
     }
 
+    /** Drops the data of an unregistered resource; the slot is usable again. */
+    void unlock() {
+        this.lockedData = null;
+    }
+
     void lock(@NotNull DataValue data) {
         load(null, 0);
         this.lockedData = data;
     }
 
     interface Listener {
-        void inserted();
+        void inserted(@NotNull ResourceVariant variant, long amount);
 
-        void extracted();
+        void extracted(@NotNull ResourceVariant variant, long amount);
     }
 }

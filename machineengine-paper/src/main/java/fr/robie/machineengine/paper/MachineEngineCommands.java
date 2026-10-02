@@ -65,7 +65,9 @@ public final class MachineEngineCommands {
                 // Positions are optional: a player defaults to the block they look at; "~" works.
                 .then(PositionArguments.optionalPosition(Commands.literal("inspect"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
                 .then(PositionArguments.optionalPosition(Commands.literal("machine"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
-                .then(PositionArguments.optionalPosition(Commands.literal("placeholders"), PositionArguments.Default.TARGET_BLOCK, this::placeholders))
+                .then(PositionArguments.optionalPosition(Commands.literal("placeholders"), PositionArguments.Default.TARGET_BLOCK, this::placeholders)
+                        .then(Commands.literal("list").executes(this::listPlaceholders))
+                        .then(PositionArguments.optionalPosition(Commands.literal("purge"), PositionArguments.Default.TARGET_BLOCK, this::purge)))
                 .then(PositionArguments.optionalPosition(Commands.literal("network"), PositionArguments.Default.TARGET_BLOCK, this::network))
                 .then(Commands.literal("registry")
                         .then(Commands.argument("registry", StringArgumentType.greedyString())
@@ -136,6 +138,58 @@ public final class MachineEngineCommands {
         }
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         onRegion(position, world, () -> describeNetwork(sender, running, position));
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Loaded machines holding data of missing content: placeholders (addon missing) and machines with
+     * locked slots or unknown data. Unloaded chunks are not scanned.
+     */
+    private int listPlaceholders(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        List<LoadedMachine> found = this.locator.get().loadedMachines().stream()
+                .filter(machine -> {
+                    MachineInspection inspection = machine.inspect();
+                    return inspection.placeholder() || !inspection.lockedSlots().isEmpty() || !inspection.unknownData().isEmpty();
+                }).toList();
+        sender.sendMessage(Component.text(found.size() + " loaded machine(s) keep data of missing content"
+                + (found.isEmpty() ? "." : ":"), NamedTextColor.GOLD));
+        for (LoadedMachine machine : found) {
+            MachineInspection inspection = machine.inspect();
+            String what = inspection.placeholder() ? "placeholder (" + inspection.type().asString() + " is not registered)"
+                    : inspection.type().asString() + ": locked slots " + inspection.lockedSlots() + ", unknown data " + inspection.unknownData();
+            sender.sendMessage(line("  " + machine.position(), what));
+        }
+        if (!found.isEmpty()) {
+            sender.sendMessage(Component.text("Delete with /machineengine placeholders purge <x y z> [world] (irreversible).", NamedTextColor.GRAY));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private final Map<String, PendingPurge> pendingPurges = new java.util.concurrent.ConcurrentHashMap<>();
+
+    private record PendingPurge(WorldPosition position, long until) {
+    }
+
+    /** Irreversible, so it must be run twice within 10 seconds. */
+    private int purge(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
+        CommandSender sender = context.getSource().getSender();
+        WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
+        PendingPurge pending = this.pendingPurges.get(sender.getName());
+        long now = System.currentTimeMillis();
+        if (pending == null || !pending.position().equals(position) || pending.until() < now) {
+            this.pendingPurges.put(sender.getName(), new PendingPurge(position, now + 10_000));
+            sender.sendMessage(Component.text("This deletes the missing content's data at " + position
+                    + " for good (a placeholder machine is removed with its block). Run the command again within 10 seconds to confirm.",
+                    NamedTextColor.YELLOW));
+            return Command.SINGLE_SUCCESS;
+        }
+        this.pendingPurges.remove(sender.getName());
+        onRegion(position, world, () -> {
+            String result = this.locator.get().purge(position);
+            sender.sendMessage(result == null ? Component.text("Nothing to purge at " + position + ".", NamedTextColor.GRAY)
+                    : Component.text("Purged: " + result + ".", NamedTextColor.GREEN));
+        });
         return Command.SINGLE_SUCCESS;
     }
 

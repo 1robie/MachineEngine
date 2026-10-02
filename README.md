@@ -91,6 +91,11 @@ Player-facing text (item lore, messages) is translated on each player's client. 
 (MiniMessage, `%s` for arguments), or add a language section (`de_de`, `es_es` …). English and French
 ship by default. The file is never overwritten.
 
+## Comparators
+
+A comparator next to a machine reads how full it is, like a chest (`comparator: false` on the block
+behavior turns this off).
+
 ## Keeping contents in the item
 
 Add `keep_contents: true` to a block's `machineengine:machine` behavior, and a player breaking it
@@ -103,7 +108,10 @@ Plugins that do not use the MachineEngine API can listen to ordinary Bukkit even
 `fr.robie.machineengine.paper.event`:
 - `MachineCreateEvent`, `MachineLoadEvent`, `MachineUnloadEvent` and `MachineRemoveEvent`;
 - `MachineProcessStartEvent` and `MachineProcessCompleteEvent`;
-- `PlayerMachineInteractEvent`, which is cancellable and fires before a menu opens.
+- `PlayerMachineInteractEvent`, which is cancellable and fires before a menu opens;
+- `MachineUpgradeChangeEvent` and `MachineEngineReloadEvent`.
+
+Per-tick resource changes (`MachineEvents.RESOURCES_CHANGED`) are only on the MachineEngine event bus.
 
 They fire on the machine's thread (its region on Folia). `events.bukkit-bridge: false` in
 `config.yml` turns the mirrored events off.
@@ -126,7 +134,9 @@ name like `world` or a key like `minecraft:overworld`) defaults to yours.
 
 Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
 `machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,
-`placeholders [<x y z>] [world]`, `registry <name>`, `reload recipes|tags`.
+`placeholders [<x y z>] [world]` (menu placeholder values), `placeholders list` (loaded machines keeping data of
+missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes that data, run twice to confirm),
+`registry <name>`, `reload recipes|tags`.
 
 `/machineengine debug` toggles an in-world debug view for you:
 - **Machine dots:** a colored dot above each machine shows its state: green active, blue sleeping, orange blocked, red error.

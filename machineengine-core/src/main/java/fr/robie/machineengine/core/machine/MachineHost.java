@@ -32,6 +32,10 @@ public interface MachineHost {
     /** The machine switched between ticking and sleeping. */
     void activityChanged(@NotNull MachineInstanceImpl machine);
 
+    /** A committed transaction changed what the machine holds (e.g. to update comparators). */
+    default void contentsChanged(@NotNull MachineInstanceImpl machine) {
+    }
+
     /** Runs {@code task} on the thread owning {@code target} (Folia: its region scheduler). */
     void post(@NotNull WorldPosition target, @NotNull Runnable task);
 

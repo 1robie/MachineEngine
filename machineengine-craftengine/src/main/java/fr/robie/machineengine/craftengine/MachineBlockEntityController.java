@@ -39,6 +39,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private @Nullable SleepingBlockEntityTicker<MachineBlockEntityController> ticker;
     private boolean warnedMissingType;
     private @Nullable MachineHopperContainer hopperContainer;
+    private int comparatorSignal = -1;
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
@@ -148,6 +149,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
         }
         this.machine = restored;
         syncTicker();
+        contentsChanged();
     }
 
     @Override
@@ -175,6 +177,36 @@ public final class MachineBlockEntityController extends BlockEntityController {
         } else {
             this.ticker.sleep();
         }
+    }
+
+    /**
+     * Contents changed: tells neighboring comparators, only when the signal actually changed (a
+     * machine fed every tick must not spam block updates).
+     */
+    void contentsChanged() {
+        MachineInstanceImpl instance = instance();
+        if (!this.behavior.comparator() || instance == null) return;
+        int signal = instance.comparatorSignal();
+        if (signal == this.comparatorSignal) return;
+        this.comparatorSignal = signal;
+        CEWorld world = this.blockEntity.world();
+        if (world == null) return;
+        net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy.INSTANCE.updateNeighbourForOutputSignal(
+                world.world().minecraftWorld(),
+                net.momirealms.craftengine.bukkit.util.LocationUtils.toBlockPos(this.blockEntity.pos()),
+                net.momirealms.craftengine.bukkit.util.BlockStateUtils.getBlockOwner(this.blockEntity.blockState().customBlockState().minecraftState()));
+    }
+
+    /** Admin purge of a placeholder: forget its data, so removing the block afterwards writes nothing back. */
+    void purgePlaceholder() {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host != null && this.position != null) {
+            host.unregister(this.position, this);
+            host.machineGone(this.position);
+        }
+        this.machine = null;
+        this.pending = null;
+        markDirty();
     }
 
     /** Flags the chunk unsaved so CraftEngine writes the new machine state (§20.2). */

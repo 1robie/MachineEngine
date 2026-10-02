@@ -25,10 +25,19 @@ final class RegistrationContextImpl implements RegistrationContext {
     private final java.util.function.Consumer<Diagnostic> reports;
     private boolean open = true;
 
-    RegistrationContextImpl(AddonRecord record, RegistrySet registries, java.util.function.Consumer<Diagnostic> reports) {
+    private final fr.robie.machineengine.api.event.EventBus events;
+
+    RegistrationContextImpl(AddonRecord record, RegistrySet registries, java.util.function.Consumer<Diagnostic> reports,
+                            fr.robie.machineengine.api.event.EventBus events) {
         this.record = record;
         this.registries = registries;
         this.reports = reports;
+        this.events = events;
+    }
+
+    @Override
+    public @org.jetbrains.annotations.NotNull fr.robie.machineengine.api.event.EventBus events() {
+        return this.events;
     }
 
     @Override

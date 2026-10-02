@@ -8,6 +8,7 @@ import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.event.EventBus;
+import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.item.Items;
 import fr.robie.machineengine.api.machine.MachineEvents;
@@ -80,6 +81,8 @@ public final class CoreMachineEngine implements MachineEngine {
         engine.freeze();
         engine.loadReloadables();
         engine.phase = LifecyclePhase.RUNTIME;
+        engine.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRIES_FROZEN, EventPhase.POST,
+                new fr.robie.machineengine.api.event.EngineEvents.Frozen(engine.registries));
         ValidationReport report = engine.startupReport();
         if (report.hasErrors()) {
             logger.warning("MachineEngine started with errors; disabled addons: " + engine.disabledAddons()
@@ -117,7 +120,9 @@ public final class CoreMachineEngine implements MachineEngine {
             this.registries.staticRegistry(Registries.MODIFIER_TYPE).register(AddonId.MACHINE_ENGINE, modifier);
         }
         for (EventType<?> event : List.of(MachineEvents.MACHINE_CREATE, MachineEvents.MACHINE_LOAD, MachineEvents.MACHINE_UNLOAD,
-                MachineEvents.MACHINE_REMOVE, MachineEvents.PROCESS_START, MachineEvents.PROCESS_COMPLETE)) {
+                MachineEvents.MACHINE_REMOVE, MachineEvents.PROCESS_START, MachineEvents.PROCESS_COMPLETE,
+                MachineEvents.UPGRADE_CHANGE, MachineEvents.RESOURCES_CHANGED,
+                fr.robie.machineengine.api.event.EngineEvents.REGISTRIES_FROZEN, fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED)) {
             this.registries.staticRegistry(Registries.EVENT_TYPE).register(AddonId.MACHINE_ENGINE, event);
         }
     }
@@ -149,7 +154,7 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     private boolean runCallback(AddonRecord record) {
-        RegistrationContextImpl context = new RegistrationContextImpl(record, this.registries, this.startupDiagnostics::add);
+        RegistrationContextImpl context = new RegistrationContextImpl(record, this.registries, this.startupDiagnostics::add, this.events);
         try {
             record.registration.callback().accept(context);
             return true;
@@ -436,10 +441,15 @@ public final class CoreMachineEngine implements MachineEngine {
         ValidationReport report = ValidationReport.of(build.diagnostics);
         if (report.hasErrors()) {
             this.logger.warning("Reload of " + type + " rejected; the previous snapshot stays live" + System.lineSeparator() + report.format());
-            return report.merge(new ValidationReport(List.of(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
+            ValidationReport rejected = report.merge(new ValidationReport(List.of(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
                     "Reload of " + type + " was rejected; the previous snapshot stays live").subject(type.key()).build())));
+            this.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
+                    new fr.robie.machineengine.api.event.EngineEvents.Reloaded(type, false, rejected));
+            return rejected;
         }
         publish(type, build.snapshot);
+        this.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
+                new fr.robie.machineengine.api.event.EngineEvents.Reloaded(type, true, report));
         return report;
     }
 }

@@ -41,6 +41,13 @@ public interface RegistrationContext {
     @NotNull RegistryAccess registries();
 
     /**
+     * The engine's event bus, already usable during registration (e.g. for
+     * {@link fr.robie.machineengine.api.event.EngineEvents#REGISTRIES_FROZEN}). Subscribe with
+     * {@link #addon()} as owner.
+     */
+    @NotNull fr.robie.machineengine.api.event.EventBus events();
+
+    /**
      * @throws fr.robie.machineengine.api.registry.RegistrationException if {@code type} does not
      *         exist or is not a static registry
      */

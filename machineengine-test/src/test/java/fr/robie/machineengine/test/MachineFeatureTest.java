@@ -91,6 +91,26 @@ class MachineFeatureTest {
         assertEquals(new StorageView(PLASMA.variant(), 300, 1000), rehydrated.storages().get("items").getFirst());
     }
 
+    @Test
+    void anAdminPurgeFreesLockedSlotsForGood() {
+        CoreMachineEngine full = TestEngine.builder().addon(MachineFixtures.alpha()).addon(MachineFixtures.beta()).addon(gamma()).start();
+        FakeWorld original = FakeWorld.singleRegion(full);
+        MachineFixtures.fill(original.place(CHEST, HERE, Direction.NORTH), "items", PLASMA.stack(300));
+        FakeWorld withoutGamma = FakeWorld.singleRegion(MachineFixtures.bothAddons());
+        withoutGamma.load(HERE, original.save(HERE));
+        MachineInstanceImpl reloaded = withoutGamma.machine(HERE);
+
+        assertEquals(1, reloaded.purgeUnknown());
+        assertTrue(reloaded.inspect().lockedSlots().isEmpty());
+        MachineFixtures.fill(reloaded, "items", B.stack(4000));
+        assertEquals(4000, amount(reloaded.inspect(), "items"), "all four slots are usable again");
+        FakeWorld withGamma = FakeWorld.singleRegion(full);
+        withGamma.load(HERE, withoutGamma.save(HERE));
+        assertTrue(withGamma.inspect(HERE).storages().get("items").stream().noneMatch(view -> PLASMA.variant().equals(view.variant())),
+                "the plasma is gone even with its addon back");
+        assertEquals(0, reloaded.purgeUnknown(), "nothing left to purge");
+    }
+
     // -- undeclared data -------------------------------------------------------------------------
 
     private static final MachineDataKey<Long> COUNTER = MachineDataKey.of("counter",

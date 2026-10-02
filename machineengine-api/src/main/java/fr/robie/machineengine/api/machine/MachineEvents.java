@@ -16,6 +16,13 @@ public final class MachineEvents {
     public static final EventType<Lifecycle> MACHINE_REMOVE = EventType.of(MachineEngineKeys.key("machine_remove"), Lifecycle.class);
     public static final EventType<Process> PROCESS_START = EventType.of(MachineEngineKeys.key("process_start"), Process.class);
     public static final EventType<Process> PROCESS_COMPLETE = EventType.of(MachineEngineKeys.key("process_complete"), Process.class);
+    /** Upgrades were installed or removed. */
+    public static final EventType<Upgrade> UPGRADE_CHANGE = EventType.of(MachineEngineKeys.key("upgrade_change"), Upgrade.class);
+    /**
+     * What went in and out of a machine's storages, summed per resource: at most one event per machine
+     * per tick, after the changes, and only built while someone listens (no per-transfer events, §26).
+     */
+    public static final EventType<Resources> RESOURCES_CHANGED = EventType.of(MachineEngineKeys.key("resources_changed"), Resources.class);
 
     private MachineEvents() {
     }
@@ -24,5 +31,16 @@ public final class MachineEvents {
     }
 
     public record Process(@NotNull MachineInstance machine, @NotNull ProcessView process) {
+    }
+
+    /** @param previous how many were installed before; {@code current} how many now (0: removed) */
+    public record Upgrade(@NotNull MachineInstance machine, @NotNull fr.robie.machineengine.api.upgrade.UpgradeType upgrade,
+                          int previous, int current) {
+    }
+
+    /** Amounts inserted and extracted since the last event of this machine. */
+    public record Resources(@NotNull MachineInstance machine,
+                            @NotNull java.util.Map<fr.robie.machineengine.api.resource.ResourceVariant, Long> inserted,
+                            @NotNull java.util.Map<fr.robie.machineengine.api.resource.ResourceVariant, Long> extracted) {
     }
 }

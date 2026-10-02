@@ -37,6 +37,7 @@ import java.util.Locale;
  *   facing_property: facing     # optional, defaults to "facing" when the block has it
  *   keep_contents: true         # optional: the dropped item keeps the machine's contents (§20.5)
  *   hoppers: false              # optional: hoppers use the machine's item ports (default true, §22.4)
+ *   comparator: false           # optional: comparators read how full the machine is (default true)
  * }</pre>
  */
 public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock,
@@ -47,16 +48,41 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     private final @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing;
     private final boolean keepContents;
     private final boolean hoppers;
+    private final boolean comparator;
     private int controllerId;
 
     private MachineBlockBehavior(BlockDefinition block, Key machine,
                                  @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents,
-                                 boolean hoppers) {
+                                 boolean hoppers, boolean comparator) {
         super(block);
         this.machine = machine;
         this.facing = facing;
         this.keepContents = keepContents;
         this.hoppers = hoppers;
+        this.comparator = comparator;
+    }
+
+    boolean comparator() {
+        return this.comparator;
+    }
+
+    @Override
+    public boolean hasAnalogOutputSignal(Object thisBlock, Object[] args) {
+        return this.comparator;
+    }
+
+    /** Args: state, level, pos. Read on the thread that owns the position. */
+    @Override
+    public int getAnalogOutputSignal(Object thisBlock, Object[] args) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (!this.comparator || host == null) return 0;
+        org.bukkit.World world = LevelProxy.INSTANCE.getWorld(args[1]);
+        if (world == null) return 0;
+        BlockPos pos = LocationUtils.fromBlockPos(args[2]);
+        WorldPosition position = WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z());
+        if (!host.isOwnedByCurrentThread(position)) return 0;
+        MachineInstanceImpl machine = host.machineAt(position);
+        return machine == null ? 0 : machine.comparatorSignal();
     }
 
     /**
@@ -144,7 +170,7 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
             Property<net.momirealms.craftengine.core.util.Direction> facing =
                     BlockBehaviorFactory.getOptionalProperty(block, facingName, net.momirealms.craftengine.core.util.Direction.class);
             return new MachineBlockBehavior(block, machine, facing, section.getBoolean("keep_contents", false),
-                    section.getBoolean("hoppers", true));
+                    section.getBoolean("hoppers", true), section.getBoolean("comparator", true));
         }
     }
 }

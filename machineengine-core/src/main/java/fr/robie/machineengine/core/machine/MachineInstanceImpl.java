@@ -132,15 +132,19 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.random = new SplittableRandom(seed(position, type));
         MachineSlot.Listener listener = new MachineSlot.Listener() {
             @Override
-            public void inserted() {
+            public void inserted(@NotNull ResourceVariant variant, long amount) {
                 markDirty();
+                host.contentsChanged(MachineInstanceImpl.this);
+                resourcesChanged(variant, amount, true);
                 wake(WakeReason.RESOURCE_INSERTED);
                 services.networks().machineActivity(position);
             }
 
             @Override
-            public void extracted() {
+            public void extracted(@NotNull ResourceVariant variant, long amount) {
                 markDirty();
+                host.contentsChanged(MachineInstanceImpl.this);
+                resourcesChanged(variant, amount, false);
                 wake(WakeReason.RESOURCE_EXTRACTED);
                 services.networks().machineActivity(position);
             }
@@ -245,6 +249,81 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.services.networks().machineChanged(this.position);
         postLifecycle(MachineEvents.MACHINE_REMOVE);
         return drops;
+    }
+
+    private @Nullable Map<ResourceVariant, Long> pendingInserted;
+    private @Nullable Map<ResourceVariant, Long> pendingExtracted;
+
+    /** Sums committed changes into one {@link MachineEvents#RESOURCES_CHANGED} per tick, if anyone listens. */
+    private void resourcesChanged(ResourceVariant variant, long amount, boolean inserted) {
+        if (!this.services.events().hasListeners(MachineEvents.RESOURCES_CHANGED, EventPhase.POST)) return;
+        boolean first = this.pendingInserted == null && this.pendingExtracted == null;
+        if (inserted) {
+            if (this.pendingInserted == null) this.pendingInserted = new LinkedHashMap<>();
+            this.pendingInserted.merge(variant, amount, Long::sum);
+        } else {
+            if (this.pendingExtracted == null) this.pendingExtracted = new LinkedHashMap<>();
+            this.pendingExtracted.merge(variant, amount, Long::sum);
+        }
+        if (first) this.host.post(this.position, this::flushResourceEvents);
+    }
+
+    private void flushResourceEvents() {
+        Map<ResourceVariant, Long> in = this.pendingInserted == null ? Map.of() : java.util.Collections.unmodifiableMap(this.pendingInserted);
+        Map<ResourceVariant, Long> out = this.pendingExtracted == null ? Map.of() : java.util.Collections.unmodifiableMap(this.pendingExtracted);
+        this.pendingInserted = null;
+        this.pendingExtracted = null;
+        this.services.events().post(MachineEvents.RESOURCES_CHANGED, EventPhase.POST, new MachineEvents.Resources(this, in, out));
+    }
+
+    /**
+     * Comparator signal, as vanilla computes it for containers: 0 when empty, otherwise 1 to 15 from
+     * the average fill of all slots (locked slots count as empty).
+     */
+    public int comparatorSignal() {
+        double fill = 0;
+        int slots = 0;
+        boolean any = false;
+        for (MachineStorage storage : this.storages.values()) {
+            for (MachineSlot slot : storage.slots()) {
+                slots++;
+                if (slot.lockedData() != null || slot.isEmpty() || slot.capacity() <= 0) continue;
+                fill += (double) slot.amount() / slot.capacity();
+                any = true;
+            }
+        }
+        if (slots == 0 || !any) return 0;
+        return (int) Math.floor(fill / slots * 14.0) + 1;
+    }
+
+    /**
+     * Admin purge (§21): deletes data this machine keeps for content that is no longer registered
+     * (locked slots, undeclared data and storages, unknown upgrades, process and escrow), freeing the
+     * slots. Irreversible.
+     *
+     * @return how many entries were deleted
+     */
+    public int purgeUnknown() {
+        int purged = this.unknownData.size() + this.unknownStorages.size() + this.unknownUpgrades.size() + this.unknownEscrow.size()
+                + (this.unknownProcess == null ? 0 : 1);
+        this.unknownData.clear();
+        this.unknownStorages.clear();
+        this.unknownUpgrades.clear();
+        this.unknownEscrow.clear();
+        this.unknownProcess = null;
+        for (MachineStorage storage : this.storages.values()) {
+            for (MachineSlot slot : storage.slots()) {
+                if (slot.lockedData() != null) {
+                    slot.unlock();
+                    purged++;
+                }
+            }
+        }
+        if (purged > 0) {
+            markDirty();
+            wake(WakeReason.RESOURCE_EXTRACTED);
+        }
+        return purged;
     }
 
     /** Whether keep-contents has anything to keep: resources, a process or upgrades (§20.5). */
@@ -496,6 +575,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
         this.upgrades.put(upgrade, current + count);
         upgradesChanged();
+        postUpgrade(upgrade, current, current + count);
         return Result.ok(new InstalledUpgrade(upgrade, current + count));
     }
 
@@ -506,7 +586,14 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         if (removed == 0) return 0;
         if (current == removed) this.upgrades.remove(upgrade); else this.upgrades.put(upgrade, current - removed);
         upgradesChanged();
+        postUpgrade(upgrade, current, current - removed);
         return removed;
+    }
+
+    private void postUpgrade(UpgradeType upgrade, int previous, int current) {
+        if (this.services.events().hasListeners(MachineEvents.UPGRADE_CHANGE, EventPhase.POST)) {
+            this.services.events().post(MachineEvents.UPGRADE_CHANGE, EventPhase.POST, new MachineEvents.Upgrade(this, upgrade, previous, current));
+        }
     }
 
     void upgradesChanged() {

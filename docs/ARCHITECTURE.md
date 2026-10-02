@@ -921,12 +921,25 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
 
+**Comparators, purge, events: done (2026-10-02).**
+- **Comparators:** machine blocks have a comparator signal (`comparator: false` turns it off). It uses vanilla's container formula over every slot: 0 when empty, otherwise 1 to 15 from the average fill, in `MachineInstanceImpl.comparatorSignal()`. Neighbors are updated after committed changes, and only when the value changes. `/mexample comparator-test` checks a real comparator; `ComparatorTest` checks the formula.
+- **`/machineengine placeholders list|purge`:**
+  - `list` shows loaded machines that keep data of missing content: placeholder machines, and machines with locked slots or unknown data.
+  - `purge <x y z>` must be run twice within 10 seconds. It deletes a placeholder machine with its block. On a live machine it deletes the unknown data and unlocks the slots (`purgeUnknown()`). The data is gone for good, even if the addon comes back.
+  - Unloaded chunks are not scanned.
+- **New events:**
+  - `MachineEvents.UPGRADE_CHANGE`;
+  - `MachineEvents.RESOURCES_CHANGED`: inserted and extracted amounts summed per resource, at most one per machine per tick, after the changes, and only built while someone listens;
+  - `EngineEvents.REGISTRIES_FROZEN` and `REGISTRY_RELOADED` (with accepted and report). `RegistrationContext.events()` lets addons subscribe during registration, so they receive the freeze.
+  - The Bukkit bridge mirrors the upgrade and reload events, not `RESOURCES_CHANGED`: a mirror would keep the summing on for every machine.
+  - Network events are still to do.
+
 **Hopper interop: done (2026-10-02).** `MachineBlockBehavior` implements CraftEngine's `WorldlyContainerHolder`. CraftEngine's generated block class already implements vanilla's `WorldlyContainerHolder` and delegates `getContainer` to it, so no NMS code is needed. `MachineHopperContainer` exposes the machine slots reachable through ports as a vanilla `WorldlyContainer`:
 - **Faces:** the hopper's face selects the ports on that side, and each port's direction and filter apply.
 - **No in-place stacks:** vanilla and Paper hoppers merge into and split stacks in place. As in CraftEngine's drawer, each machine slot is therefore two container slots with a maximum stack size of 1: an always-empty "place" slot and a "take" slot that shows one item. Every move is an explicit `setItem` or `removeItem` that becomes a machine transaction.
 - **Safety:** an insert is accepted only if all of it fits. Anything the machine cannot take after all is dropped, never lost. A machine that the current thread does not own (Folia) exposes no slots.
 - **Opt-out:** `hoppers: false` on the block behavior turns it off.
-- **Verified:** `/mexample hopper-test` (hopper with 10 iron → crate → hopper → chest) ends with all 10 in the chest on Paper 1.20.6 and Folia 26.2. Comparator output still needs neighbor updates when contents change, and is not done yet.
+- **Verified:** `/mexample hopper-test` (hopper with 10 iron → crate → hopper → chest) ends with all 10 in the chest on Paper 1.20.6 and Folia 26.2. Comparator output was added afterwards (below).
 
 **Translations: done (2026-10-02), D23.** The `machineengine` CraftEngine pack (`plugins/CraftEngine/resources/machineengine/configuration/lang.yml`, English and French, never overwritten) holds the keep-contents lore, the missing-addon and chunk-limit messages, and the debug toggle messages. `Messages` builds translatable components with English fallbacks.
 

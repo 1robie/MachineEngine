@@ -50,6 +50,7 @@ final class ExampleCommands {
                 .requires(source -> source.getSender().hasPermission("machineengine.admin"))
                 .then(PositionArguments.optionalPosition(Commands.literal("place"), PositionArguments.Default.PLACEMENT, onRegion(this::place)))
                 .then(PositionArguments.optionalPosition(Commands.literal("crate-test"), PositionArguments.Default.PLACEMENT, onRegion(this::crateTest)))
+                .then(PositionArguments.optionalPosition(Commands.literal("comparator-test"), PositionArguments.Default.PLACEMENT, onRegion(this::comparatorTest)))
                 .then(PositionArguments.optionalPosition(Commands.literal("hopper-test"), PositionArguments.Default.PLACEMENT, onRegion(this::hopperTest)))
                 .then(PositionArguments.optionalPosition(Commands.literal("network-line"), PositionArguments.Default.PLACEMENT, onRegion(this::networkLine)))
                 .then(Commands.literal("fill")
@@ -142,6 +143,40 @@ final class ExampleCommands {
             this.plugin.getLogger().info("hopper-test: top hopper " + top + ", crate " + inCrate + ", bottom hopper " + bottom
                     + ", chest " + chest + ", total " + (top + inCrate + bottom + chest) + " (expected 10)");
         }, 300);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Comparator output: crate, then a comparator reading it (east of it), then redstone dust. Half
+     * filling the crate must give 8, emptying it 0.
+     */
+    private int comparatorTest(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
+        for (int dx = 0; dx <= 2; dx++) world.getBlockAt(x + dx, y - 1, z).setType(Material.STONE);
+        if (!place(world, x, y, z, "crate")) {
+            reply(context, "Crate placement failed");
+            return 0;
+        }
+        world.getBlockAt(x + 1, y, z).setBlockData(Bukkit.createBlockData("minecraft:comparator[facing=west]"));
+        world.getBlockAt(x + 2, y, z).setType(Material.REDSTONE_WIRE);
+        MachineInstance crate = MachineEngine.get().machineAt(WorldPosition.of(world.getKey(), x, y, z)).orElseThrow();
+        ResourceHandler port = crate.capability(Capabilities.RESOURCE_HANDLER, Direction.UP).orElseThrow();
+        ResourceStack iron = PaperItems.toResource(new ItemStack(Material.IRON_INGOT, 288));
+        try (Transaction transaction = MachineEngine.get().transactions().openOuter()) {
+            port.insert(iron.variant(), iron.amount(), transaction);
+            transaction.commit();
+        }
+        Location at = new Location(world, x, y, z);
+        Bukkit.getRegionScheduler().runDelayed(this.plugin, at, half -> {
+            int halfPower = ((org.bukkit.block.data.type.RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
+            try (Transaction transaction = MachineEngine.get().transactions().openOuter()) {
+                port.extract(iron.variant(), iron.amount(), transaction);
+                transaction.commit();
+            }
+            Bukkit.getRegionScheduler().runDelayed(this.plugin, at, empty -> {
+                int emptyPower = ((org.bukkit.block.data.type.RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
+                this.plugin.getLogger().info("comparator-test: half full " + halfPower + " (expected 8), empty " + emptyPower + " (expected 0)");
+            }, 10);
+        }, 10);
         return Command.SINGLE_SUCCESS;
     }
 

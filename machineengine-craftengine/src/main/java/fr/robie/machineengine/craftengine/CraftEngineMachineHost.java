@@ -50,6 +50,26 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         this.keptContents = new KeptContents(plugin, this);
     }
 
+    @Override
+    public @Nullable String purge(@NotNull WorldPosition position) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        LoadedMachine machine = controller == null ? null : controller.machine();
+        if (machine == null) return null;
+        MachineInstanceImpl instance = machine.instance();
+        if (instance != null) {
+            int purged = instance.purgeUnknown();
+            return purged == 0 ? null : purged + " unknown entr" + (purged == 1 ? "y" : "ies") + " deleted from " + instance.type().key().asString();
+        }
+        String type = machine.inspect().type().asString();
+        controller.purgePlaceholder();
+        World world = world(position.world());
+        if (world != null) {
+            net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.remove(world.getBlockAt(
+                    position.position().x(), position.position().y(), position.position().z()));
+        }
+        return "placeholder machine " + type + " deleted with its block";
+    }
+
     /** Closes the menus of a machine that was removed or unloaded. */
     void machineGone(@NotNull WorldPosition position) {
         fr.robie.machineengine.paper.MachineMenuService service = this.menus;
@@ -211,6 +231,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public void activityChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.syncTicker();
+    }
+
+    @Override
+    public void contentsChanged(@NotNull MachineInstanceImpl machine) {
+        MachineBlockEntityController controller = this.controllers.get(machine.position());
+        if (controller != null) controller.contentsChanged();
     }
 
     @Override
