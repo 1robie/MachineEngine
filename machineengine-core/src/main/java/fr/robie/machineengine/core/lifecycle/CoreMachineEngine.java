@@ -9,6 +9,7 @@ import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.event.EventType;
+import fr.robie.machineengine.api.item.Items;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.upgrade.ModifierType;
 import fr.robie.machineengine.api.upgrade.StandardModifiers;
@@ -62,6 +63,8 @@ public final class CoreMachineEngine implements MachineEngine {
     private ResourceConverterLookup converters;
     private ResourceCodecs resourceCodecs;
     private CoreMachines machines;
+    private volatile java.util.function.Function<fr.robie.machineengine.api.world.WorldPosition,
+            fr.robie.machineengine.api.machine.MachineInstance> machineLookup = position -> null;
 
     private CoreMachineEngine(Logger logger) {
         this.logger = logger;
@@ -99,6 +102,10 @@ public final class CoreMachineEngine implements MachineEngine {
         }
         // Infrastructure MachineEngine itself provides (never meanings, §4).
         this.registries.staticRegistry(Registries.CAPABILITY_TYPE).register(AddonId.MACHINE_ENGINE, Capabilities.RESOURCE_HANDLER);
+        // Minecraft items (one resource type; the concrete item is a component, §23.4).
+        this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, Items.CATEGORY);
+        this.registries.staticRegistry(Registries.RESOURCE_COMPONENT_TYPE).register(AddonId.MACHINE_ENGINE, Items.DATA);
+        this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, Items.ITEM);
         for (ModifierType modifier : List.of(StandardModifiers.PROCESS_DURATION, StandardModifiers.PROCESS_COST,
                 StandardModifiers.TRANSFER_RATE)) {
             this.registries.staticRegistry(Registries.MODIFIER_TYPE).register(AddonId.MACHINE_ENGINE, modifier);
@@ -369,6 +376,18 @@ public final class CoreMachineEngine implements MachineEngine {
 
     public @NotNull ResourceCodecs resourceCodecs() {
         return this.resourceCodecs;
+    }
+
+    @Override
+    public @NotNull java.util.Optional<fr.robie.machineengine.api.machine.MachineInstance> machineAt(
+            @NotNull fr.robie.machineengine.api.world.WorldPosition position) {
+        return java.util.Optional.ofNullable(this.machineLookup.apply(position));
+    }
+
+    /** Lets the platform answer {@link #machineAt}. */
+    public void setMachineLookup(@NotNull java.util.function.Function<fr.robie.machineengine.api.world.WorldPosition,
+            fr.robie.machineengine.api.machine.MachineInstance> lookup) {
+        this.machineLookup = lookup;
     }
 
     /** Machine placement, loading and persistence, for hosts. */

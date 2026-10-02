@@ -1,6 +1,12 @@
 package fr.robie.machineengine.craftengine;
 
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import net.momirealms.craftengine.bukkit.util.LocationUtils;
+import net.momirealms.craftengine.core.world.BlockPos;
+import net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.world.Direction;
@@ -62,6 +68,17 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
 
     int controllerId() {
         return this.controllerId;
+    }
+
+    /** Wakes the machine so it re-checks its neighbors (§17.2). */
+    @Override
+    public void neighborChanged(Object thisBlock, Object[] args) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host == null) return;
+        org.bukkit.World world = LevelProxy.INSTANCE.getWorld(args[1]);
+        BlockPos pos = LocationUtils.fromBlockPos(args[2]);
+        MachineInstanceImpl machine = host.machineAt(WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
+        if (machine != null) machine.wake(WakeReason.NEIGHBOR_CHANGED);
     }
 
     @Override

@@ -42,6 +42,13 @@ final class ExampleContent {
             .behavior(ProcessingBehavior.of(BURNING, ProcessBinding.of("input", "input")))
             .build();
 
+    /** Holds items on all sides; used to check that broken machines drop their items. */
+    static final MachineType CRATE = MachineType.builder(Key.key("example", "crate"))
+            .storage(StorageDefinition.slots("items", 9, 64).filter(fr.robie.machineengine.api.item.Items.anyItem()))
+            .port(PortDefinition.builder("io", "items").build())
+            .behavior(type -> fr.robie.machineengine.api.machine.MachineContext::sleep)
+            .build();
+
     private ExampleContent() {
     }
 
@@ -52,6 +59,7 @@ final class ExampleContent {
         context.recipeTypes().register(BURNING);
         context.machineTypes().register(GENERATOR);
         context.machineTypes().register(CONSUMER);
+        context.machineTypes().register(CRATE);
         context.recipes(reload -> {
             reload.register(ProcessingRecipe.builder(Key.key("example", "make_sparks"), GENERATING)
                     .output(SPARK.stack(10)).duration(20).build());

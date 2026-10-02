@@ -9,7 +9,15 @@ import fr.robie.machineengine.craftengine.CraftEngineIntegration;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
+import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.core.machine.PlaceholderMachine;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
+import net.momirealms.craftengine.bukkit.api.event.CustomBlockAttemptPlaceEvent;
+import net.momirealms.craftengine.bukkit.api.event.CustomBlockBreakEvent;
+import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.plugin.Plugin;
@@ -30,8 +38,11 @@ import java.util.List;
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class MachineEnginePlugin extends JavaPlugin implements Listener {
+    public static final String BREAK_PLACEHOLDERS = "machineengine.admin.breakplaceholders";
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
+    private int maxMachinesPerChunk;
+    private boolean allowBreakingPlaceholders;
 
     @Override
     public void onLoad() {
@@ -51,6 +62,10 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         }
         getLogger().info("Using CraftEngine " + craftEngine.getPluginMeta().getVersion());
 
+        saveDefaultConfig();
+        this.maxMachinesPerChunk = getConfig().getInt("limits.max-machines-per-chunk", 256);
+        this.allowBreakingPlaceholders = getConfig().getBoolean("placeholders.allow-breaking", false);
+
         List<AddonRegistration> registrations = MachineEngineAccess.closeRegistration();
         MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());
         registrations.forEach(builder::addon);
@@ -58,6 +73,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         this.engine = started;
         MachineEngineAccess.install(started);
         this.host = CraftEngineMachineHost.start(this, started);
+        started.setMachineLookup(this.host::machineAt);
         getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()
                 + (started.disabledAddons().isEmpty() ? "" : "; disabled: " + started.disabledAddons()));
         checkBlockBindings();
@@ -80,6 +96,38 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public void onCraftEngineReload(CraftEngineReloadEvent event) {
         // Block configs were parsed again; machine keys are resolved lazily (D14), so only report.
         checkBlockBindings();
+    }
+
+    /**
+     * Placeholders hold the data of an addon that is not installed; breaking one would destroy it, so
+     * only admins may (§21).
+     */
+    @EventHandler(ignoreCancelled = true)
+    public void onCustomBlockBreak(CustomBlockBreakEvent event) {
+        if (this.host == null) return;
+        Location location = event.location();
+        LoadedMachine machine = this.host.machine(WorldPosition.of(location.getWorld().getKey(),
+                location.getBlockX(), location.getBlockY(), location.getBlockZ()));
+        if (machine instanceof PlaceholderMachine placeholder && !this.allowBreakingPlaceholders
+                && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text("This machine (" + placeholder.missingType().asString()
+                    + ") belongs to an addon that is not installed. Breaking it would destroy its data.", NamedTextColor.RED));
+        }
+    }
+
+    /** Enforces {@code limits.max-machines-per-chunk} (§23.3). */
+    @EventHandler(ignoreCancelled = true)
+    public void onCustomBlockPlace(CustomBlockAttemptPlaceEvent event) {
+        if (this.host == null || this.maxMachinesPerChunk <= 0 || event.getPlayer().hasPermission(MachineEngineCommands.PERMISSION)) return;
+        if (!CraftEngineIntegration.isMachineBlock(event.blockState())) return;
+        Location location = event.location();
+        int count = this.host.machinesInChunk(location.getWorld().getKey(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
+        if (count >= this.maxMachinesPerChunk) {
+            event.setCancelled(true);
+            event.getPlayer().sendMessage(Component.text("This chunk already holds " + count + " machines (limit "
+                    + this.maxMachinesPerChunk + ").", NamedTextColor.RED));
+        }
     }
 
     private void checkBlockBindings() {

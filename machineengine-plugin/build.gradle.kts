@@ -21,6 +21,7 @@ val devAddons: Configuration by configurations.creating {
 dependencies {
     implementation(project(":machineengine-craftengine"))
     compileOnly(libs.paper.api)
+    compileOnly("net.momirealms:craft-engine-core:$craftEngineVersion") { isTransitive = false }
     compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }
     devAddons(project(":machineengine-example"))
 }
@@ -87,8 +88,10 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int) {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(javaVersion)
         }
-        pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
-        if (providers.gradleProperty("withExample").orElse("true").get() == "true") pluginJars.from(devAddons)
+        // -PwithMachineEngine=false runs CraftEngine alone (checks that CE keeps machine data, §21).
+        val withMachineEngine = providers.gradleProperty("withMachineEngine").orElse("true").get() == "true"
+        if (withMachineEngine) pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
+        if (withMachineEngine && providers.gradleProperty("withExample").orElse("true").get() == "true") pluginJars.from(devAddons)
         when (craftEngineRuntime) {
             "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
             "modrinth" -> downloadPlugins {

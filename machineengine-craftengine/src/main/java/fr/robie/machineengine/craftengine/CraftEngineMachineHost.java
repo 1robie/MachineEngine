@@ -8,6 +8,7 @@ import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
+import fr.robie.machineengine.paper.PaperItems;
 import net.kyori.adventure.key.Key;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import org.bukkit.Bukkit;
@@ -93,6 +94,15 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         this.controllers.remove(position, controller);
     }
 
+    /** Loaded machines (including placeholders) in one chunk. */
+    public int machinesInChunk(@NotNull Key world, int chunkX, int chunkZ) {
+        int count = 0;
+        for (WorldPosition position : this.controllers.keySet()) {
+            if (position.world().equals(world) && position.position().chunkX() == chunkX && position.position().chunkZ() == chunkZ) count++;
+        }
+        return count;
+    }
+
     // -- MachineLocator ------------------------------------------------------------------------
 
     @Override
@@ -166,10 +176,13 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public void dropResources(@NotNull WorldPosition position, @NotNull List<ResourceStack> resources) {
-        // Resources have no world form until a category provides one (the item category, M3b).
-        if (!resources.isEmpty()) {
-            logger().fine("Voided " + resources + " at " + position + ": no world form for these resources");
-        }
+        if (resources.isEmpty()) return;
+        World world = world(position.world());
+        if (world == null) return;
+        List<ResourceStack> voided = PaperItems.drop(world, position.position().x(), position.position().y(),
+                position.position().z(), resources);
+        // Only items have a world form; other resources (energy, fluids …) are lost with the block.
+        if (!voided.isEmpty()) logger().fine("Voided " + voided + " at " + position + ": no world form for these resources");
     }
 
     private static @Nullable World world(Key key) {

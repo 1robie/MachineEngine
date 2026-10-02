@@ -12,6 +12,8 @@ val craftEngineVersion = providers.gradleProperty("craftengine_version").get()
 dependencies {
     // An addon depends on the API only (plus CraftEngine for its demo placement command).
     compileOnly(project(":machineengine-api"))
+    // Item conversion (ships inside the MachineEngine plugin).
+    compileOnly(project(":machineengine-paper"))
     compileOnly(libs.paper.api)
     compileOnly("net.momirealms:craft-engine-core:$craftEngineVersion") { isTransitive = false }
     compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }

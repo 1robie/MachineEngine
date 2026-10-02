@@ -21,6 +21,11 @@ public final class CraftEngineIntegration {
         BlockBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("machine")), MachineBlockBehavior.FACTORY);
     }
 
+    /** @return whether {@code state} is a block with the {@code machineengine:machine} behavior */
+    public static boolean isMachineBlock(@NotNull net.momirealms.craftengine.core.block.ImmutableBlockState state) {
+        return state.behavior().getFirst(MachineBlockBehavior.class) != null;
+    }
+
     /**
      * @return one message per CraftEngine block whose {@code machine:} key is not a registered
      *         machine type (D14); such blocks stay inert

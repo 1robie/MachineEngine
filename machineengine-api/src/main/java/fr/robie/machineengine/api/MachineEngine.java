@@ -73,4 +73,11 @@ public interface MachineEngine {
      * @throws IllegalArgumentException if {@code type} is not a reloadable registry
      */
     @NotNull ValidationReport reload(@NotNull RegistryType<?> type);
+
+    /**
+     * The loaded machine at {@code position}. Owner thread of that position only. Empty if there is
+     * none, if it is a placeholder, or if no platform hosts machines (headless).
+     */
+    @NotNull java.util.Optional<fr.robie.machineengine.api.machine.MachineInstance> machineAt(
+            @NotNull fr.robie.machineengine.api.world.WorldPosition position);
 }

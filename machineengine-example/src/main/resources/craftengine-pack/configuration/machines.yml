@@ -15,7 +15,26 @@ items:
     behavior:
       type: block_item
       block: example:consumer
+  example:crate:
+    data:
+      item_name: "<!i>Crate"
+    model: minecraft:block/barrel
+    behavior:
+      type: block_item
+      block: example:crate
 blocks:
+  example:crate:
+    behavior:
+      type: machineengine:machine
+      machine: example:crate
+    settings:
+      template: default:settings/solid_1x1x1
+      overrides:
+        hardness: 2
+        push_reaction: immoveable
+    state:
+      auto_state: solid
+      texture: minecraft:block/barrel_top
   example:generator:
     behavior:
       type: machineengine:machine

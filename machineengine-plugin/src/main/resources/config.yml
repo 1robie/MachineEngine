@@ -1,0 +1,10 @@
+# MachineEngine configuration.
+
+limits:
+  # Most machines a single chunk may hold (players with machineengine.admin are exempt). 0 = no limit.
+  max-machines-per-chunk: 256
+
+placeholders:
+  # Whether players without machineengine.admin.breakplaceholders may break placeholder machines
+  # (machines whose addon is not installed). Breaking one destroys its data.
+  allow-breaking: false

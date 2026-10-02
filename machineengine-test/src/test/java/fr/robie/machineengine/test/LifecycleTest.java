@@ -41,7 +41,9 @@ class LifecycleTest {
         var types = engine.registries().registry(Registries.RESOURCE_TYPE);
         assertSame(FE, types.getOrThrow(Key.key("energyplugin", "fe")));
         assertEquals(new AddonId("energyplugin"), types.owner(FE.key()).orElseThrow());
-        assertEquals(List.of(FE, EU), types.values(), "registration order is kept");
+        assertEquals(List.of(FE, EU), types.values().stream()
+                .filter(type -> types.owner(type.key()).orElseThrow().equals(new AddonId("energyplugin"))).toList(),
+                "registration order is kept");
         assertEquals(Set.of(new AddonId("energyplugin")), engine.enabledAddons());
     }
 
