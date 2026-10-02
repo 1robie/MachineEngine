@@ -82,6 +82,14 @@ public final class DefinitionCompiler {
     public interface ItemResolver {
         @NotNull Result<ResourceVariant> item(@NotNull Key id);
 
+        /**
+         * Whether item ids can be resolved yet. While not, recipes are left out silently; the platform
+         * reloads recipes once its items are loaded (e.g. after CraftEngine's first load).
+         */
+        default boolean ready() {
+            return true;
+        }
+
         ItemResolver NONE = id -> Result.err(MachineError.of(DiagnosticCodes.DEFINITION_SKIPPED,
                 "item resources need a platform (items are not available headless)"));
     }
@@ -103,7 +111,11 @@ public final class DefinitionCompiler {
         return builder.register(context -> {
             List<DefinitionFile> loaded = enabled(files.get());
             compileStatic(context, loaded, items);
-            context.recipes(reload -> compileRecipes(reload, enabled(files.get()), items));
+            context.recipes(reload -> {
+                if (items.ready()) compileRecipes(reload, enabled(files.get()), items);
+            });
+            context.itemTags(reload -> compileItemTags(reload, enabled(files.get())));
+            context.reloadable(Registries.RESOURCE_TAG, reload -> compileResourceTags(reload, enabled(files.get())));
         }).build();
     }
 
@@ -239,6 +251,90 @@ public final class DefinitionCompiler {
     // Recipes (reloadable)
     // ------------------------------------------------------------------------------------------
 
+    /**
+     * {@code item-tags: { c:ores/osmium: [mekanized:osmium_ore, "#minecraft:iron_ores"] }}: item ids,
+     * or {@code #tag} to include another item tag.
+     */
+    static void compileItemTags(ReloadContext<fr.robie.machineengine.api.item.ItemTagContribution> reload, List<DefinitionFile> files) {
+        Consumer<Diagnostic> report = reload::report;
+        for (DefinitionFile file : files) {
+            entries(file, "item-tags", report, (tag, spec, where) -> {
+                Result<List<String>> values = Codecs.list(Codecs.STRING).decode(spec);
+                if (values.isErr()) {
+                    skip(report, where, "must be a list of item ids or #tags");
+                    return;
+                }
+                java.util.Set<Key> items = new java.util.LinkedHashSet<>();
+                java.util.Set<Key> includes = new java.util.LinkedHashSet<>();
+                for (String value : values.value()) {
+                    boolean include = value.startsWith("#");
+                    Result<Key> id = Codecs.parseKey(include ? value.substring(1) : value);
+                    if (id.isErr()) {
+                        skip(report, where, "'" + value + "' is not a namespaced key");
+                        return;
+                    }
+                    (include ? includes : items).add(id.value());
+                }
+                reload.register(new fr.robie.machineengine.api.item.ItemTagContribution(contributionKey(file, tag), tag, items, includes));
+            });
+        }
+    }
+
+    /**
+     * {@code resource-tags: { mekanized:water_vapor: [mekanized:steam, "#other:tag"] }}: resource type
+     * keys; {@code #tag} includes a tag defined in the same files.
+     */
+    static void compileResourceTags(ReloadContext<fr.robie.machineengine.api.resource.tag.ResourceTagContribution> reload, List<DefinitionFile> files) {
+        Consumer<Diagnostic> report = reload::report;
+        Map<Key, List<String>> declared = new java.util.LinkedHashMap<>();
+        Map<Key, String> locations = new java.util.LinkedHashMap<>();
+        Map<Key, DefinitionFile> owners = new java.util.LinkedHashMap<>();
+        for (DefinitionFile file : files) {
+            entries(file, "resource-tags", report, (tag, spec, where) -> {
+                Result<List<String>> values = Codecs.list(Codecs.STRING).decode(spec);
+                if (values.isErr()) {
+                    skip(report, where, "must be a list of resource type keys or #tags");
+                    return;
+                }
+                declared.computeIfAbsent(tag, key -> new ArrayList<>()).addAll(values.value());
+                locations.putIfAbsent(tag, where);
+                owners.putIfAbsent(tag, file);
+            });
+        }
+        declared.forEach((tag, values) -> {
+            java.util.Set<ResourceType> members = new java.util.LinkedHashSet<>();
+            List<String> missing = new ArrayList<>();
+            expandResourceTag(tag, declared, reload.registries(), members, missing, new java.util.HashSet<>());
+            if (!missing.isEmpty()) {
+                skip(report, locations.get(tag), "unknown resource types or tags left out: " + missing);
+            }
+            if (!members.isEmpty()) reload.register(new fr.robie.machineengine.api.resource.tag.ResourceTagContribution(contributionKey(owners.get(tag), tag), tag, members));
+        });
+    }
+
+    private static void expandResourceTag(Key tag, Map<Key, List<String>> declared, fr.robie.machineengine.api.registry.RegistryAccess registries,
+                                          java.util.Set<ResourceType> members, List<String> missing, java.util.Set<Key> visited) {
+        if (!visited.add(tag)) return;
+        for (String value : declared.getOrDefault(tag, List.of())) {
+            boolean include = value.startsWith("#");
+            Result<Key> id = Codecs.parseKey(include ? value.substring(1) : value);
+            if (id.isErr()) {
+                missing.add(value);
+            } else if (include) {
+                if (declared.containsKey(id.value())) expandResourceTag(id.value(), declared, registries, members, missing, visited);
+                else missing.add(value);
+            } else {
+                registries.registry(Registries.RESOURCE_TYPE).get(id.value()).ifPresentOrElse(members::add, () -> missing.add(value));
+            }
+        }
+    }
+
+    /** One contribution per file and tag: {@code definitions:<file>/<tag namespace>/<tag value>}. */
+    private static Key contributionKey(DefinitionFile file, Key tag) {
+        String fileId = file.name().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_./-]", "_");
+        return Key.key(ADDON.name(), fileId + "/" + tag.namespace() + "/" + tag.value());
+    }
+
     static void compileRecipes(ReloadContext<Recipe> reload, List<DefinitionFile> files, ItemResolver items) {
         Context context = new Context(reload.registries(), items);
         Consumer<Diagnostic> report = reload::report;
@@ -311,6 +407,7 @@ public final class DefinitionCompiler {
                         .map(ResourcePredicate::category);
                 case "tag" -> key(value).map(ResourcePredicate::tag);
                 case "item" -> key(value).map(Items::ofItem);
+                case "item-tag" -> key(value).map(Items::inTag);
                 case "all", "any-of" -> {
                     if (!(value instanceof DataList list) || list.values().isEmpty()) yield invalid(kind + " needs a list of filters");
                     ResourcePredicate combined = null;

@@ -93,9 +93,14 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         registrations.forEach(builder::addon);
         // Data-driven definitions (§29): plugins/MachineEngine/definitions/*.yml
         fr.robie.machineengine.paper.YamlDefinitions definitions = new fr.robie.machineengine.paper.YamlDefinitions(this);
-        builder.definitions(definitions::load, fr.robie.machineengine.paper.YamlDefinitions.vanillaItems());
+        // CraftEngine items in definitions and item tags (E10, E11); recipes wait for CraftEngine's first load.
+        fr.robie.machineengine.craftengine.CraftEngineItemBridge items = new fr.robie.machineengine.craftengine.CraftEngineItemBridge(this);
+        builder.definitions(definitions::load, items);
+        builder.itemTags(items);
         CoreMachineEngine started = builder.start();
         this.engine = started;
+        items.attach(() -> this.engine);
+        getServer().getPluginManager().registerEvents(items, this);
         MachineEngineAccess.install(started);
         if (getConfig().getBoolean("events.bukkit-bridge", true)) {
             fr.robie.machineengine.paper.event.BukkitEventBridge.install(started.events());

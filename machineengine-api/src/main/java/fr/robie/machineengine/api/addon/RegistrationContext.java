@@ -127,4 +127,8 @@ public interface RegistrationContext {
     default void recipes(@NotNull ReloadableProvider<Recipe> provider) {
         reloadable(Registries.RECIPE, provider);
     }
+
+    default void itemTags(@NotNull ReloadableProvider<fr.robie.machineengine.api.item.ItemTagContribution> provider) {
+        reloadable(Registries.ITEM_TAG, provider);
+    }
 }

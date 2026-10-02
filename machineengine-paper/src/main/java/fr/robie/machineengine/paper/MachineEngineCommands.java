@@ -79,7 +79,10 @@ public final class MachineEngineCommands {
                                 .executes(this::registry)))
                 .then(Commands.literal("reload")
                         .then(Commands.literal("recipes").executes(context -> reload(context, Registries.RECIPE)))
-                        .then(Commands.literal("tags").executes(context -> reload(context, Registries.RESOURCE_TAG))))
+                        .then(Commands.literal("tags").executes(context -> {
+                            reload(context, Registries.ITEM_TAG);
+                            return reload(context, Registries.RESOURCE_TAG);
+                        })))
                 .build();
     }
 

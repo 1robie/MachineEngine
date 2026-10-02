@@ -22,6 +22,13 @@ public final class MachineEngineBuilder {
     private java.util.function.Supplier<List<fr.robie.machineengine.api.definition.DefinitionFile>> definitions;
     private fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items =
             fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver.NONE;
+    private fr.robie.machineengine.core.resource.ItemTagSource itemTags = fr.robie.machineengine.core.resource.ItemTagSource.NONE;
+
+    /** The platform's item tags (vanilla and CraftEngine tags on Paper), consulted after addon item tags. */
+    public @NotNull MachineEngineBuilder itemTags(@NotNull fr.robie.machineengine.core.resource.ItemTagSource source) {
+        this.itemTags = Objects.requireNonNull(source);
+        return this;
+    }
 
     public @NotNull MachineEngineBuilder addon(@NotNull AddonRegistration registration) {
         this.registrations.add(Objects.requireNonNull(registration));
@@ -59,6 +66,6 @@ public final class MachineEngineBuilder {
             all.add(fr.robie.machineengine.core.definition.DefinitionCompiler.registration(this.definitions, this.items,
                     this.registrations.stream().map(AddonRegistration::addon).toList(), this.apiVersion));
         }
-        return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger);
+        return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger, this.itemTags);
     }
 }

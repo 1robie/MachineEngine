@@ -42,21 +42,32 @@ public final class YamlDefinitions {
     public @NotNull List<DefinitionFile> load() {
         File folder = new File(this.plugin.getDataFolder(), "definitions");
         if (!folder.exists()) this.plugin.saveResource(EXAMPLE, false);
-        File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
-        if (files == null) return List.of();
-        Arrays.sort(files, Comparator.comparing(File::getName));
+        // Sub-folders too (e.g. definitions/mekanized/), sorted by path for a stable order.
+        File[] files;
+        try (var walk = java.nio.file.Files.walk(folder.toPath())) {
+            files = walk.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".yml"))
+                    .map(java.nio.file.Path::toFile).filter(File::isFile).toArray(File[]::new);
+        } catch (IOException | java.io.UncheckedIOException e) {
+            this.plugin.getLogger().warning("Could not list definitions: " + e.getMessage());
+            return List.of();
+        }
+        Arrays.sort(files, Comparator.comparing(file -> folder.toPath().relativize(file.toPath()).toString().replace('\\', '/')));
         List<DefinitionFile> definitions = new ArrayList<>();
         for (File file : files) {
             YamlConfiguration yaml = new YamlConfiguration();
             try {
                 yaml.load(file);
             } catch (IOException | InvalidConfigurationException e) {
-                this.plugin.getLogger().warning("Skipped definitions/" + file.getName() + ": " + e.getMessage());
+                this.plugin.getLogger().warning("Skipped definitions/" + relative(folder, file) + ": " + e.getMessage());
                 continue;
             }
-            definitions.add(new DefinitionFile("definitions/" + file.getName(), toData(yaml)));
+            definitions.add(new DefinitionFile("definitions/" + relative(folder, file), toData(yaml)));
         }
         return definitions;
+    }
+
+    private static String relative(File folder, File file) {
+        return folder.toPath().relativize(file.toPath()).toString().replace('\\', '/');
     }
 
     /** Vanilla items by id ({@code minecraft:iron_ingot}). */

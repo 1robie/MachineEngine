@@ -51,6 +51,16 @@ public final class Items {
         return ResourcePredicate.type(ITEM).and(ResourcePredicate.component(DATA, data -> data.item().equals(itemId)));
     }
 
+    /** Matches items in the item tag {@code tag} (e.g. {@code c:ores/iron}), see {@link fr.robie.machineengine.api.resource.tag.ResourceTags#containsItem}. */
+    public static @NotNull ResourcePredicate inTag(@NotNull Key tag) {
+        java.util.Objects.requireNonNull(tag);
+        return (variant, tags) -> {
+            if (variant.type() != ITEM) return false;
+            ItemData data = variant.components().get(DATA);
+            return data != null && tags.containsItem(tag, data.item());
+        };
+    }
+
     /** Matches any item. */
     public static @NotNull ResourcePredicate anyItem() {
         return ResourcePredicate.type(ITEM);

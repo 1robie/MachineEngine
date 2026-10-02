@@ -152,7 +152,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         for (StorageDefinition definition : type.storages()) {
             List<MachineSlot> slots = new ArrayList<>(definition.slots());
             for (int i = 0; i < definition.slots(); i++) {
-                slots.add(new MachineSlot(definition.capacity(), definition.filter().bind(services.tags()), listener));
+                // Tags are read live: a tag reload must reach machines that already exist.
+                slots.add(new MachineSlot(definition.capacity(), variant -> definition.filter().test(variant, services.tags()), listener));
             }
             this.storages.put(definition.id(), new MachineStorage(definition, slots));
         }

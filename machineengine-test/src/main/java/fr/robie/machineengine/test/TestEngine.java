@@ -58,6 +58,19 @@ public final class TestEngine {
         return this;
     }
 
+    /** Adds data-driven definition files with a custom item resolver (e.g. one that is not ready yet). */
+    public @NotNull TestEngine definitions(@NotNull java.util.function.Supplier<java.util.List<fr.robie.machineengine.api.definition.DefinitionFile>> files,
+                                           @NotNull fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items) {
+        this.builder.definitions(files, items);
+        return this;
+    }
+
+    /** The platform's item tags (vanilla and CraftEngine tags on a real server). */
+    public @NotNull TestEngine itemTags(@NotNull fr.robie.machineengine.core.resource.ItemTagSource source) {
+        this.builder.itemTags(source);
+        return this;
+    }
+
     public @NotNull TestEngine apiVersion(@NotNull String version) {
         this.builder.apiVersion(Version.parse(version));
         return this;

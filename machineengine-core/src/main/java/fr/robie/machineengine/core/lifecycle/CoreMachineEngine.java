@@ -61,6 +61,7 @@ public final class CoreMachineEngine implements MachineEngine {
     private final Set<Diagnostic> startupDiagnostics = new LinkedHashSet<>();
     private volatile LifecyclePhase phase = LifecyclePhase.BOOTSTRAP;
     private volatile ResourceTags tags = ResourceTags.EMPTY;
+    private fr.robie.machineengine.core.resource.ItemTagSource itemTagSource = fr.robie.machineengine.core.resource.ItemTagSource.NONE;
     private ResourceConverterLookup converters;
     private ResourceCodecs resourceCodecs;
     private CoreMachines machines;
@@ -74,7 +75,13 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger) {
+        return start(registrations, apiVersion, logger, fr.robie.machineengine.core.resource.ItemTagSource.NONE);
+    }
+
+    static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger,
+                                   fr.robie.machineengine.core.resource.ItemTagSource itemTags) {
         CoreMachineEngine engine = new CoreMachineEngine(logger);
+        engine.itemTagSource = itemTags;
         engine.createBuiltInRegistries();
         engine.register(registrations, apiVersion);
         engine.validate();
@@ -102,7 +109,7 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
                 Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
                 Registries.BEHAVIOR_TYPE,
-                Registries.RECIPE, Registries.RESOURCE_TAG)) {
+                Registries.RECIPE, Registries.RESOURCE_TAG, Registries.ITEM_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
         // Infrastructure MachineEngine itself provides (never meanings, §4).
@@ -344,7 +351,7 @@ public final class CoreMachineEngine implements MachineEngine {
 
     private <T extends Keyed> void publish(RegistryType<T> type, SimpleRegistry<T> snapshot) {
         this.registries.reloadableRegistry(type).swap(snapshot);
-        if (type.equals(Registries.RESOURCE_TAG)) rebuildTags();
+        if (type.equals(Registries.RESOURCE_TAG) || type.equals(Registries.ITEM_TAG)) rebuildTags();
     }
 
     private void rebuildTags() {
@@ -353,7 +360,9 @@ public final class CoreMachineEngine implements MachineEngine {
             tags.computeIfAbsent(contribution.tag(), tag -> new LinkedHashSet<>()).addAll(contribution.members());
         }
         tags.replaceAll((tag, members) -> Collections.unmodifiableSet(members));
-        this.tags = ResourceTags.of(tags);
+        this.tags = new fr.robie.machineengine.core.resource.TagSnapshot(tags,
+                this.registries.exists(Registries.ITEM_TAG) ? this.registries.registry(Registries.ITEM_TAG) : List.of(),
+                this.itemTagSource);
     }
 
     // ------------------------------------------------------------------------------------------

@@ -18,7 +18,19 @@ import java.util.function.Function;
 /** Converts between Paper {@link ItemStack}s and {@link Items#ITEM} resources (§23.4). */
 public final class PaperItems {
 
+    private static volatile Function<ItemStack, Key> idResolver = stack -> stack.getType().getKey();
+
     private PaperItems() {
+    }
+
+    /** How an item stack's id is found; the CraftEngine integration reports custom ids (E10). */
+    public static void setIdResolver(@NotNull Function<ItemStack, Key> resolver) {
+        idResolver = java.util.Objects.requireNonNull(resolver);
+    }
+
+    /** The item's id: a CraftEngine custom id for CraftEngine items, else the material key. */
+    public static @NotNull Key idOf(@NotNull ItemStack stack) {
+        return idResolver.apply(stack);
     }
 
     /**
@@ -26,7 +38,7 @@ public final class PaperItems {
      *               material key is used
      */
     public static @NotNull ResourceStack toResource(@NotNull ItemStack stack, @Nullable Key itemId) {
-        Key id = itemId != null ? itemId : stack.getType().getKey();
+        Key id = itemId != null ? itemId : idOf(stack);
         return Items.variant(new ItemData(id, stack.asOne().serializeAsBytes())).stack(stack.getAmount());
     }
 

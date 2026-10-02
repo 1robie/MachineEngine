@@ -34,4 +34,13 @@ public interface ResourceTags {
     default boolean contains(@NotNull Key tag, @NotNull ResourceType type) {
         return members(tag).contains(type);
     }
+
+    /**
+     * Whether the item {@code item} (its id, e.g. {@code minecraft:iron_ore} or a CraftEngine id) is in
+     * the item tag {@code tag}: contributed by addons ({@code machineengine:item_tag}) or reported by
+     * the platform (vanilla and CraftEngine tags).
+     */
+    default boolean containsItem(@NotNull Key tag, @NotNull Key item) {
+        return false;
+    }
 }

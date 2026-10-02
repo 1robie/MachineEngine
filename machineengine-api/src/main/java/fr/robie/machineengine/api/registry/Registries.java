@@ -61,6 +61,10 @@ public final class Registries {
     public static final RegistryType<ResourceTagContribution> RESOURCE_TAG =
             RegistryType.createReloadable(MachineEngineKeys.key("resource_tag"), ResourceTagContribution.class);
 
+    /** Item tags (by item id); reloaded together with resource tags. */
+    public static final RegistryType<fr.robie.machineengine.api.item.ItemTagContribution> ITEM_TAG =
+            RegistryType.createReloadable(MachineEngineKeys.key("item_tag"), fr.robie.machineengine.api.item.ItemTagContribution.class);
+
     private Registries() {
     }
 }
