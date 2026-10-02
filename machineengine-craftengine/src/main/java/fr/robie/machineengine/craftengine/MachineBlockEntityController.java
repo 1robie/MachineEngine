@@ -38,6 +38,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private @Nullable WorldPosition position;
     private @Nullable SleepingBlockEntityTicker<MachineBlockEntityController> ticker;
     private boolean warnedMissingType;
+    private @Nullable MachineHopperContainer hopperContainer;
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
@@ -50,6 +51,13 @@ public final class MachineBlockEntityController extends BlockEntityController {
 
     @Nullable MachineInstanceImpl instance() {
         return this.machine == null ? null : this.machine.instance();
+    }
+
+    /** The vanilla container hoppers use; {@code null} while no live machine is attached. */
+    @Nullable Object hopperContainer() {
+        if (instance() == null) return null;
+        if (this.hopperContainer == null) this.hopperContainer = new MachineHopperContainer(this);
+        return this.hopperContainer.vanilla();
     }
 
     @Override

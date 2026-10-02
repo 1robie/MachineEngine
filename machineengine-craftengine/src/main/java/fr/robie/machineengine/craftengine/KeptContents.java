@@ -8,8 +8,6 @@ import fr.robie.machineengine.core.data.DataBinary;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.paper.PaperItems;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -113,31 +111,26 @@ public final class KeptContents implements Listener {
         return result;
     }
 
-    /** Lore lines: "Contents:" then one line per resource, merged by variant. */
+    /** Lore lines (translated, see {@link fr.robie.machineengine.paper.Messages}): a header, then one line per resource, merged by variant. */
     static List<Component> describe(List<ResourceStack> contents) {
         Map<ResourceVariant, Long> totals = new LinkedHashMap<>();
         for (ResourceStack stack : contents) totals.merge(stack.variant(), stack.amount(), Long::sum);
         List<Component> lines = new ArrayList<>();
-        lines.add(plain(Component.text("Contents kept", NamedTextColor.GRAY)));
+        lines.add(fr.robie.machineengine.paper.Messages.contentsKept());
         int shown = 0;
         for (Map.Entry<ResourceVariant, Long> entry : totals.entrySet()) {
             if (shown++ == LORE_LINES) {
-                lines.add(plain(Component.text("… and " + (totals.size() - LORE_LINES) + " more", NamedTextColor.DARK_GRAY)));
+                lines.add(fr.robie.machineengine.paper.Messages.contentsMore(totals.size() - LORE_LINES));
                 break;
             }
-            lines.add(plain(Component.text("  " + entry.getValue() + " ", NamedTextColor.WHITE).append(name(entry.getKey()))));
+            lines.add(fr.robie.machineengine.paper.Messages.contentsEntry(entry.getValue(), name(entry.getKey())));
         }
         return lines;
     }
 
     private static Component name(ResourceVariant variant) {
         ItemStack item = PaperItems.toItemStack(variant, 1);
-        return item != null ? Component.translatable(item).color(NamedTextColor.GRAY)
-                : Component.text(variant.type().key().asString(), NamedTextColor.GRAY);
-    }
-
-    private static Component plain(Component line) {
-        return line.decoration(TextDecoration.ITALIC, false);
+        return item != null ? Component.translatable(item) : Component.text(variant.type().key().asString());
     }
 
     private static @Nullable World world(WorldPosition position) {

@@ -50,6 +50,7 @@ final class ExampleCommands {
                 .requires(source -> source.getSender().hasPermission("machineengine.admin"))
                 .then(PositionArguments.optionalPosition(Commands.literal("place"), PositionArguments.Default.PLACEMENT, onRegion(this::place)))
                 .then(PositionArguments.optionalPosition(Commands.literal("crate-test"), PositionArguments.Default.PLACEMENT, onRegion(this::crateTest)))
+                .then(PositionArguments.optionalPosition(Commands.literal("hopper-test"), PositionArguments.Default.PLACEMENT, onRegion(this::hopperTest)))
                 .then(PositionArguments.optionalPosition(Commands.literal("network-line"), PositionArguments.Default.PLACEMENT, onRegion(this::networkLine)))
                 .then(Commands.literal("fill")
                         .then(PositionArguments.optionalPosition(Commands.argument("size", IntegerArgumentType.integer(1, 200)),
@@ -115,6 +116,41 @@ final class ExampleCommands {
             this.plugin.getLogger().info("crate-test: inserted " + inserted + " iron ingots, " + dropped + " dropped after breaking the crate");
         }, 5);
         return Command.SINGLE_SUCCESS;
+    }
+
+    /**
+     * Hopper interop: a hopper holding 10 iron ingots feeds a crate, a hopper under the crate empties
+     * it into a chest. After 15 seconds every ingot must be somewhere, and all should be in the chest.
+     */
+    private int hopperTest(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
+        world.getBlockAt(x, y - 2, z).setType(Material.CHEST);
+        world.getBlockAt(x, y - 1, z).setBlockData(Bukkit.createBlockData("minecraft:hopper[facing=down]"));
+        if (!place(world, x, y, z, "crate")) {
+            reply(context, "Crate placement failed");
+            return 0;
+        }
+        world.getBlockAt(x, y + 1, z).setBlockData(Bukkit.createBlockData("minecraft:hopper[facing=down]"));
+        ((org.bukkit.block.Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory().addItem(new ItemStack(Material.IRON_INGOT, 10));
+        reply(context, "hopper-test: hopper (10 iron) > crate > hopper > chest; counting in 15 s");
+        Bukkit.getRegionScheduler().runDelayed(this.plugin, new Location(world, x, y, z), task -> {
+            int top = count(((org.bukkit.block.Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory());
+            int bottom = count(((org.bukkit.block.Hopper) world.getBlockAt(x, y - 1, z).getState(false)).getInventory());
+            int chest = count(((org.bukkit.block.Chest) world.getBlockAt(x, y - 2, z).getState(false)).getInventory());
+            MachineInstance crate = MachineEngine.get().machineAt(WorldPosition.of(world.getKey(), x, y, z)).orElse(null);
+            long inCrate = crate == null ? -1 : crate.inspect().storages().get("items").stream()
+                    .mapToLong(fr.robie.machineengine.api.transfer.StorageView::amount).sum();
+            this.plugin.getLogger().info("hopper-test: top hopper " + top + ", crate " + inCrate + ", bottom hopper " + bottom
+                    + ", chest " + chest + ", total " + (top + inCrate + bottom + chest) + " (expected 10)");
+        }, 300);
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int count(org.bukkit.inventory.Inventory inventory) {
+        int total = 0;
+        for (ItemStack stack : inventory.getContents()) {
+            if (stack != null && stack.getType() == Material.IRON_INGOT) total += stack.getAmount();
+        }
+        return total;
     }
 
     private int fill(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {

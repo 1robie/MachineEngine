@@ -36,22 +36,42 @@ import java.util.Locale;
  *   machine: mymod:refinery
  *   facing_property: facing     # optional, defaults to "facing" when the block has it
  *   keep_contents: true         # optional: the dropped item keeps the machine's contents (§20.5)
+ *   hoppers: false              # optional: hoppers use the machine's item ports (default true, §22.4)
  * }</pre>
  */
-public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock {
+public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock,
+        net.momirealms.craftengine.core.block.behavior.WorldlyContainerHolder {
     public static final BlockBehaviorFactory<MachineBlockBehavior> FACTORY = new Factory();
 
     private final Key machine;
     private final @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing;
     private final boolean keepContents;
+    private final boolean hoppers;
     private int controllerId;
 
     private MachineBlockBehavior(BlockDefinition block, Key machine,
-                                 @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents) {
+                                 @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents,
+                                 boolean hoppers) {
         super(block);
         this.machine = machine;
         this.facing = facing;
         this.keepContents = keepContents;
+        this.hoppers = hoppers;
+    }
+
+    /**
+     * Hoppers, droppers and hopper minecarts see the machine's item ports as a container (§22.4).
+     * Args: state, level, pos; returns a vanilla {@code WorldlyContainer} or {@code null}.
+     */
+    @Override
+    public Object getContainer(Object thisBlock, Object[] args) {
+        if (!this.hoppers) return null;
+        org.bukkit.World world = LevelProxy.INSTANCE.getWorld(args[1]);
+        if (world == null) return null;
+        BlockPos pos = LocationUtils.fromBlockPos(args[2]);
+        BlockEntity blockEntity = net.momirealms.craftengine.bukkit.api.BukkitAdaptor.adapt(world).storageWorld().getBlockEntityAtIfLoaded(pos);
+        if (blockEntity == null) return null;
+        return blockEntity.controller.let(MachineBlockEntityController.class, this.controllerId, MachineBlockEntityController::hopperContainer);
     }
 
     /** Whether breaking the block keeps the machine's contents in the dropped item (§20.5). */
@@ -123,7 +143,8 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
             String facingName = section.getString("facing_property", "facing");
             Property<net.momirealms.craftengine.core.util.Direction> facing =
                     BlockBehaviorFactory.getOptionalProperty(block, facingName, net.momirealms.craftengine.core.util.Direction.class);
-            return new MachineBlockBehavior(block, machine, facing, section.getBoolean("keep_contents", false));
+            return new MachineBlockBehavior(block, machine, facing, section.getBoolean("keep_contents", false),
+                    section.getBoolean("hoppers", true));
         }
     }
 }

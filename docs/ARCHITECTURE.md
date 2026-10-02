@@ -39,6 +39,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D18 | **Java package root `fr.robie.machineengine`**, Maven group `fr.robie`. | Project owner decision (2026-10-01). |
 | D19 | **Supported Minecraft versions: 1.20.6 to 26.3.** Compile against the 1.20.6 Paper API; test on both ends of the range. | Project owner decision (2026-10-01). 1.20.6 is the first version with item data components and Paper's lifecycle command API, both of which MachineEngine relies on. |
 | D20 | **Machine GUIs use zMenu** (latest, 1.1.1.9) as an optional dependency: menus are zMenu inventory files, machine values are zMenu placeholders, interactions are custom zMenu button types. | Project owner decision (2026-10-02): everything customizable by server owners in YAML. |
+| D23 | **Player-facing text uses CraftEngine client-side translations** (`lang` entries in a `machineengine` CraftEngine pack, MiniMessage, `%s` arguments) instead of a messages file: each player sees their own language, server owners edit one YAML file, and every message has an English fallback for players without the resource pack. Admin command output stays English. | Project owner suggestion (2026-10-02). |
 | D22 | **Keep-contents is configured per block** (`keep_contents` on the CraftEngine behavior), not per `MachineType`: whether a block keeps its contents is a server/pack choice, and the same machine type can back both kinds of blocks. | Delegated (2026-10-02). |
 | D21 | **YAML definitions are a built-in pseudo-addon `definitions`**, registered after every addon. Static content (resource categories and types, recipe types, machines) is defined at startup and freezes with the rest; recipes are a reloadable provider. Machine behavior comes from registered `BehaviorType`s (built-in `machineengine:processing` and `machineengine:storage`; addons add their own). | Delegated (2026-10-02): server owners can add whole machines without Java, while D5 (freeze) still holds. |
 
@@ -907,7 +908,7 @@ Deferred from M2: per-instance port side configuration, `WorldEffect`s (no world
 - **MachineEngine removed, then re-added:** CraftEngine warns about the unknown behavior, keeps the raw data, and the machines resume unchanged.
 - Placeholder break protection (`placeholders.allow-breaking`, permission `machineengine.admin.breakplaceholders`), `limits.max-machines-per-chunk`, `neighborChanged` wake-ups, and `MachineEngine.machineAt(position)` for addons.
 
-Deferred to M4/M5: hopper interop (`WorldlyContainerHolder` needs an NMS `WorldlyContainer`), keep-contents-in-item (done in M5), protection checks for machine interactions (there are no interactions before the GUI/interaction SPI), and metrics export beyond `/machineengine status`. Decision recorded: items are registered by MachineEngine itself in core (not by the Paper module) so headless tests and addon recipes can use them; only the `ItemStack` conversion is Paper-specific.
+Deferred to M4/M5: hopper interop (done in M5, through CraftEngine's container bridge), keep-contents-in-item (done in M5), protection checks for machine interactions (there are no interactions before the GUI/interaction SPI), and metrics export beyond `/machineengine status`. Decision recorded: items are registered by MachineEngine itself in core (not by the Paper module) so headless tests and addon recipes can use them; only the `ItemStack` conversion is Paper-specific.
 
 ### M4 — Networks, transports, Folia
 Network/transport API and implementation (incremental graphs, segment-per-region), bounded catch-up policy, Folia validation (`folia-supported: true`).
@@ -919,6 +920,15 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 
 ### M5 — Ecosystem
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
+
+**Hopper interop: done (2026-10-02).** `MachineBlockBehavior` implements CraftEngine's `WorldlyContainerHolder`. CraftEngine's generated block class already implements vanilla's `WorldlyContainerHolder` and delegates `getContainer` to it, so no NMS code is needed. `MachineHopperContainer` exposes the machine slots reachable through ports as a vanilla `WorldlyContainer`:
+- **Faces:** the hopper's face selects the ports on that side, and each port's direction and filter apply.
+- **No in-place stacks:** vanilla and Paper hoppers merge into and split stacks in place. As in CraftEngine's drawer, each machine slot is therefore two container slots with a maximum stack size of 1: an always-empty "place" slot and a "take" slot that shows one item. Every move is an explicit `setItem` or `removeItem` that becomes a machine transaction.
+- **Safety:** an insert is accepted only if all of it fits. Anything the machine cannot take after all is dropped, never lost. A machine that the current thread does not own (Folia) exposes no slots.
+- **Opt-out:** `hoppers: false` on the block behavior turns it off.
+- **Verified:** `/mexample hopper-test` (hopper with 10 iron → crate → hopper → chest) ends with all 10 in the chest on Paper 1.20.6 and Folia 26.2. Comparator output still needs neighbor updates when contents change, and is not done yet.
+
+**Translations: done (2026-10-02), D23.** The `machineengine` CraftEngine pack (`plugins/CraftEngine/resources/machineengine/configuration/lang.yml`, English and French, never overwritten) holds the keep-contents lore, the missing-addon and chunk-limit messages, and the debug toggle messages. `Messages` builds translatable components with English fallbacks.
 
 **Keep-contents in item: done (2026-10-02), §20.4, D22.** `KeepContentsTest` covers a packed machine resuming elsewhere through the item bytes with no catch-up, empty machines staying plain items, a state for another type being ignored, and corrupt data being rejected. The example crate uses `keep_contents: true`. Verified on Paper 1.20.6: a crate broken without a player (`/mexample crate-test`) still drops all 100 ingots through the fallback. The player path (break, item, place) needs a client and was not automated.
 

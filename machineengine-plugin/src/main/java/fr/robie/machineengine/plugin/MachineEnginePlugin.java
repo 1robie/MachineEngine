@@ -50,6 +50,26 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
         CraftEngineIntegration.registerBlockBehavior();
+        installCraftEnginePack();
+    }
+
+    /**
+     * Installs MachineEngine's CraftEngine pack (translations of player messages, §23.4) before
+     * CraftEngine loads its packs. Existing files are kept: server owners edit them.
+     */
+    private void installCraftEnginePack() {
+        java.nio.file.Path target = getDataFolder().toPath().getParent().resolve("CraftEngine/resources/machineengine");
+        for (String file : List.of("pack.yml", "configuration/lang.yml")) {
+            java.nio.file.Path destination = target.resolve(file);
+            if (java.nio.file.Files.exists(destination)) continue;
+            try (java.io.InputStream in = getResource("craftengine-pack/" + file)) {
+                if (in == null) throw new java.io.IOException("missing resource " + file);
+                java.nio.file.Files.createDirectories(destination.getParent());
+                java.nio.file.Files.copy(in, destination);
+            } catch (java.io.IOException e) {
+                getLogger().warning("Could not install the CraftEngine pack file " + file + ": " + e.getMessage());
+            }
+        }
     }
 
     @Override
@@ -147,8 +167,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (machine instanceof PlaceholderMachine placeholder && !this.allowBreakingPlaceholders
                 && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("This machine (" + placeholder.missingType().asString()
-                    + ") belongs to an addon that is not installed. Breaking it would destroy its data.", NamedTextColor.RED));
+            event.getPlayer().sendMessage(fr.robie.machineengine.paper.Messages.placeholderBreakDenied(placeholder.missingType().asString()));
         }
     }
 
@@ -161,8 +180,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         int count = this.host.machinesInChunk(location.getWorld().getKey(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
         if (count >= this.maxMachinesPerChunk) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Component.text("This chunk already holds " + count + " machines (limit "
-                    + this.maxMachinesPerChunk + ").", NamedTextColor.RED));
+            event.getPlayer().sendMessage(fr.robie.machineengine.paper.Messages.chunkLimit(count, this.maxMachinesPerChunk));
         }
     }
 

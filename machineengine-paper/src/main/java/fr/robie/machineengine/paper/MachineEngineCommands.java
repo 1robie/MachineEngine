@@ -108,10 +108,7 @@ public final class MachineEngineCommands {
             return 0;
         }
         boolean on = this.debugView.toggle(player);
-        player.sendMessage(on
-                ? Component.text("Debug view on: dots show machine states (green active, blue sleeping, orange blocked, red error), "
-                        + "ports (blue in, orange out, purple both) and networks; look at a machine for details.", NamedTextColor.GOLD)
-                : Component.text("Debug view off.", NamedTextColor.GRAY));
+        player.sendMessage(on ? Messages.debugOn() : Messages.debugOff());
         return Command.SINGLE_SUCCESS;
     }
 

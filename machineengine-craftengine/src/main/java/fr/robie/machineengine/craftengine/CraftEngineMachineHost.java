@@ -77,8 +77,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         LoadedMachine machine = machine(position);
         if (service == null || machine == null) return false;
         if (machine.instance() == null) {
-            player.sendMessage(net.kyori.adventure.text.Component.text("This machine belongs to an addon that is not installed ("
-                    + machine.inspect().type().asString() + ").", net.kyori.adventure.text.format.NamedTextColor.RED));
+            player.sendMessage(fr.robie.machineengine.paper.Messages.missingAddon(machine.inspect().type().asString()));
             return true;
         }
         if (!player.hasPermission("machineengine.use")) return false;

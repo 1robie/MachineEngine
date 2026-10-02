@@ -78,6 +78,19 @@ first start. Machines take a `behavior` type: `machineengine:processing` (runs r
 `/machineengine reload recipes`; machines and resources need a restart. Invalid entries are skipped
 and listed in `/machineengine report` with their file and path.
 
+## Hoppers
+
+Hoppers, droppers and hopper minecarts move items in and out of machines through their ports. The
+side the hopper touches selects the port, and the port's direction and filter apply. Add
+`hoppers: false` to a block's `machineengine:machine` behavior to turn this off.
+
+## Translations
+
+Player-facing text (item lore, messages) is translated on each player's client. Edit
+`plugins/CraftEngine/resources/machineengine/configuration/lang.yml` to change wording or colors
+(MiniMessage, `%s` for arguments), or add a language section (`de_de`, `es_es` …). English and French
+ship by default. The file is never overwritten.
+
 ## Keeping contents in the item
 
 Add `keep_contents: true` to a block's `machineengine:machine` behavior, and a player breaking it
