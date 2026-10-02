@@ -99,6 +99,51 @@ public final class CoreNetworks {
         return network == null ? Optional.empty() : Optional.of(network.view());
     }
 
+    /** The transport at {@code position}, if one is loaded there. */
+    public @Nullable TransportType transportAt(@NotNull WorldPosition position) {
+        WorldGraph graph = this.worlds.get(position.world());
+        return graph == null ? null : graph.transportAt(position);
+    }
+
+    /**
+     * The sides a transport connects through, for drawing it: a neighbor transport of the same
+     * network type, or a machine port on the facing side that carries something the transport does
+     * ({@code probes}: one variant of each resource type the transport's filter accepts).
+     */
+    public @NotNull Set<Direction> connections(@NotNull WorldPosition position, @NotNull MachineHost host,
+                                               @NotNull java.util.Collection<ResourceVariant> probes) {
+        TransportType type = transportAt(position);
+        if (type == null) return Set.of();
+        ResourceTags tags = this.tags.get();
+        List<ResourceVariant> carried = probes.stream().filter(probe -> type.filter().test(probe, tags)).toList();
+        Set<Direction> connected = java.util.EnumSet.noneOf(Direction.class);
+        for (Direction direction : Direction.values()) {
+            WorldPosition neighbor = position.relative(direction);
+            TransportType other = transportAt(neighbor);
+            if (other != null) {
+                if (other.network() == type.network()) connected.add(direction);
+                continue;
+            }
+            if (!host.isOwnedByCurrentThread(neighbor)) continue;
+            MachineInstanceImpl machine = host.machineAt(neighbor);
+            if (machine != null && carriesThrough(machine, direction.opposite(), carried, tags)) connected.add(direction);
+        }
+        return connected;
+    }
+
+    private static boolean carriesThrough(MachineInstanceImpl machine, Direction side, List<ResourceVariant> carried, ResourceTags tags) {
+        for (fr.robie.machineengine.api.machine.PortDefinition port : machine.type().ports()) {
+            if (port.direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            if (port.sides().stream().noneMatch(relative -> relative.toAbsolute(machine.facing()) == side)) continue;
+            var storage = machine.type().storages().stream().filter(definition -> definition.id().equals(port.storage())).findFirst();
+            if (storage.isEmpty()) continue;
+            for (ResourceVariant probe : carried) {
+                if (port.filter().test(probe, tags) && storage.get().filter().test(probe, tags)) return true;
+            }
+        }
+        return false;
+    }
+
     public @NotNull List<NetworkView> networks(@NotNull Key world) {
         WorldGraph graph = this.worlds.get(world);
         return graph == null ? List.of() : graph.views();
@@ -182,6 +227,10 @@ public final class CoreNetworks {
                 component.forEach(member -> this.networkOf.put(member, split));
                 split.topologyChanged(this.transports);
             }
+        }
+
+        synchronized @Nullable TransportType transportAt(WorldPosition position) {
+            return this.transports.get(position);
         }
 
         synchronized @Nullable Network networkOf(WorldPosition position) {

@@ -77,6 +77,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         ZMenuMachineMenus menus = new ZMenuMachineMenus(plugin, inventories, buttons, locator);
         buttons.register(new SlotButton.Loader(plugin, menus));
         buttons.register(new CancelProcessButton.Loader(plugin, menus));
+        buttons.register(new UpgradeButton.Loader(plugin, menus));
         LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
         inventories.registerInventoryListener(menus.listener);
         menus.reload();
@@ -170,6 +171,22 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         });
     }
 
+    /** Players with a refresh already queued: at most one refresh per player every 5 ticks. */
+    private final java.util.Set<UUID> pendingRefresh = ConcurrentHashMap.newKeySet();
+
+    @Override
+    public void machineChanged(@NotNull WorldPosition position) {
+        if (this.openMachines.isEmpty()) return;
+        forViewers(position, viewer -> {
+            if (!this.pendingRefresh.add(viewer.getUniqueId())) return;
+            // At most every 5 ticks: a machine on a network changes almost every tick.
+            viewer.getScheduler().runDelayed(this.plugin, task -> {
+                this.pendingRefresh.remove(viewer.getUniqueId());
+                if (position.equals(this.openMachines.get(viewer.getUniqueId()))) refresh(viewer);
+            }, () -> this.pendingRefresh.remove(viewer.getUniqueId()), 5);
+        });
+    }
+
     @Override
     public void machineGone(@NotNull WorldPosition position) {
         forViewers(position, viewer -> viewer.getScheduler().run(this.plugin, task -> {
@@ -187,7 +204,35 @@ public final class ZMenuMachineMenus implements MachineMenuService {
 
     /** Re-renders the player's open menu after a change. */
     void refresh(@NotNull Player player) {
-        this.inventories.updateInventory(player, this.plugin);
+        // Rebuild the machine buttons in place. zMenu's updateInventory reopens the menu instead, which
+        // fires a close (losing the open machine) and reopens a closed menu if it runs too late.
+        if (!this.openMachines.containsKey(player.getUniqueId())) return;
+        if (!(topHolder(player) instanceof fr.maxlego08.menu.api.engine.InventoryEngine engine)) {
+            this.openMachines.remove(player.getUniqueId());
+            return;
+        }
+        // Only slots: their item changes. Gauges (energy, progress) keep their own periodic update,
+        // which re-reads the placeholders; rebuilding them would restart that timer before it fires.
+        for (fr.maxlego08.menu.api.button.Button button : engine.getButtons()) {
+            if (!(button instanceof SlotButton)) continue;
+            for (int slot : button.getSlots()) engine.cancel(slot);
+            engine.buildButton(button);
+        }
+    }
+
+    /**
+     * The holder of the player's open top inventory. Called reflectively: {@code InventoryView} is a
+     * class on 1.20.6 and an interface on 1.21+, so a direct call compiled against one version fails
+     * on the other ({@code IncompatibleClassChangeError}).
+     */
+    private static @Nullable Object topHolder(Player player) {
+        try {
+            Object view = Player.class.getMethod("getOpenInventory").invoke(player);
+            Object top = view.getClass().getMethod("getTopInventory").invoke(view);
+            return ((org.bukkit.inventory.Inventory) top).getHolder();
+        } catch (ReflectiveOperationException | ClassCastException e) {
+            return null;
+        }
     }
 
     private @Nullable String placeholder(OfflinePlayer player, String key) {

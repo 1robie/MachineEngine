@@ -38,6 +38,8 @@ import java.util.Locale;
  *   keep_contents: true         # optional: the dropped item keeps the machine's contents (§20.5)
  *   hoppers: false              # optional: hoppers use the machine's item ports (default true, §22.4)
  *   comparator: false           # optional: comparators read how full the machine is (default true)
+ *   active_property: active     # optional, defaults to "active" when the block has it: shown while working
+ *   display_item: mymod:display/refinery   # optional: drawn by a display entity of this item (and <item>/active)
  * }</pre>
  */
 public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock,
@@ -49,17 +51,31 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     private final boolean keepContents;
     private final boolean hoppers;
     private final boolean comparator;
+    private final @Nullable Property<Boolean> active;
+    private final @Nullable String displayItem;
     private int controllerId;
 
     private MachineBlockBehavior(BlockDefinition block, Key machine,
                                  @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents,
-                                 boolean hoppers, boolean comparator) {
+                                 boolean hoppers, boolean comparator, @Nullable Property<Boolean> active, @Nullable String displayItem) {
         super(block);
         this.machine = machine;
         this.facing = facing;
         this.keepContents = keepContents;
         this.hoppers = hoppers;
         this.comparator = comparator;
+        this.active = active;
+        this.displayItem = displayItem;
+    }
+
+    /** The item a display entity shows instead of a block model (non-full models), or {@code null}. */
+    @Nullable String displayItem() {
+        return this.displayItem;
+    }
+
+    /** The boolean block property showing that the machine works, if the block has one. */
+    @Nullable Property<Boolean> activeProperty() {
+        return this.active;
     }
 
     boolean comparator() {
@@ -170,7 +186,9 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
             Property<net.momirealms.craftengine.core.util.Direction> facing =
                     BlockBehaviorFactory.getOptionalProperty(block, facingName, net.momirealms.craftengine.core.util.Direction.class);
             return new MachineBlockBehavior(block, machine, facing, section.getBoolean("keep_contents", false),
-                    section.getBoolean("hoppers", true), section.getBoolean("comparator", true));
+                    section.getBoolean("hoppers", true), section.getBoolean("comparator", true),
+                    BlockBehaviorFactory.getOptionalProperty(block, section.getString("active_property", "active"), Boolean.class),
+                    section.getString("display_item", (String) null));
         }
     }
 }

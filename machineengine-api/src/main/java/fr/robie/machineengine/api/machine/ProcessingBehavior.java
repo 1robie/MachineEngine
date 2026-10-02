@@ -63,6 +63,7 @@ public final class ProcessingBehavior implements MachineBehavior {
         ProcessView process = context.process().current();
         if (process == null) {
             if (!startNext(context)) {
+                context.setActive(false);
                 if (outputLeft) {
                     context.block(new MachineError.TransferRejected("the output could not be pushed", null), this.retryTicks);
                 } else {
@@ -72,6 +73,8 @@ public final class ProcessingBehavior implements MachineBehavior {
             }
         }
         ProcessStatus status = context.process().advance();
+        // Working while a process runs, and between two processes (no flicker); not while it waits.
+        context.setActive(status == ProcessStatus.RUNNING || status == ProcessStatus.COMPLETED);
         switch (status) {
             case RUNNING -> {
                 ProcessView running = Objects.requireNonNull(context.process().current());

@@ -364,6 +364,15 @@ public final class DefinitionCompiler {
             if (matcher.isErr()) return invalid("inputs: " + matcher.error().message());
             builder.input(matcher.value());
         }
+        for (DataValue output : list(map, "chance-outputs")) {
+            if (!(output instanceof DataMap entry)) return invalid("chance-outputs: each entry is a map with a chance");
+            Result<ResourceStack> stack = context.stack(entry);
+            if (stack.isErr()) return invalid("chance-outputs: " + stack.error().message());
+            double chance = entry.get("chance").map(value -> value instanceof DataValue.DataDouble d ? d.value()
+                    : value instanceof DataValue.DataLong l ? (double) l.value() : -1.0).orElse(-1.0);
+            if (chance < 0 || chance > 1) return invalid("chance-outputs: chance must be between 0 and 1");
+            builder.chanceOutput(stack.value(), chance);
+        }
         for (DataValue output : list(map, "outputs")) {
             Result<ResourceStack> stack = context.stack(output);
             if (stack.isErr()) return invalid("outputs: " + stack.error().message());

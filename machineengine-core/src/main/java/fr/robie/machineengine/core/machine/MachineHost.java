@@ -32,6 +32,15 @@ public interface MachineHost {
     /** The machine switched between ticking and sleeping. */
     void activityChanged(@NotNull MachineInstanceImpl machine);
 
+    /** What the block at {@code position} sees of the world (owner thread). */
+    default @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
+        return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
+    }
+
+    /** The machine started or stopped working visibly ({@link fr.robie.machineengine.api.machine.MachineContext#setActive}). */
+    default void activeChanged(@NotNull MachineInstanceImpl machine) {
+    }
+
     /** A committed transaction changed what the machine holds (e.g. to update comparators). */
     default void contentsChanged(@NotNull MachineInstanceImpl machine) {
     }

@@ -234,9 +234,29 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
+    public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
+        World world = world(position.world());
+        if (world == null) return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
+        org.bukkit.block.Block above = world.getBlockAt(position.position().x(), position.position().y() + 1, position.position().z());
+        int skyLight = above.getLightFromSky();
+        boolean skyVisible = world.getHighestBlockYAt(above.getX(), above.getZ()) < above.getY() || skyLight >= 15;
+        boolean daytime = world.isDayTime() && world.getEnvironment() == World.Environment.NORMAL;
+        boolean raining = world.hasStorm() && above.getTemperature() < 2.0;
+        return new fr.robie.machineengine.api.machine.MachineEnvironment(skyVisible, daytime, raining, skyLight);
+    }
+
+    @Override
+    public void activeChanged(@NotNull MachineInstanceImpl machine) {
+        MachineBlockEntityController controller = this.controllers.get(machine.position());
+        if (controller != null) controller.activeChanged();
+    }
+
+    @Override
     public void contentsChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.contentsChanged();
+        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+        if (service != null) service.machineChanged(machine.position());
     }
 
     @Override

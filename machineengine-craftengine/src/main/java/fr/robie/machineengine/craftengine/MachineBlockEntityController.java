@@ -11,6 +11,7 @@ import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
 import net.momirealms.craftengine.core.block.entity.tick.BlockEntityTicker;
 import net.momirealms.craftengine.core.block.entity.tick.SleepingBlockEntityTicker;
+import net.momirealms.craftengine.core.block.property.Property;
 import net.momirealms.craftengine.core.world.CEWorld;
 import net.momirealms.craftengine.libraries.nbt.CompoundTag;
 import net.momirealms.craftengine.libraries.nbt.Tag;
@@ -40,10 +41,37 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private boolean warnedMissingType;
     private @Nullable MachineHopperContainer hopperContainer;
     private int comparatorSignal = -1;
+    private final @Nullable MachineDisplayElement display;
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
         this.behavior = behavior;
+        this.display = behavior.displayItem() == null ? null : new MachineDisplayElement(behavior.displayItem(), blockEntity.pos());
+    }
+
+    @Override
+    public boolean hasElement() {
+        return this.display != null;
+    }
+
+    @Override
+    public void gatherElements(java.util.function.Consumer<net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement> consumer) {
+        if (this.display != null) consumer.accept(this.display);
+    }
+
+    /** Turns the display entity to the facing and switches its model with the active state. */
+    void refreshDisplay() {
+        MachineInstanceImpl instance = instance();
+        if (this.display == null) return;
+        fr.robie.machineengine.api.world.Direction facing = instance != null ? instance.facing() : this.behavior.facing(this.blockEntity.blockState());
+        if (!this.display.update(facing, instance != null && instance.isActive())) return;
+        CEWorld world = this.blockEntity.world();
+        if (world == null) return;
+        var chunk = world.getChunkAtIfLoaded(this.blockEntity.pos().x() >> 4, this.blockEntity.pos().z() >> 4);
+        if (chunk == null) return;
+        for (var player : chunk.getTrackedBy()) {
+            if (player.isDynamicBlockEntityVisible(this.blockEntity.pos())) this.display.refresh(player);
+        }
     }
 
     public @Nullable LoadedMachine machine() {
@@ -102,6 +130,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
             this.machine = host.engine().machines().create(type, at, this.behavior.facing(this.blockEntity.blockState()), host);
         }
         syncTicker();
+        refreshDisplay();
     }
 
     @Override
@@ -149,6 +178,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
         }
         this.machine = restored;
         syncTicker();
+        refreshDisplay();
         contentsChanged();
     }
 
@@ -156,6 +186,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
     public void preBlockStateChange(ImmutableBlockState newState) {
         MachineInstanceImpl instance = instance();
         if (instance != null) instance.setFacing(this.behavior.facing(newState));
+        refreshDisplay();
     }
 
     @Override
@@ -207,6 +238,19 @@ public final class MachineBlockEntityController extends BlockEntityController {
         this.machine = null;
         this.pending = null;
         markDirty();
+    }
+
+    /** Shows whether the machine works on the block ({@code active} property), keeping the block entity. */
+    void activeChanged() {
+        refreshDisplay();
+        Property<Boolean> property = this.behavior.activeProperty();
+        MachineInstanceImpl instance = instance();
+        CEWorld world = this.blockEntity.world();
+        if (property == null || instance == null || world == null) return;
+        ImmutableBlockState state = world.getBlockStateAtIfLoaded(this.blockEntity.pos());
+        if (state == null || !this.blockEntity.isValidBlockState(state) || state.get(property) == instance.isActive()) return;
+        world.world().setBlockState(this.blockEntity.pos().x(), this.blockEntity.pos().y(), this.blockEntity.pos().z(),
+                state.with(property, instance.isActive()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
     }
 
     /** Flags the chunk unsaved so CraftEngine writes the new machine state (§20.2). */

@@ -26,4 +26,8 @@ public interface MachineMenuService {
      */
     default void machineGone(@NotNull fr.robie.machineengine.api.world.WorldPosition position) {
     }
+
+    /** What the machine at {@code position} holds changed: refresh the menus showing it (owner thread). */
+    default void machineChanged(@NotNull fr.robie.machineengine.api.world.WorldPosition position) {
+    }
 }

@@ -74,6 +74,7 @@ final class MachineCodec {
                 .put(FACING, machine.facing().name().toLowerCase(Locale.ROOT))
                 .put(SAVED_AT, gameTime)
                 .put(SINCE_TICK, Math.max(0, gameTime - machine.lastTick))
+                .put("active", machine.active)
                 .put(SCHEDULER, DataMap.builder()
                         .put("state", machine.state.name())
                         .put("wakeIn", machine.wakeAt < 0 ? -1 : Math.max(0, machine.wakeAt - gameTime))
@@ -144,7 +145,7 @@ final class MachineCodec {
         DataMap.Builder binding = DataMap.builder()
                 .put("inputs", Codecs.list(Codecs.STRING).encode(process.binding().inputs()))
                 .put("output", process.binding().output());
-        if (process.binding().costs() != null) binding.put("costs", process.binding().costs());
+        if (!process.binding().costs().isEmpty()) binding.put("costs", Codecs.list(Codecs.STRING).encode(process.binding().costs()));
         return DataMap.builder()
                 .put("recipe", process.recipe().asString())
                 .put("status", process.status().name())
@@ -215,6 +216,7 @@ final class MachineCodec {
         data.getList(UPGRADES).ifOk(upgrades -> decodeUpgrades(machine, upgrades, services));
         data.getList(ESCROW).ifOk(escrow -> decodeEscrow(machine, escrow, stacks, problems));
         machine.sequence = data.getLong(SEQUENCE).orElse(0L);
+        machine.active = data.getBool("active").toOptional().orElse(false);
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
 
         Result<DataMap> scheduler = data.getMap(SCHEDULER);
@@ -316,7 +318,11 @@ final class MachineCodec {
         Result<String> output = map.getString("output");
         if (inputs.isErr()) return Result.err(inputs.error());
         if (output.isErr()) return Result.err(output.error());
-        return Result.ok(new ProcessBinding(inputs.value(), output.value(), map.getString("costs").toOptional().orElse(null)));
+        // Saved before cost lists existed: a single storage name.
+        List<String> costs = map.getString("costs").map(List::of).toOptional()
+                .or(() -> map.getList("costs").flatMap(Codecs.list(Codecs.STRING)::decode).toOptional())
+                .orElse(List.of());
+        return Result.ok(new ProcessBinding(inputs.value(), output.value(), costs));
     }
 
     private static void decodeUpgrades(MachineInstanceImpl machine, DataList upgrades, MachineServices services) {

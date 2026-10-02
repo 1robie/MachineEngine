@@ -89,6 +89,15 @@ public interface MachineContext {
     /** Records an error shown in inspection; {@code null} clears it. */
     void error(@Nullable MachineError error);
 
+    /**
+     * Whether the machine is visibly working (e.g. a lit furnace front). Hosts show it on the block
+     * (a CraftEngine {@code active} property); saved with the machine.
+     */
+    void setActive(boolean active);
+
+    /** What the machine's block sees of the world: sky, daytime, weather (E3). */
+    @NotNull MachineEnvironment environment();
+
     // -- neighbors -----------------------------------------------------------------------------
 
     /**

@@ -33,6 +33,9 @@ public interface MachineInstance {
 
     @Nullable MachineError lastError();
 
+    /** Whether the machine is visibly working, see {@link MachineContext#setActive}. */
+    boolean isActive();
+
     /**
      * A capability exposed on an absolute face, as another machine or transport sees it.
      * {@code side == null} asks for unsided capabilities.

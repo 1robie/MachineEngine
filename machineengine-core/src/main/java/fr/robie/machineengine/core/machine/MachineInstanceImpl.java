@@ -109,6 +109,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     private @Nullable WakeReason pendingWake;
     private @Nullable WakeReason lastWakeReason;
     private @Nullable MachineError lastError;
+    boolean active;
     /** Why the machine is blocked; cleared from {@link #lastError} once it is no longer blocked. */
     private @Nullable MachineError blockedBy;
     private boolean ticking;
@@ -518,6 +519,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     @Override
+    public boolean isActive() {
+        return this.active;
+    }
+
+    @Override
     public @Nullable MachineError lastError() {
         return this.lastError;
     }
@@ -808,6 +814,19 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
+        public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment() {
+            return host.environment(position);
+        }
+
+        @Override
+        public void setActive(boolean value) {
+            if (active == value) return;
+            active = value;
+            markDirty();
+            host.activeChanged(MachineInstanceImpl.this);
+        }
+
+        @Override
         public <T> @NotNull Optional<T> neighbor(@NotNull RelativeSide side, @NotNull CapabilityType<T> type) {
             Direction direction = absolute(side);
             WorldPosition target = position.relative(direction);
@@ -886,8 +905,14 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                         .map(cost -> cost.withAmount(context.modified(StandardModifiers.PROCESS_COST, cost.amount())))
                         .filter(cost -> cost.amount() > 0)
                         .toList();
+                // Chance outputs are rolled now, with the machine's own random: the outcome is part of
+                // the process, saved with it, and the same however often the process is loaded.
+                List<ResourceStack> outputs = new ArrayList<>(recipe.outputs());
+                for (fr.robie.machineengine.api.recipe.ChanceOutput chance : recipe.chanceOutputs()) {
+                    if (random.nextDouble() < chance.chance()) outputs.add(chance.stack());
+                }
                 ProcessState started = new ProcessState(recipe.key(), ProcessStatus.RUNNING, 0, duration, consumed,
-                        recipe.outputs(), costs, binding);
+                        outputs, costs, binding);
                 process.set(started, transaction);
                 transaction.onCommit(() -> postProcess(MachineEvents.PROCESS_START, started));
                 transaction.commit();
@@ -928,7 +953,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             if (running.costPerTick().isEmpty()) {
                 progress += steps;
             } else {
-                ResourceHandler costs = requireStorage(Objects.requireNonNull(running.binding().costStorage(), "cost storage"));
+                List<MachineStorage> costs = running.binding().costStorages().stream().map(MachineInstanceImpl.this::requireStorage).toList();
                 for (long i = 0; i < steps; i++) {
                     if (!pay(costs, running.costPerTick())) {
                         status = ProcessStatus.WAITING_FOR_COST;
@@ -948,10 +973,16 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             return status;
         }
 
-        private boolean pay(ResourceHandler storage, List<ResourceStack> costs) {
+        /** Pays every cost, each from the cost storages in order; all or nothing. */
+        private boolean pay(List<MachineStorage> storages, List<ResourceStack> costs) {
             try (Transaction transaction = openTransaction()) {
                 for (ResourceStack cost : costs) {
-                    if (storage.extract(cost.variant(), cost.amount(), transaction) != cost.amount()) return false;
+                    long missing = cost.amount();
+                    for (MachineStorage storage : storages) {
+                        if (missing == 0) break;
+                        missing -= storage.extract(cost.variant(), missing, transaction);
+                    }
+                    if (missing > 0) return false;
                 }
                 transaction.commit();
                 return true;

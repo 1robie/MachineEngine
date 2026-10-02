@@ -52,6 +52,7 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
         // A reload of MachineEngine while CraftEngine is already loaded.
         this.loaded = !CraftEngineItems.loadedItems().isEmpty();
         PaperItems.setIdResolver(CraftEngineItemBridge::idOf);
+        PaperItems.setItemFactory(CraftEngineItemBridge::stackOf);
     }
 
     public void attach(@NotNull Supplier<@Nullable CoreMachineEngine> engine) {
@@ -62,6 +63,14 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
     public static @NotNull Key idOf(@NotNull ItemStack stack) {
         net.momirealms.craftengine.core.util.Key custom = CraftEngineItems.getCustomItemId(stack);
         return custom != null ? Key.key(custom.namespace(), custom.value()) : stack.getType().getKey();
+    }
+
+    /** One CraftEngine item with this id, else the vanilla material, else {@code null}. */
+    public static @Nullable ItemStack stackOf(@NotNull Key id) {
+        var custom = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(id.namespace(), id.value()));
+        if (custom != null) return custom.buildBukkitItem();
+        Material material = Material.matchMaterial(id.asString());
+        return material == null || !material.isItem() || material.isAir() ? null : new ItemStack(material);
     }
 
     // -- definitions ------------------------------------------------------------------------------

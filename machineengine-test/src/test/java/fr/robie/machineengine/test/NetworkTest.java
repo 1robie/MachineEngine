@@ -51,6 +51,21 @@ class NetworkTest {
         return engine;
     }
 
+    @Test
+    void cablesConnectToEachOtherAndToPortsFacingThem() {
+        CoreMachineEngine engine = engine();
+        FakeWorld world = line(FakeWorld.singleRegion(engine), CABLE);
+        var probes = engine.registries().registry(fr.robie.machineengine.api.registry.Registries.RESOURCE_TYPE).values().stream()
+                .map(fr.robie.machineengine.api.resource.ResourceType::variant).toList();
+        var networks = engine.machines().networks();
+        assertEquals(java.util.Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(0), world, probes),
+                "the generator's front port and the next cable");
+        assertEquals(java.util.Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(1), world, probes));
+        world.removeTransport(CABLES.get(1));
+        assertEquals(java.util.Set.of(Direction.WEST), networks.connections(CABLES.get(0), world, probes), "the gap does not connect");
+        assertEquals(java.util.Set.of(), networks.connections(CABLES.get(1), world, probes), "no cable there any more");
+    }
+
     private static FakeWorld line(FakeWorld world, TransportType middle) {
         world.place(GENERATOR, GENERATOR_AT, Direction.EAST);
         world.place(CONSUMER, CONSUMER_AT, Direction.EAST);

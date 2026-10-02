@@ -76,6 +76,18 @@ public final class FakeWorld implements MachineHost {
         return this.engine;
     }
 
+    private fr.robie.machineengine.api.machine.MachineEnvironment environment = fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
+
+    /** What every machine in this world sees of the sky (E3). */
+    public void setEnvironment(@NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment) {
+        this.environment = environment;
+    }
+
+    @Override
+    public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
+        return this.environment;
+    }
+
     public long time() {
         return this.time;
     }

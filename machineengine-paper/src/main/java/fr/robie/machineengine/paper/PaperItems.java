@@ -28,6 +28,21 @@ public final class PaperItems {
         idResolver = java.util.Objects.requireNonNull(resolver);
     }
 
+    private static volatile Function<Key, ItemStack> itemFactory = id -> {
+        org.bukkit.Material material = org.bukkit.Material.matchMaterial(id.asString());
+        return material == null || !material.isItem() || material.isAir() ? null : new ItemStack(material);
+    };
+
+    /** How an item is built from its id; the CraftEngine integration builds custom items. */
+    public static void setItemFactory(@NotNull Function<Key, ItemStack> factory) {
+        itemFactory = java.util.Objects.requireNonNull(factory);
+    }
+
+    /** One item with this id (CraftEngine or vanilla), or {@code null} if there is none. */
+    public static @Nullable ItemStack itemOf(@NotNull Key id) {
+        return itemFactory.apply(id);
+    }
+
     /** The item's id: a CraftEngine custom id for CraftEngine items, else the material key. */
     public static @NotNull Key idOf(@NotNull ItemStack stack) {
         return idResolver.apply(stack);

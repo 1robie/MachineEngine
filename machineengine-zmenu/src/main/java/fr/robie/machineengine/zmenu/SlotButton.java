@@ -78,6 +78,16 @@ final class SlotButton extends Button {
         return true;
     }
 
+    /**
+     * zMenu's periodic update only rewrites the name and lore of the item already shown, which would
+     * put this button's "empty slot" name on the real item and keep showing an item taken out: always
+     * rebuild the slot from the machine instead.
+     */
+    @Override
+    public boolean isUpdatedMasterButton() {
+        return true;
+    }
+
     /** zMenu enables clicks in the player's inventory when a button is "draggable". */
     @Override
     public boolean isDraggable() {

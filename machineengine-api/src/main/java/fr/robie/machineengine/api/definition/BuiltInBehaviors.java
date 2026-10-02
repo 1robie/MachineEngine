@@ -62,7 +62,16 @@ public final class BuiltInBehaviors {
         }
         Result<String> output = config.getString("output");
         if (output.isErr()) return Result.err(output.error());
-        String costs = config.getString("costs").toOptional().orElse(null);
+        // costs: one storage or a list (each cost is paid from the first that holds it).
+        List<String> costs = new ArrayList<>();
+        DataValue costSpec = config.get("costs").orElse(DataList.EMPTY);
+        if (costSpec instanceof DataValue.DataString single) {
+            costs.add(single.value());
+        } else {
+            Result<List<String>> list = Codecs.list(Codecs.STRING).decode(costSpec);
+            if (list.isErr()) return Result.err(list.error());
+            costs.addAll(list.value());
+        }
         ProcessBinding binding = new ProcessBinding(inputs, output.value(), costs);
         long retry = config.getLong("retry-ticks").toOptional().orElse(20L);
         if (!config.has("push")) return Result.ok(ProcessingBehavior.of(recipes.value(), binding));

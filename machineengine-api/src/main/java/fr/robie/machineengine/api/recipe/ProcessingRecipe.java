@@ -19,10 +19,12 @@ import java.util.Objects;
  * @param duration    base ticks, scaled by {@code machineengine:process_duration}
  * @param costPerTick paid every tick, scaled by {@code machineengine:process_cost}; the process
  *                    pauses while it cannot be paid
+ * @param chanceOutputs extra outputs, each produced with its chance (rolled when the process starts)
  */
 public record ProcessingRecipe(@NotNull Key key, @NotNull RecipeType<ProcessingRecipe> type,
                                @NotNull List<ResourceMatcher> inputs, @NotNull List<ResourceStack> outputs,
-                               long duration, @NotNull List<ResourceStack> costPerTick) implements Recipe {
+                               long duration, @NotNull List<ResourceStack> costPerTick,
+                               @NotNull List<ChanceOutput> chanceOutputs) implements Recipe {
 
     public ProcessingRecipe {
         Objects.requireNonNull(key);
@@ -30,6 +32,12 @@ public record ProcessingRecipe(@NotNull Key key, @NotNull RecipeType<ProcessingR
         inputs = List.copyOf(inputs);
         outputs = List.copyOf(outputs);
         costPerTick = List.copyOf(costPerTick);
+        chanceOutputs = List.copyOf(chanceOutputs);
+    }
+
+    public ProcessingRecipe(@NotNull Key key, @NotNull RecipeType<ProcessingRecipe> type, @NotNull List<ResourceMatcher> inputs,
+                            @NotNull List<ResourceStack> outputs, long duration, @NotNull List<ResourceStack> costPerTick) {
+        this(key, type, inputs, outputs, duration, costPerTick, List.of());
     }
 
     public static @NotNull Builder builder(@NotNull Key key, @NotNull RecipeType<ProcessingRecipe> type) {
@@ -42,6 +50,7 @@ public record ProcessingRecipe(@NotNull Key key, @NotNull RecipeType<ProcessingR
         private final List<ResourceMatcher> inputs = new ArrayList<>();
         private final List<ResourceStack> outputs = new ArrayList<>();
         private final List<ResourceStack> costPerTick = new ArrayList<>();
+        private final List<ChanceOutput> chanceOutputs = new ArrayList<>();
         private long duration = 1;
 
         private Builder(Key key, RecipeType<ProcessingRecipe> type) {
@@ -64,13 +73,19 @@ public record ProcessingRecipe(@NotNull Key key, @NotNull RecipeType<ProcessingR
             return this;
         }
 
+        /** An extra output produced with probability {@code chance} (0 to 1). */
+        public @NotNull Builder chanceOutput(@NotNull ResourceStack output, double chance) {
+            this.chanceOutputs.add(new ChanceOutput(output, chance));
+            return this;
+        }
+
         public @NotNull Builder duration(long ticks) {
             this.duration = ticks;
             return this;
         }
 
         public @NotNull ProcessingRecipe build() {
-            return new ProcessingRecipe(this.key, this.type, this.inputs, this.outputs, this.duration, this.costPerTick);
+            return new ProcessingRecipe(this.key, this.type, this.inputs, this.outputs, this.duration, this.costPerTick, this.chanceOutputs);
         }
     }
 }
