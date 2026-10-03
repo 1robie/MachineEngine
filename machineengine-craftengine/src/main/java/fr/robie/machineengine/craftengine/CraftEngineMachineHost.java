@@ -348,6 +348,18 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         return true;
     }
 
+    @Override
+    public @Nullable Key blockAt(@NotNull WorldPosition position) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null) return null;
+        var custom = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.getCustomBlockState(block);
+        if (custom != null && !custom.isEmpty()) {
+            var id = custom.owner().value().id();
+            return Key.key(id.namespace(), id.value());
+        }
+        return block.getType().getKey();
+    }
+
     /** The block at {@code position} if its chunk is loaded and this thread owns it, else null. */
     private @Nullable org.bukkit.block.Block ownedBlock(WorldPosition position) {
         World world = world(position.world());

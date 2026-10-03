@@ -133,6 +133,39 @@ public interface MachineContext {
     /** The port's current sides ({@link #setPortSides}, or the type's). */
     @NotNull java.util.Set<RelativeSide> portSides(@NotNull String port);
 
+    // -- multiblocks (E12) ---------------------------------------------------------------------
+
+    /**
+     * The block at {@code position}: a CraftEngine block's id, or a vanilla block's (e.g.
+     * {@code minecraft:air}); {@code null} if not loaded or not owned by this thread.
+     */
+    default @Nullable Key blockAt(@NotNull BlockPosition position) {
+        return null;
+    }
+
+    /**
+     * Sizes one of this machine's storages at runtime, per slot (e.g. a multiblock's tank, sized by its
+     * volume). Saved with the machine; {@code -1} goes back to the type's capacity. What a storage
+     * already holds beyond a smaller capacity stays, and nothing more fits until it is below again.
+     */
+    void setStorageCapacity(@NotNull String storage, long capacity);
+
+    /**
+     * Makes every side of this machine show {@code handler} instead of its ports (e.g. a multiblock's
+     * valve passing through to the structure's storage); {@code null} goes back to the ports. Not
+     * saved: a behavior sets it again in {@link MachineBehavior#onLoad}.
+     */
+    void exposeHandler(@Nullable ResourceHandler handler);
+
+    /**
+     * Full access to a storage of another machine, if it is loaded and owned by this thread (e.g. a
+     * multiblock member reaching the structure's storage, kept by another member).
+     */
+    @NotNull Optional<ResourceHandler> storageAt(@NotNull fr.robie.machineengine.api.world.WorldPosition machine, @NotNull String storage);
+
+    /** Wakes another machine, if it is loaded and owned by this thread (e.g. a multiblock's anchor when its structure formed). */
+    void wakeMachine(@NotNull fr.robie.machineengine.api.world.WorldPosition machine);
+
     // -- neighbors -----------------------------------------------------------------------------
 
     /**

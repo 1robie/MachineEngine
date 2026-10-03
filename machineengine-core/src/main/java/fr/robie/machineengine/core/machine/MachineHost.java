@@ -57,6 +57,11 @@ public interface MachineHost {
         return false;
     }
 
+    /** The block at {@code position} (a CraftEngine or vanilla id), or null if not loaded or not owned: E12. */
+    default @Nullable Key blockAt(@NotNull WorldPosition position) {
+        return null;
+    }
+
     /** Where the machine's ports are changed (side configuration, a mode, a turn): e.g. to redraw its sides. */
     default void portsChanged(@NotNull MachineInstanceImpl machine) {
     }

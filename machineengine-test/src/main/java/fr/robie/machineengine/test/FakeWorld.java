@@ -90,6 +90,22 @@ public final class FakeWorld implements MachineHost {
     }
 
     private final Map<WorldPosition, fr.robie.machineengine.api.transfer.ResourceHandler> containers = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<WorldPosition, Key> blocks = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Puts a plain block (e.g. {@code minecraft:stone}) at {@code position}, or removes it (air). */
+    public void setBlock(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable Key block) {
+        if (block == null) this.blocks.remove(position);
+        else this.blocks.put(position, block);
+    }
+
+    /** A machine's block is its type's key; elsewhere the block set with {@link #setBlock}, or air. */
+    @Override
+    public @org.jetbrains.annotations.Nullable Key blockAt(@NotNull WorldPosition position) {
+        if (!isOwnedByCurrentThread(position)) return null;
+        LoadedMachine machine = this.machines.get(position);
+        if (machine != null) return machine.inspect().type();
+        return this.blocks.getOrDefault(position, Key.key("minecraft", "air"));
+    }
 
     /** Puts a container block (like a vanilla chest) at {@code position}, or removes it ({@code null}). */
     public void setContainer(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.transfer.ResourceHandler container) {

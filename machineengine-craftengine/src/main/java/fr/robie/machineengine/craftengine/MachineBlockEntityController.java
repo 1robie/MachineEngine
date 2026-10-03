@@ -341,7 +341,9 @@ public final class MachineBlockEntityController extends BlockEntityController {
         CEWorld world = this.blockEntity.world();
         if (property == null || instance == null || world == null) return;
         ImmutableBlockState state = world.getBlockStateAtIfLoaded(this.blockEntity.pos());
-        if (state == null || !this.blockEntity.isValidBlockState(state)) return;
+        // The same block, by id: after a CraftEngine reload, block definitions are new objects
+        // (isValidBlockState compares them by identity and would refuse every state).
+        if (state == null || state.isEmpty() || !state.owner().value().id().equals(this.behavior.block().id())) return;
         // By name: after a CraftEngine reload, states carry new property objects.
         Property<Boolean> current = state.getProperty(property.name());
         if (current == null || state.get(current) == instance.isActive()) return;

@@ -60,6 +60,8 @@ final class MachineCodec {
     static final String DEDUPE = "dedupe";
     /** Side configuration: port id to the sides it is on, for ports moved from the type's sides. */
     static final String SIDES = "sides";
+    /** Runtime storage capacities (multiblocks): storage id to capacity per slot. */
+    static final String CAPACITIES = "capacities";
 
     private MachineCodec() {
     }
@@ -128,6 +130,11 @@ final class MachineCodec {
         }
         builder.put(DEDUPE, DataValue.list(dedupe));
 
+        if (!machine.capacities.isEmpty()) {
+            DataMap.Builder capacities = DataMap.builder();
+            machine.capacities.forEach(capacities::put);
+            builder.put(CAPACITIES, capacities.build());
+        }
         var configured = machine.configuredSides();
         if (!configured.isEmpty()) {
             DataMap.Builder sides = DataMap.builder();
@@ -217,8 +224,11 @@ final class MachineCodec {
         List<MachineError> problems = new ArrayList<>();
         StorageCodec<ResourceStack> stacks = services.resourceCodecs().stack();
 
-        // Upgrades first: they can enlarge storages, which must fit what was saved in them.
+        // Upgrades and runtime capacities first: they size storages, which must fit what was saved in them.
         data.getList(UPGRADES).ifOk(upgrades -> decodeUpgrades(machine, upgrades, services));
+        data.getMap(CAPACITIES).ifOk(capacities -> capacities.entries().forEach((storage, value) -> {
+            if (value instanceof DataValue.DataLong number && machine.storages.containsKey(storage)) machine.capacities.put(storage, number.value());
+        }));
         data.getMap(STORAGES).ifOk(storages -> decodeStorages(machine, storages, stacks));
         data.getMap(DATA).ifOk(values -> decodeData(machine, values, problems));
         data.get(PROCESS).ifPresent(raw -> decodeProcess(raw, stacks).ifOk(machine.process::load).ifErr(error -> {

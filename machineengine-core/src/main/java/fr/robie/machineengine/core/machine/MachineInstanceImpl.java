@@ -81,6 +81,10 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     private Direction facing;
     final Map<String, MachineStorage> storages = new LinkedHashMap<>();
     private final List<PortHandler> ports = new ArrayList<>();
+    /** Runtime storage capacities ({@code MachineContext#setStorageCapacity}), saved with the machine. */
+    final Map<String, Long> capacities = new java.util.concurrent.ConcurrentHashMap<>();
+    /** What every side shows instead of the ports ({@code MachineContext#exposeHandler}), or null. */
+    private volatile @Nullable ResourceHandler exposed;
     private final Map<Direction, ResourceHandler> sideHandlers = new EnumMap<>(Direction.class);
     private final Map<CapabilityBinding<?>, Object> capabilities = new IdentityHashMap<>();
     final Map<MachineDataKey<?>, Object> data = new LinkedHashMap<>();
@@ -154,8 +158,13 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             List<MachineSlot> slots = new ArrayList<>(definition.slots());
             for (int i = 0; i < definition.slots(); i++) {
                 // Tags are read live: a tag reload must reach machines that already exist.
-                java.util.function.LongSupplier capacity = definition.capacityModifier() == null ? definition::capacity
+                java.util.function.LongSupplier base = definition.capacityModifier() == null ? definition::capacity
                         : () -> Modifiers.apply(definition.capacityModifier(), definition.capacity(), this.modifiers);
+                // A runtime capacity (multiblocks) wins over the type's.
+                java.util.function.LongSupplier capacity = () -> {
+                    Long set = this.capacities.get(definition.id());
+                    return set != null ? set : base.getAsLong();
+                };
                 slots.add(new MachineSlot(capacity, variant -> definition.filter().test(variant, services.tags()), listener));
             }
             this.storages.put(definition.id(), new MachineStorage(definition, slots));
@@ -543,6 +552,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     public <T> @NotNull Optional<T> capability(@NotNull CapabilityType<T> type, @Nullable Direction side) {
         if (!this.valid) return Optional.empty();
         if (type.equals(Capabilities.RESOURCE_HANDLER)) {
+            if (side != null && this.exposed != null) return Optional.of((T) this.exposed);
             return side == null ? Optional.empty() : Optional.ofNullable((T) this.sideHandlers.get(side));
         }
         for (CapabilityBinding<?> binding : this.type.capabilities()) {
@@ -844,6 +854,43 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         @Override
         public @NotNull fr.robie.machineengine.api.machine.PortDirection portDirection(@NotNull String id) {
             return port(id).direction();
+        }
+
+        @Override
+        public @Nullable net.kyori.adventure.key.Key blockAt(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.blockAt(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public void setStorageCapacity(@NotNull String storage, long capacity) {
+            requireStorage(storage);
+            Long previous = capacity < 0 ? capacities.remove(storage) : capacities.put(storage, capacity);
+            if (!java.util.Objects.equals(previous, capacity < 0 ? null : capacity)) {
+                markDirty();
+                wake(WakeReason.CONFIG_CHANGED);
+            }
+        }
+
+        @Override
+        public void exposeHandler(@Nullable ResourceHandler handler) {
+            if (exposed == handler) return;
+            exposed = handler;
+            services.networks().machineChanged(position);
+        }
+
+        @Override
+        public @NotNull Optional<ResourceHandler> storageAt(@NotNull WorldPosition machine, @NotNull String storage) {
+            if (!host.isOwnedByCurrentThread(machine)) return Optional.empty();
+            MachineInstanceImpl other = host.machineAt(machine);
+            if (other == null || !other.storages.containsKey(storage)) return Optional.empty();
+            return Optional.of(other.storages.get(storage));
+        }
+
+        @Override
+        public void wakeMachine(@NotNull WorldPosition machine) {
+            if (!host.isOwnedByCurrentThread(machine)) return;
+            MachineInstanceImpl other = host.machineAt(machine);
+            if (other != null) other.wake(WakeReason.NEIGHBOR_CHANGED);
         }
 
         @Override
