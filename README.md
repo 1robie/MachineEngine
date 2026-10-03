@@ -146,7 +146,8 @@ missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes th
 
 ## Mekanized (Mekanism-style content)
 
-`machineengine-mekanized` is a content plugin built on MachineEngine; see
+`machineengine-mekanized` is a content plugin built on MachineEngine. Server owners: see
+[docs/MEKANIZED_GUIDE.md](docs/MEKANIZED_GUIDE.md); its development plan is
 [docs/MEKANIZED_PLAN.md](docs/MEKANIZED_PLAN.md). It is inspired by Mekanism and uses its textures,
 models and recipes (Mekanism by Aidan C. Brady, MIT; `LICENSE-MEKANISM.txt` ships with it). It is not
 affiliated with Mekanism. The build imports one pinned Mekanism commit:
