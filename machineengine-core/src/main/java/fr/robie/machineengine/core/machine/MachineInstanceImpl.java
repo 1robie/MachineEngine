@@ -154,7 +154,9 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             List<MachineSlot> slots = new ArrayList<>(definition.slots());
             for (int i = 0; i < definition.slots(); i++) {
                 // Tags are read live: a tag reload must reach machines that already exist.
-                slots.add(new MachineSlot(definition.capacity(), variant -> definition.filter().test(variant, services.tags()), listener));
+                java.util.function.LongSupplier capacity = definition.capacityModifier() == null ? definition::capacity
+                        : () -> Modifiers.apply(definition.capacityModifier(), definition.capacity(), this.modifiers);
+                slots.add(new MachineSlot(capacity, variant -> definition.filter().test(variant, services.tags()), listener));
             }
             this.storages.put(definition.id(), new MachineStorage(definition, slots));
         }
@@ -834,6 +836,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             if (port.direction() == direction) return;
             port.setDirection(direction);
             rebuildSides();
+            host.portsChanged(MachineInstanceImpl.this);
             // Networks re-read their endpoints; a sleeping one may have something to move now.
             services.networks().machineChanged(position);
         }
@@ -850,6 +853,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             port.setSides(sides);
             rebuildSides();
             services.networks().machineChanged(position);
+            host.portsChanged(MachineInstanceImpl.this);
             markDirty();
             wake(WakeReason.CONFIG_CHANGED);
         }

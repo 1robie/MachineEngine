@@ -53,7 +53,7 @@ public class SingleVariantStorage extends SnapshotParticipant<SingleVariantStora
                 && (current.type() != incoming.type() || !policy.canMerge(current, incoming))) {
             return 0;
         }
-        long inserted = Math.min(maxAmount, this.capacity - this.amount);
+        long inserted = Math.min(maxAmount, capacity() - this.amount);
         if (inserted <= 0) return 0;
         updateSnapshots(transaction);
         if (current == null || this.amount == 0) {
@@ -82,7 +82,7 @@ public class SingleVariantStorage extends SnapshotParticipant<SingleVariantStora
     }
 
     public @NotNull StorageView view() {
-        return new StorageView(this.variant, this.amount, this.capacity);
+        return new StorageView(this.variant, this.amount, capacity());
     }
 
     @Override
@@ -103,6 +103,7 @@ public class SingleVariantStorage extends SnapshotParticipant<SingleVariantStora
         return this.amount;
     }
 
+    /** The most this storage holds; subclasses may change it at runtime (e.g. upgrades). */
     public long capacity() {
         return this.capacity;
     }

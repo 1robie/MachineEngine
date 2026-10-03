@@ -217,13 +217,14 @@ final class MachineCodec {
         List<MachineError> problems = new ArrayList<>();
         StorageCodec<ResourceStack> stacks = services.resourceCodecs().stack();
 
+        // Upgrades first: they can enlarge storages, which must fit what was saved in them.
+        data.getList(UPGRADES).ifOk(upgrades -> decodeUpgrades(machine, upgrades, services));
         data.getMap(STORAGES).ifOk(storages -> decodeStorages(machine, storages, stacks));
         data.getMap(DATA).ifOk(values -> decodeData(machine, values, problems));
         data.get(PROCESS).ifPresent(raw -> decodeProcess(raw, stacks).ifOk(machine.process::load).ifErr(error -> {
             machine.unknownProcess = raw;
             problems.add(error);
         }));
-        data.getList(UPGRADES).ifOk(upgrades -> decodeUpgrades(machine, upgrades, services));
         data.getList(ESCROW).ifOk(escrow -> decodeEscrow(machine, escrow, stacks, problems));
         machine.sequence = data.getLong(SEQUENCE).orElse(0L);
         machine.active = data.getBool("active").toOptional().orElse(false);

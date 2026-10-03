@@ -11,6 +11,11 @@ public final class StandardModifiers {
     public static final ModifierType PROCESS_DURATION = ModifierType.of(MachineEngineKeys.key("process_duration"), 1, Long.MAX_VALUE);
     /** Amount of each per-tick process cost. */
     public static final ModifierType PROCESS_COST = ModifierType.nonNegative(MachineEngineKeys.key("process_cost"));
+    /**
+     * Processes a {@code ProcessingBehavior} may complete per tick (base 1). Only one-tick processes
+     * benefit: a process cannot take less than a tick, so these machines run several instead.
+     */
+    public static final ModifierType PROCESSES_PER_TICK = ModifierType.of(MachineEngineKeys.key("processes_per_tick"), 1, 1024);
     /** Per-tick limit of rate-limited ports. */
     public static final ModifierType TRANSFER_RATE = ModifierType.nonNegative(MachineEngineKeys.key("transfer_rate"));
 

@@ -119,6 +119,8 @@ public final class MachinePlaceholders {
                 case "bar" -> bar(amount, capacity);
                 case "resource" -> slots.stream().filter(view -> !view.isEmpty()).findFirst()
                         .map(view -> describe(view)).orElse("");
+                case "name" -> ResourceNames.of(slots.stream().filter(view -> !view.isEmpty()).findFirst()
+                        .map(StorageView::variant).orElse(null));
                 default -> null;
             };
         }
@@ -130,6 +132,7 @@ public final class MachinePlaceholders {
             case "amount" -> Long.toString(slot.amount());
             case "capacity" -> Long.toString(slot.capacity());
             case "resource" -> slot.isEmpty() ? "" : describe(slot);
+            case "name" -> ResourceNames.of(slot.isEmpty() ? null : slot.variant());
             default -> null;
         };
     }

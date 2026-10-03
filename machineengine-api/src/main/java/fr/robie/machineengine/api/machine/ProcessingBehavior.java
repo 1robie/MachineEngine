@@ -5,6 +5,7 @@ import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.process.ProcessStatus;
 import fr.robie.machineengine.api.process.ProcessView;
+import fr.robie.machineengine.api.upgrade.StandardModifiers;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.world.RelativeSide;
@@ -72,6 +73,7 @@ public final class ProcessingBehavior implements MachineBehavior {
                 return;
             }
         }
+        boolean oneTick = Objects.requireNonNull(context.process().current()).duration() <= 1;
         ProcessStatus status = context.process().advance();
         // Working while a process runs, and between two processes (no flicker); not while it waits.
         context.setActive(status == ProcessStatus.RUNNING || status == ProcessStatus.COMPLETED);
@@ -83,7 +85,22 @@ public final class ProcessingBehavior implements MachineBehavior {
             case WAITING_FOR_COST -> context.waitForInput();
             case OUTPUT_BLOCKED, RETURNING -> context.block(
                     new MachineError.TransferRejected("the outputs do not fit", null), this.retryTicks);
-            case COMPLETED, IDLE -> pushOutputs(context);
+            case COMPLETED, IDLE -> {
+                if (oneTick && status == ProcessStatus.COMPLETED) runMore(context);
+                pushOutputs(context);
+            }
+        }
+    }
+
+    /**
+     * One-tick processes: up to {@code processes_per_tick - 1} more in the same tick (speed upgrades),
+     * each paying its own costs. Stops at the first that does not complete at once.
+     */
+    private void runMore(MachineContext context) {
+        long extra = context.modified(StandardModifiers.PROCESSES_PER_TICK, 1) - 1;
+        for (long i = 0; i < extra; i++) {
+            if (context.process().current() != null || !startNext(context)) return;
+            if (context.process().advance(1) != ProcessStatus.COMPLETED) return;
         }
     }
 

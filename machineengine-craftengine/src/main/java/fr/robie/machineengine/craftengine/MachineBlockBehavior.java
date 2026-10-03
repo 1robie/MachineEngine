@@ -41,6 +41,11 @@ import java.util.Locale;
  *   active_property: active     # optional, defaults to "active" when the block has it: shown while working
  *   display_item: mymod:display/refinery   # optional: drawn by a display entity of this item (and <item>/active)
  *   display_rotation: 90        # optional: degrees the item is turned (clockwise from above) when facing north
+ *   level_display: mymod:display/core   # optional: a gauge inside the block, items <prefix>/1..<steps> by how full
+ *   level_storage: energy               #   the storage is (nothing when empty)
+ *   level_steps: 4
+ *   side_display: mymod:display/cube/port   # optional: <prefix>/<side> (front, back...) shown on each side
+ *                                           #   that has a port (side configuration), turned like the block
  * }</pre>
  */
 public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock,
@@ -55,12 +60,18 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     private final @Nullable Property<Boolean> active;
     private final @Nullable String displayItem;
     private final int displayRotation;
+    private final @Nullable LevelDisplay levelDisplay;
+    private final @Nullable String sideDisplay;
     private int controllerId;
+
+    /** A gauge drawn inside the block ({@code level_display}). */
+    record LevelDisplay(String item, String storage, int steps) {
+    }
 
     private MachineBlockBehavior(BlockDefinition block, Key machine,
                                  @Nullable Property<net.momirealms.craftengine.core.util.Direction> facing, boolean keepContents,
                                  boolean hoppers, boolean comparator, @Nullable Property<Boolean> active, @Nullable String displayItem,
-                                 int displayRotation) {
+                                 int displayRotation, @Nullable LevelDisplay levelDisplay, @Nullable String sideDisplay) {
         super(block);
         this.machine = machine;
         this.facing = facing;
@@ -70,6 +81,16 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
         this.active = active;
         this.displayItem = displayItem;
         this.displayRotation = displayRotation;
+        this.levelDisplay = levelDisplay;
+        this.sideDisplay = sideDisplay;
+    }
+
+    @Nullable String sideDisplay() {
+        return this.sideDisplay;
+    }
+
+    @Nullable LevelDisplay levelDisplay() {
+        return this.levelDisplay;
     }
 
     /** The item a display entity shows instead of a block model (non-full models), or {@code null}. */
@@ -141,7 +162,9 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
 
     public @NotNull Direction facing(@NotNull ImmutableBlockState state) {
         if (this.facing == null) return Direction.NORTH;
-        net.momirealms.craftengine.core.util.Direction value = state.getNullable(this.facing);
+        // By name: after a CraftEngine reload, states carry new property objects.
+        Property<net.momirealms.craftengine.core.util.Direction> current = state.getProperty(this.facing.name());
+        net.momirealms.craftengine.core.util.Direction value = current == null ? null : state.getNullable(current);
         return value == null ? Direction.NORTH : Direction.valueOf(value.name().toUpperCase(Locale.ROOT));
     }
 
@@ -198,7 +221,11 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
                     section.getBoolean("hoppers", true), section.getBoolean("comparator", true),
                     BlockBehaviorFactory.getOptionalProperty(block, section.getString("active_property", "active"), Boolean.class),
                     section.getString("display_item", (String) null),
-                    section.getInt("display_rotation", 0));
+                    section.getInt("display_rotation", 0),
+                    section.getString("level_display", (String) null) == null ? null : new LevelDisplay(
+                            section.getString("level_display", (String) null), section.getString("level_storage", "energy"),
+                            section.getInt("level_steps", 4)),
+                    section.getString("side_display", (String) null));
         }
     }
 }

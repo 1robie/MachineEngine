@@ -15,9 +15,24 @@ public enum RelativeSide {
     TOP,
     BOTTOM;
 
-    /** @param facing the machine's horizontal facing */
+    /**
+     * @param facing the machine's facing. Facing up or down, the machine is a north-facing one turned
+     *               over its west-east axis: its top then faces south (up) or north (down), its left
+     *               and right stay west and east.
+     */
     public @NotNull Direction toAbsolute(@NotNull Direction facing) {
-        Direction front = facing.isHorizontal() ? facing : Direction.NORTH;
+        if (!facing.isHorizontal()) {
+            boolean up = facing == Direction.UP;
+            return switch (this) {
+                case FRONT -> facing;
+                case BACK -> facing.opposite();
+                case LEFT -> Direction.WEST;
+                case RIGHT -> Direction.EAST;
+                case TOP -> up ? Direction.SOUTH : Direction.NORTH;
+                case BOTTOM -> up ? Direction.NORTH : Direction.SOUTH;
+            };
+        }
+        Direction front = facing;
         return switch (this) {
             case FRONT -> front;
             case BACK -> front.opposite();

@@ -42,27 +42,95 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private @Nullable MachineHopperContainer hopperContainer;
     private int comparatorSignal = -1;
     private final @Nullable MachineDisplayElement display;
+    private final @Nullable LevelDisplayElement level;
+    /** Per side, the part drawn while the side has a port ({@code side_display}). */
+    private final java.util.Map<fr.robie.machineengine.api.world.RelativeSide, MachineDisplayElement> sides =
+            new java.util.EnumMap<>(fr.robie.machineengine.api.world.RelativeSide.class);
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
         this.behavior = behavior;
         this.display = behavior.displayItem() == null ? null : new MachineDisplayElement(behavior.displayItem(),
                 behavior.displayRotation(), blockEntity.pos());
+        this.level = behavior.levelDisplay() == null ? null
+                : new LevelDisplayElement(behavior.levelDisplay().item(), behavior.levelDisplay().steps(), blockEntity.pos());
+        if (behavior.sideDisplay() != null) {
+            for (fr.robie.machineengine.api.world.RelativeSide side : fr.robie.machineengine.api.world.RelativeSide.values()) {
+                MachineDisplayElement element = new MachineDisplayElement(behavior.sideDisplay() + "/" + side.name().toLowerCase(java.util.Locale.ROOT),
+                        behavior.displayRotation(), blockEntity.pos());
+                element.setVisible(false);
+                this.sides.put(side, element);
+            }
+        }
     }
 
     @Override
     public boolean hasElement() {
-        return this.display != null;
+        return this.display != null || this.level != null || !this.sides.isEmpty();
     }
 
     @Override
     public void gatherElements(java.util.function.Consumer<net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement> consumer) {
         if (this.display != null) consumer.accept(this.display);
+        if (this.level != null) consumer.accept(this.level);
+        this.sides.values().forEach(consumer);
+    }
+
+    /**
+     * Shows each side's part while the side has a port, turned with the block. Cheap when nothing
+     * changed: players get packets only for sides that appeared, vanished or turned.
+     */
+    void refreshSides() {
+        MachineInstanceImpl instance = instance();
+        if (this.sides.isEmpty() || instance == null) return;
+        java.util.Set<fr.robie.machineengine.api.world.RelativeSide> used = java.util.EnumSet.noneOf(fr.robie.machineengine.api.world.RelativeSide.class);
+        for (var port : instance.type().ports()) {
+            if (instance.context().portDirection(port.id()) == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            used.addAll(instance.context().portSides(port.id()));
+        }
+        java.util.List<MachineDisplayElement> changed = new java.util.ArrayList<>();
+        for (var entry : this.sides.entrySet()) {
+            boolean turned = entry.getValue().update(instance.facing(), false);
+            boolean toggled = entry.getValue().setVisible(used.contains(entry.getKey()));
+            if (turned || toggled) changed.add(entry.getValue());
+        }
+        if (changed.isEmpty()) return;
+        CEWorld world = this.blockEntity.world();
+        if (world == null) return;
+        var chunk = world.getChunkAtIfLoaded(this.blockEntity.pos().x() >> 4, this.blockEntity.pos().z() >> 4);
+        if (chunk == null) return;
+        for (var player : chunk.getTrackedBy()) {
+            if (!player.isDynamicBlockEntityVisible(this.blockEntity.pos())) continue;
+            for (MachineDisplayElement element : changed) element.refresh(player);
+        }
+    }
+
+    /** The gauge inside the block follows its storage; players see it only when the level changes. */
+    private void refreshLevel(@Nullable MachineInstanceImpl instance) {
+        if (this.level == null || instance == null) return;
+        if (instance.type().storage(this.behavior.levelDisplay().storage()).isEmpty()) return;
+        var views = instance.context().storage(this.behavior.levelDisplay().storage()).views();
+        long amount = 0;
+        long capacity = 0;
+        for (var view : views) {
+            amount += view.amount();
+            capacity += view.capacity();
+        }
+        if (!this.level.update(amount, capacity)) return;
+        CEWorld world = this.blockEntity.world();
+        if (world == null) return;
+        var chunk = world.getChunkAtIfLoaded(this.blockEntity.pos().x() >> 4, this.blockEntity.pos().z() >> 4);
+        if (chunk == null) return;
+        for (var player : chunk.getTrackedBy()) {
+            if (player.isDynamicBlockEntityVisible(this.blockEntity.pos())) this.level.refresh(player);
+        }
     }
 
     /** Turns the display entity to the facing and switches its model with the active state. */
     void refreshDisplay() {
         MachineInstanceImpl instance = instance();
+        refreshLevel(instance);
+        refreshSides();
         if (this.display == null) return;
         fr.robie.machineengine.api.world.Direction facing = instance != null ? instance.facing() : this.behavior.facing(this.blockEntity.blockState());
         if (!this.display.update(facing, instance != null && instance.isActive())) return;
@@ -240,6 +308,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
      */
     void contentsChanged() {
         MachineInstanceImpl instance = instance();
+        refreshLevel(instance);
         if (!this.behavior.comparator() || instance == null) return;
         int signal = instance.comparatorSignal();
         if (signal == this.comparatorSignal) return;
@@ -272,9 +341,12 @@ public final class MachineBlockEntityController extends BlockEntityController {
         CEWorld world = this.blockEntity.world();
         if (property == null || instance == null || world == null) return;
         ImmutableBlockState state = world.getBlockStateAtIfLoaded(this.blockEntity.pos());
-        if (state == null || !this.blockEntity.isValidBlockState(state) || state.get(property) == instance.isActive()) return;
+        if (state == null || !this.blockEntity.isValidBlockState(state)) return;
+        // By name: after a CraftEngine reload, states carry new property objects.
+        Property<Boolean> current = state.getProperty(property.name());
+        if (current == null || state.get(current) == instance.isActive()) return;
         world.world().setBlockState(this.blockEntity.pos().x(), this.blockEntity.pos().y(), this.blockEntity.pos().z(),
-                state.with(property, instance.isActive()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
+                state.with(current, instance.isActive()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
     }
 
     /** Flags the chunk unsaved so CraftEngine writes the new machine state (§20.2). */

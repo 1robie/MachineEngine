@@ -18,11 +18,23 @@ import java.util.function.Predicate;
  */
 public final class MachineSlot extends SingleVariantStorage {
     private final Listener listener;
+    private final java.util.function.LongSupplier capacity;
     private @Nullable DataValue lockedData;
 
     MachineSlot(long capacity, @NotNull Predicate<ResourceVariant> filter, @NotNull Listener listener) {
-        super(SingleVariantStorage.builder(capacity).filter(filter));
+        this(() -> capacity, filter, listener);
+    }
+
+    /** A slot whose capacity can change at runtime (upgrades). */
+    MachineSlot(@NotNull java.util.function.LongSupplier capacity, @NotNull Predicate<ResourceVariant> filter, @NotNull Listener listener) {
+        super(SingleVariantStorage.builder(Long.MAX_VALUE).filter(filter));
+        this.capacity = capacity;
         this.listener = listener;
+    }
+
+    @Override
+    public long capacity() {
+        return this.capacity.getAsLong();
     }
 
     @Override

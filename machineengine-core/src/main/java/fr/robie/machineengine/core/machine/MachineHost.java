@@ -57,6 +57,10 @@ public interface MachineHost {
         return false;
     }
 
+    /** Where the machine's ports are changed (side configuration, a mode, a turn): e.g. to redraw its sides. */
+    default void portsChanged(@NotNull MachineInstanceImpl machine) {
+    }
+
     /** The machine started or stopped working visibly ({@link fr.robie.machineengine.api.machine.MachineContext#setActive}). */
     default void activeChanged(@NotNull MachineInstanceImpl machine) {
     }

@@ -358,6 +358,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
+    public void portsChanged(@NotNull MachineInstanceImpl machine) {
+        MachineBlockEntityController controller = this.controllers.get(machine.position());
+        if (controller != null) controller.refreshSides();
+    }
+
+    @Override
     public void activeChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.activeChanged();

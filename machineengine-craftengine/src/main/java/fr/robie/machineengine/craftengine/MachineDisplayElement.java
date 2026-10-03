@@ -37,6 +37,7 @@ final class MachineDisplayElement implements BlockEntityElement {
     private final Object despawn;
     private volatile Direction facing = Direction.NORTH;
     private volatile boolean active;
+    private volatile boolean visible = true;
     private volatile @Nullable List<Object> packets;
 
     MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull BlockPos pos) {
@@ -57,8 +58,16 @@ final class MachineDisplayElement implements BlockEntityElement {
         return true;
     }
 
+    /** @return whether visibility changed (a hidden element sends nothing to players) */
+    boolean setVisible(boolean visible) {
+        if (this.visible == visible) return false;
+        this.visible = visible;
+        return true;
+    }
+
     @Override
     public void show(@NotNull Player player) {
+        if (!this.visible) return;
         List<Object> spawn = packets();
         if (spawn != null) player.sendPackets(spawn, false);
     }
