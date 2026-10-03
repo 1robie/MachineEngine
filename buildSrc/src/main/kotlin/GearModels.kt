@@ -58,12 +58,16 @@ internal class GearModels(private val source: File, private val assets: File, pr
         for (text in texts.reversed()) constants += constants(text, helpers)
         val layer = Regex("""createLayerDefinition\((\d+),\s*(\d+),\s*([^;]*?)\);""").find(texts.first()) ?: return false
         val (tw, th) = layer.groupValues[1].toDouble() to layer.groupValues[2].toDouble()
-        val parts = layer.groupValues[3].split(",").map { it.trim() }.filter { it.isNotEmpty() }.mapNotNull { constants[it] }
+        val names = layer.groupValues[3].split(",").map { it.trim() }.filter { it.isNotEmpty() && constants.containsKey(it) }
+        val parts = names.map { constants.getValue(it) }
+        // Parts Mekanism draws see-through (glass, wings, blades): their alpha, by part name.
+        val alphas = alphas(texts)
         if (parts.isEmpty()) return false
         val elements = JsonArray()
         val coords = mutableListOf<Double>()
-        for (part in parts) for (box in part.boxes) {
-            val element = element(box, part, tw, th, gear.shiftY)
+        for ((name, part) in names.zip(parts)) for (box in part.boxes) {
+            val alpha = alphas[name]
+            val element = element(box, part, tw, th, gear.shiftY, if (alpha == null) "#0" else "#a$alpha")
             elements.add(element)
             for (key in listOf("from", "to")) element.getAsJsonArray(key).forEach { coords += it.asDouble }
         }
@@ -78,6 +82,10 @@ internal class GearModels(private val source: File, private val assets: File, pr
         val model = JsonObject()
         val textures = JsonObject()
         textures.addProperty("0", "mekanized:render/${gear.texture}")
+        for (alpha in alphas.values.toSet()) {
+            textures.addProperty("a$alpha", "mekanized:render/${gear.texture}_a$alpha")
+            translucent(gear.texture, alpha)
+        }
         textures.addProperty("particle", "mekanized:render/${gear.texture}")
         model.add("textures", textures)
         model.add("elements", elements)
@@ -104,10 +112,39 @@ internal class GearModels(private val source: File, private val assets: File, pr
         return true
     }
 
+    /** `list = getRenderableParts(root, A, B)` drawn by `collectParts(list, ..., 0xAARRGGBB, ...)`: A and B -> AA. */
+    private fun alphas(texts: List<String>): Map<String, Int> {
+        val lists = mutableMapOf<String, List<String>>()
+        for (text in texts) for (match in Regex("""(\w+)\s*=\s*getRenderableParts\(root,\s*([^;]*)\);""").findAll(text)) {
+            lists[match.groupValues[1]] = match.groupValues[2].split(",").map { it.trim() }
+        }
+        val alphas = mutableMapOf<String, Int>()
+        for (text in texts) for (match in Regex("""collectParts\((\w+),[^;]*?,\s*0x([0-9A-Fa-f]{2})[0-9A-Fa-f]{6}""").findAll(text)) {
+            val alpha = match.groupValues[2].toInt(16)
+            if (alpha < 255) lists[match.groupValues[1]]?.forEach { alphas[it] = alpha }
+        }
+        return alphas
+    }
+
+    /** `textures/render/<texture>_a<alpha>.png`: the texture at that opacity. */
+    private fun translucent(texture: String, alpha: Int) {
+        val target = assets.resolve("textures/render/${texture}_a$alpha.png")
+        if (target.isFile) return
+        val image = javax.imageio.ImageIO.read(source.resolve("src/main/resources/assets/mekanism/render/$texture.png")) ?: return
+        val result = java.awt.image.BufferedImage(image.width, image.height, java.awt.image.BufferedImage.TYPE_INT_ARGB)
+        for (x in 0 until image.width) for (y in 0 until image.height) {
+            val argb = image.getRGB(x, y)
+            val a = ((argb ushr 24) * alpha / 255) shl 24
+            result.setRGB(x, y, a or (argb and 0xFFFFFF))
+        }
+        target.parentFile.mkdirs()
+        javax.imageio.ImageIO.write(result, "png", target)
+    }
+
     private fun shrink(array: JsonArray, scale: Double) = JsonArray().apply { array.forEach { add(8 + (it.asDouble - 8) * scale) } }
 
     /** One box as a block model element: corners, rotation about the part's pivot, and the entity-layout UVs. */
-    private fun element(box: Box, part: Part, tw: Double, th: Double, shiftY: Double): JsonObject {
+    private fun element(box: Box, part: Part, tw: Double, th: Double, shiftY: Double, texture: String): JsonObject {
         val o = part.offset
         val x1 = o[0] + box.x - box.inflate
         val x2 = o[0] + box.x + box.w + box.inflate
@@ -135,7 +172,7 @@ internal class GearModels(private val source: File, private val assets: File, pr
         val sv = 16 / th
         fun uv(a: Double, b: Double, c: Double, e: Double) = array(a * su, b * sv, c * su, e * sv)
         val faces = JsonObject()
-        fun face(name: String, uv: JsonArray) = faces.add(name, JsonObject().apply { add("uv", uv); addProperty("texture", "#0") })
+        fun face(name: String, uv: JsonArray) = faces.add(name, JsonObject().apply { add("uv", uv); addProperty("texture", texture) })
         face("up", uv(u + d, v, u + d + w, v + d))
         face("down", uv(u + d + w, v + d, u + d + 2 * w, v))
         val west = uv(u + d + w, v + d, u + 2 * d + w, v + d + h)
