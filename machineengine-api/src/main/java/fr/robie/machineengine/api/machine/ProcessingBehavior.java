@@ -137,6 +137,6 @@ public final class ProcessingBehavior implements MachineBehavior {
     }
 
     private boolean isEmpty(MachineContext context) {
-        return context.storage(this.binding.output()).views().stream().allMatch(view -> view.isEmpty());
+        return this.binding.outputs().stream().allMatch(id -> context.storage(id).views().stream().allMatch(view -> view.isEmpty()));
     }
 }

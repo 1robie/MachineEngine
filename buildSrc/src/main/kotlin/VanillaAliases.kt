@@ -92,6 +92,9 @@ internal object VanillaAliases {
             "crops" -> if (name in setOf("wheat", "carrot", "potato", "beetroot", "nether_wart", "cocoa_bean", "sugar_cane", "pumpkin", "melon"))
                 listOf("minecraft:" + (if (name == "cocoa_bean") "cocoa_beans" else name)) else listOf()
             "seeds" -> if (name in setOf("wheat", "beetroot", "melon", "pumpkin", "torchflower")) listOf("minecraft:${name}_seeds") else listOf()
+            // Every vanilla block or item made in that color (the painting machine and pigment extractor).
+            "dyed" -> if (name in colors) listOf("wool", "carpet", "terracotta", "glazed_terracotta", "concrete", "concrete_powder",
+                "stained_glass", "stained_glass_pane", "bed", "banner", "candle", "shulker_box").map { "minecraft:${name}_$it" } else listOf()
             "glass_blocks", "glass_panes" -> if (name in colors) listOf("minecraft:${name}_stained_" + (if (group == "glass_panes") "glass_pane" else "glass")) else listOf()
             else -> listOf()
         }

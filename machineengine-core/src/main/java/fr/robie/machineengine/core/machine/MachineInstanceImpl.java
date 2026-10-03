@@ -995,7 +995,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                 return Result.err(new MachineError.InvalidConfiguration("The saved process of this machine could not be loaded", Map.of()));
             }
             List<MachineStorage> inputs = binding.inputs().stream().map(MachineInstanceImpl.this::requireStorage).toList();
-            requireStorage(binding.output());
+            binding.outputs().forEach(MachineInstanceImpl.this::requireStorage);
             try (Transaction transaction = openTransaction()) {
                 List<ResourceStack> consumed = new ArrayList<>();
                 for (ResourceMatcher input : recipe.inputs()) {
@@ -1094,11 +1094,17 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         private ProcessStatus deliver(ProcessState finished) {
-            MachineStorage output = requireStorage(finished.binding().output());
+            List<MachineStorage> outputs = finished.binding().outputs().stream().map(MachineInstanceImpl.this::requireStorage).toList();
             try (Transaction transaction = openTransaction()) {
                 boolean fits = true;
                 for (ResourceStack stack : finished.outputs()) {
-                    if (output.insert(stack.variant(), stack.amount(), transaction) != stack.amount()) {
+                    // Into the first output storage that takes it (an item slot, a chemical tank...).
+                    long left = stack.amount();
+                    for (MachineStorage output : outputs) {
+                        if (left == 0) break;
+                        left -= output.insert(stack.variant(), left, transaction);
+                    }
+                    if (left > 0) {
                         fits = false;
                         break;
                     }

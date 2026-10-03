@@ -163,6 +163,9 @@ final class MachineCodec {
                 .put("inputs", Codecs.list(Codecs.STRING).encode(process.binding().inputs()))
                 .put("output", process.binding().output());
         if (!process.binding().costs().isEmpty()) binding.put("costs", Codecs.list(Codecs.STRING).encode(process.binding().costs()));
+        if (!process.binding().extraOutputs().isEmpty()) {
+            binding.put("extraOutputs", Codecs.list(Codecs.STRING).encode(process.binding().extraOutputs()));
+        }
         return DataMap.builder()
                 .put("recipe", process.recipe().asString())
                 .put("status", process.status().name())
@@ -357,7 +360,8 @@ final class MachineCodec {
         List<String> costs = map.getString("costs").map(List::of).toOptional()
                 .or(() -> map.getList("costs").flatMap(Codecs.list(Codecs.STRING)::decode).toOptional())
                 .orElse(List.of());
-        return Result.ok(new ProcessBinding(inputs.value(), output.value(), costs));
+        List<String> extraOutputs = map.getList("extraOutputs").flatMap(Codecs.list(Codecs.STRING)::decode).toOptional().orElse(List.of());
+        return Result.ok(new ProcessBinding(inputs.value(), output.value(), costs, extraOutputs));
     }
 
     private static void decodeUpgrades(MachineInstanceImpl machine, DataList upgrades, MachineServices services) {
