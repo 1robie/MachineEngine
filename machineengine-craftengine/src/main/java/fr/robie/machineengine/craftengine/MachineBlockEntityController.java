@@ -351,6 +351,21 @@ public final class MachineBlockEntityController extends BlockEntityController {
                 state.with(current, instance.isActive()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
     }
 
+    /** Sets the block's property {@code name} to {@code value} (by name: properties change on reload), keeping the block entity. */
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    void setProperty(String name, String value) {
+        CEWorld world = this.blockEntity.world();
+        if (world == null) return;
+        ImmutableBlockState state = world.getBlockStateAtIfLoaded(this.blockEntity.pos());
+        if (state == null || state.isEmpty() || !state.owner().value().id().equals(this.behavior.block().id())) return;
+        net.momirealms.craftengine.core.block.property.Property property = state.getProperty(name);
+        if (property == null) return;
+        java.util.Optional<?> parsed = property.optional(value);
+        if (parsed.isEmpty() || parsed.get().equals(state.get(property))) return;
+        world.world().setBlockState(this.blockEntity.pos().x(), this.blockEntity.pos().y(), this.blockEntity.pos().z(),
+                state.with(property, (Comparable) parsed.get()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
+    }
+
     /** Flags the chunk unsaved so CraftEngine writes the new machine state (§20.2). */
     void markDirty() {
         CEWorld world = this.blockEntity.world();

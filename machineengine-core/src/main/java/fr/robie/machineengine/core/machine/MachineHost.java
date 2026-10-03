@@ -80,6 +80,9 @@ public interface MachineHost {
         return List.of();
     }
 
+    default void setBlockProperty(@NotNull WorldPosition position, @NotNull String property, @NotNull String value) {
+    }
+
     default int redstonePower(@NotNull WorldPosition position) {
         return 0;
     }

@@ -451,6 +451,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
+    public void setBlockProperty(@NotNull WorldPosition position, @NotNull String property, @NotNull String value) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        if (controller != null && isOwnedByCurrentThread(position)) controller.setProperty(property, value);
+    }
+
+    @Override
     public void activeChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.activeChanged();

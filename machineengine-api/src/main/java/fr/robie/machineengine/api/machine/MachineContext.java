@@ -185,6 +185,13 @@ public interface MachineContext {
         return java.util.List.of();
     }
 
+    /**
+     * Shows a state of the machine on its block: sets the block property {@code property} (e.g. a
+     * valve's {@code mode}) to {@code value}, if the block has it and allows that value.
+     */
+    default void setBlockProperty(@NotNull String property, @NotNull String value) {
+    }
+
     /** The redstone signal this machine's block receives (0 to 15). */
     default int redstonePower() {
         return 0;

@@ -907,6 +907,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
+        public void setBlockProperty(@NotNull String property, @NotNull String value) {
+            host.setBlockProperty(position, property, value);
+        }
+
+        @Override
         public int redstonePower() {
             return host.redstonePower(position);
         }
