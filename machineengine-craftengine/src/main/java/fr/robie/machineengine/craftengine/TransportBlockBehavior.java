@@ -75,10 +75,15 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         this.controllerId = id;
     }
 
-    private static final class Controller extends BlockEntityController {
+    static final class Controller extends BlockEntityController {
+        /** Side modes (pull, push, none) saved with the block. */
+        private static final String SIDES_KEY = "machineengine:sides";
         private final TransportBlockBehavior behavior;
         private final @Nullable CableArmsElement arms;
         private @Nullable WorldPosition position;
+        /** Side modes read from the block, applied when it joins its network, and kept for saving after it left. */
+        private java.util.Map<fr.robie.machineengine.api.world.Direction, fr.robie.machineengine.api.network.TransportSideMode> modes =
+                java.util.Map.of();
 
         private Controller(BlockEntity blockEntity, TransportBlockBehavior behavior) {
             super(blockEntity);
@@ -96,6 +101,7 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
             if (this.arms != null) consumer.accept(this.arms);
         }
 
+        /** Redraws the arms (e.g. after a side mode changed). */
         void scheduleRefresh() {
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host == null || this.position == null || this.arms == null) return;
@@ -108,9 +114,22 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
             if (host == null || this.position == null || this.arms == null) return;
             var probes = host.engine().registries().registry(Registries.RESOURCE_TYPE).values().stream()
                     .map(fr.robie.machineengine.api.resource.ResourceType::variant).toList();
-            var connected = host.engine().machines().networks().connections(this.position, host, probes);
-            if (connected.equals(this.arms.connected())) return;
+            var networks = host.engine().machines().networks();
+            // A neighbor block changed (e.g. a chest placed): the network re-reads its endpoints.
+            for (fr.robie.machineengine.api.world.Direction direction : fr.robie.machineengine.api.world.Direction.values()) {
+                networks.machineChanged(this.position.relative(direction));
+            }
+            var connected = networks.connections(this.position, host, probes);
+            // Pull and push sides toward blocks (not other transports) get Mekanism's funnel and nozzle arms.
+            var kinds = new java.util.EnumMap<fr.robie.machineengine.api.world.Direction, String>(fr.robie.machineengine.api.world.Direction.class);
+            for (var entry : networks.sideModes(this.position).entrySet()) {
+                if (!connected.contains(entry.getKey()) || networks.transportAt(this.position.relative(entry.getKey())) != null) continue;
+                if (entry.getValue() == fr.robie.machineengine.api.network.TransportSideMode.PULL) kinds.put(entry.getKey(), "_pull");
+                if (entry.getValue() == fr.robie.machineengine.api.network.TransportSideMode.PUSH) kinds.put(entry.getKey(), "_push");
+            }
+            if (connected.equals(this.arms.connected()) && kinds.equals(this.arms.kinds())) return;
             this.arms.setConnected(connected);
+            this.arms.setKinds(kinds);
             var world = this.blockEntity.world();
             if (world == null) return;
             var chunk = world.getChunkAtIfLoaded(this.blockEntity.pos().x() >> 4, this.blockEntity.pos().z() >> 4);
@@ -121,13 +140,49 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         }
 
         @Override
+        public void loadCustomData(net.momirealms.craftengine.libraries.nbt.CompoundTag data) {
+            if (!(data.get(SIDES_KEY) instanceof net.momirealms.craftengine.libraries.nbt.CompoundTag sides)) return;
+            var read = new java.util.EnumMap<fr.robie.machineengine.api.world.Direction, fr.robie.machineengine.api.network.TransportSideMode>(
+                    fr.robie.machineengine.api.world.Direction.class);
+            NbtData.toData(sides).entries().forEach((side, value) -> {
+                try {
+                    read.put(fr.robie.machineengine.api.world.Direction.valueOf(side.toUpperCase(java.util.Locale.ROOT)),
+                            fr.robie.machineengine.api.network.TransportSideMode.valueOf(
+                                    ((fr.robie.machineengine.api.data.DataValue.DataString) value).value().toUpperCase(java.util.Locale.ROOT)));
+                } catch (RuntimeException ignored) {
+                    // an unknown side or mode (newer version): left at the default
+                }
+            });
+            this.modes = java.util.Map.copyOf(read);
+        }
+
+        @Override
+        public void saveCustomData(net.momirealms.craftengine.libraries.nbt.CompoundTag data) {
+            CraftEngineMachineHost host = CraftEngineMachineHost.current();
+            if (host != null && this.position != null) this.modes = host.engine().machines().networks().sideModes(this.position);
+            if (this.modes.isEmpty()) return;
+            fr.robie.machineengine.api.data.DataMap.Builder sides = fr.robie.machineengine.api.data.DataMap.builder();
+            this.modes.forEach((side, mode) -> sides.put(side.name().toLowerCase(java.util.Locale.ROOT), mode.name().toLowerCase(java.util.Locale.ROOT)));
+            data.put(SIDES_KEY, NbtData.toTag(sides.build()));
+        }
+
+        /** The block's data changed (a side mode): CraftEngine saves it with the chunk. */
+        void markDirty() {
+            var world = this.blockEntity.world();
+            if (world != null) world.blockEntityChanged(this.blockEntity.pos());
+        }
+
+        @Override
         public void onLoad() {
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host == null) return;
             TransportType type = this.behavior.resolve(host.engine().registries());
             if (type == null) return;
             this.position = host.position(this.blockEntity);
-            host.engine().machines().networks().addTransport(type, this.position, host);
+            var networks = host.engine().machines().networks();
+            networks.addTransport(type, this.position, host);
+            for (var entry : this.modes.entrySet()) networks.setSideMode(this.position, entry.getKey(), entry.getValue());
+            host.registerTransport(this.position, this);
             scheduleRefresh();
         }
 
@@ -144,6 +199,8 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         private void leave() {
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host == null || this.position == null) return;
+            this.modes = host.engine().machines().networks().sideModes(this.position);
+            host.unregisterTransport(this.position, this);
             host.engine().machines().networks().removeTransport(this.position);
             this.position = null;
         }

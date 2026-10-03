@@ -26,6 +26,8 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
     private final LongSupplier rate;
     /** The type's direction, or what the machine set ({@code MachineContext#setPortDirection}). */
     private volatile PortDirection direction;
+    /** The type's sides, or the machine's own side configuration (saved with the machine). */
+    private volatile java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides;
     private long usageTick = Long.MIN_VALUE;
     private long used;
 
@@ -37,6 +39,15 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
         this.gameTime = gameTime;
         this.rate = rate;
         this.direction = definition.direction();
+        this.sides = definition.sides();
+    }
+
+    java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides() {
+        return this.sides;
+    }
+
+    void setSides(java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides) {
+        this.sides = sides.isEmpty() ? java.util.Set.of() : java.util.Set.copyOf(java.util.EnumSet.copyOf(sides));
     }
 
     PortDefinition definition() {

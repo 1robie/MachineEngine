@@ -52,6 +52,33 @@ public interface NetworkBehavior {
         };
     }
 
+    /**
+     * {@link #distributing()} once every {@code everyTicks} ticks, each time up to the network's rate:
+     * items move in batches (Mekanism's transporters pull a stack every half second). Between
+     * batches the network stays awake while a source holds something it carries, or while it pulls
+     * from a container (whose changes wake nothing).
+     */
+    static @NotNull NetworkBehavior distributing(long everyTicks) {
+        NetworkBehavior batch = distributing();
+        if (everyTicks <= 1) return batch;
+        return context -> {
+            // Containers do not wake networks when players fill them: a network pulling from one keeps polling.
+            boolean containers = context.endpoints().stream().anyMatch(endpoint -> endpoint.container() && endpoint.handler().supportsExtraction());
+            if (Math.floorMod(context.gameTime(), everyTicks) == 0) {
+                long moved = batch.tick(context);
+                return containers ? Math.max(1, moved) : moved;
+            }
+            if (containers) return 1;
+            for (NetworkEndpoint endpoint : context.endpoints()) {
+                if (!endpoint.handler().supportsExtraction()) continue;
+                for (StorageView view : endpoint.handler().views()) {
+                    if (!view.isEmpty() && context.filter().test(view.variant())) return 1; // wait for the next batch
+                }
+            }
+            return 0;
+        };
+    }
+
     private static long move(NetworkContext context, ResourceHandler source, ResourceHandler target, StorageView view, long max) {
         try (Transaction transaction = context.transactions().openOuter()) {
             long moved = Transfers.move(source, target, variant -> variant.equals(view.variant()), max, transaction).moved();

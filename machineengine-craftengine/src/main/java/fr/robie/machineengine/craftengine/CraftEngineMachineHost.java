@@ -114,6 +114,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public static @NotNull CraftEngineMachineHost start(@NotNull Plugin plugin, @NotNull CoreMachineEngine engine) {
         CraftEngineMachineHost host = new CraftEngineMachineHost(plugin, engine);
         current = host;
+        fr.robie.machineengine.paper.MachineLocator.setCurrent(host);
         return host;
     }
 
@@ -126,6 +127,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
      * world save keeps the data without calling back into MachineEngine (§8.2 shutdown).
      */
     public void shutdown() {
+        fr.robie.machineengine.paper.MachineLocator.setCurrent(null);
         for (MachineBlockEntityController controller : this.controllers.values()) {
             LoadedMachine machine = controller.machine();
             if (machine == null) continue;
@@ -264,6 +266,85 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         org.bukkit.block.Block block = ownedBlock(position);
         if (block == null) return false;
         block.setType(org.bukkit.Material.AIR, true);
+        return true;
+    }
+
+    /** Loaded transport blocks, for their side modes. */
+    private final Map<WorldPosition, TransportBlockBehavior.Controller> transports = new java.util.concurrent.ConcurrentHashMap<>();
+
+    void registerTransport(WorldPosition position, TransportBlockBehavior.Controller controller) {
+        this.transports.put(position, controller);
+    }
+
+    void unregisterTransport(WorldPosition position, TransportBlockBehavior.Controller controller) {
+        this.transports.remove(position, controller);
+    }
+
+    @Override
+    public @Nullable fr.robie.machineengine.api.network.TransportSideMode cycleTransportSide(@NotNull WorldPosition position,
+                                                                                          @NotNull fr.robie.machineengine.api.world.Direction side) {
+        TransportBlockBehavior.Controller controller = this.transports.get(position);
+        if (controller == null || !isOwnedByCurrentThread(position)) return null;
+        var networks = this.engine.machines().networks();
+        var mode = networks.sideMode(position, side).next();
+        networks.setSideMode(position, side, mode);
+        controller.markDirty();
+        controller.scheduleRefresh();
+        // A transport on that side redraws too: its arm toward this one follows the link.
+        TransportBlockBehavior.Controller neighbor = this.transports.get(position.relative(side));
+        if (neighbor != null) neighbor.scheduleRefresh();
+        return mode;
+    }
+
+    @Override
+    public @Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+                                                                                       @NotNull fr.robie.machineengine.api.world.Direction side) {
+        if (this.controllers.containsKey(position)) return null; // a machine block, handled as a machine
+        org.bukkit.block.Block block = ownedBlock(position);
+        return block == null ? null : ContainerHandler.of(block.getState(false));
+    }
+
+    @Override
+    public boolean replaceBlock(@NotNull WorldPosition position, @NotNull Key blockId,
+                                @Nullable fr.robie.machineengine.api.world.Direction facingOverride) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        if (controller == null || controller.machine() == null || controller.machine().instance() == null
+                || !isOwnedByCurrentThread(position)) return false;
+        MachineInstanceImpl old = controller.machine().instance();
+        // The process belongs to the old type's behavior: give its inputs back first.
+        if (old.context().process().current() != null) old.context().process().cancel();
+        if (old.context().process().current() != null) return false;
+        var packed = this.engine.machines().pack(controller.machine());
+        if (packed.isEmpty() && old.holdsContents()) return false; // a transfer in flight
+        World world = world(position.world());
+        var definition = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.byId(
+                net.momirealms.craftengine.core.util.Key.of(blockId.namespace(), blockId.value()));
+        if (world == null || definition == null) return false;
+        // Same facing as the old block, if the new one has a facing property.
+        net.momirealms.craftengine.core.block.ImmutableBlockState state = definition.defaultState();
+        var facing = definition.getProperty("facing");
+        if (facing != null) {
+            try {
+                state = net.momirealms.craftengine.core.block.ImmutableBlockState.with(state, facing,
+                        net.momirealms.craftengine.core.util.Direction.valueOf((facingOverride != null ? facingOverride : old.facing()).name()));
+            } catch (RuntimeException e) {
+                // a 4-direction block and an up/down facing: keep the default
+            }
+        }
+        controller.replacing(true); // its removal must not drop what the new machine takes over
+        var at = position.position();
+        boolean placed = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.place(
+                new org.bukkit.Location(world, at.x(), at.y(), at.z()), state, false);
+        if (!placed) {
+            controller.replacing(false);
+            return false;
+        }
+        MachineBlockEntityController fresh = this.controllers.get(position);
+        if (fresh != null && packed.isPresent()) {
+            fresh.adopt(packed.get().state());
+        } else if (packed.isPresent()) {
+            dropResources(position, packed.get().contents()); // not a machine block after all
+        }
         return true;
     }
 

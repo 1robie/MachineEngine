@@ -113,6 +113,23 @@ public final class CoreMachines implements MachineServices {
     }
 
     /**
+     * Changing a placed machine's type while keeping its state (E6, tier installers): {@code fresh}
+     * (a just-placed machine of the new type) takes over the packed state of another type. Storages,
+     * data and upgrades with the same ids carry over; what the new type has no room for stays in its
+     * saved data, as for any unknown content (D3). The process must be cancelled before packing: it
+     * belongs to the old type's behavior.
+     *
+     * @return the machine of {@code fresh}'s type holding the state
+     */
+    public @NotNull LoadedMachine restoreAs(@NotNull LoadedMachine fresh, @NotNull DataMap state, @NotNull MachineHost host) {
+        MachineInstanceImpl instance = fresh.instance();
+        if (instance == null) return fresh;
+        DataMap retyped = state.without(MachineCodec.PROCESS)
+                .with(MachineCodec.TYPE, fr.robie.machineengine.api.data.DataValue.of(instance.type().key().asString()));
+        return restore(fresh, retyped, host);
+    }
+
+    /**
      * A machine packed for an item.
      *
      * @param state    what to store in the item, for {@link #restore}

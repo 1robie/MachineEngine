@@ -74,6 +74,47 @@ public final class CoreNetworks {
     /** The transport was broken or its chunk unloaded. */
     public void removeTransport(@NotNull WorldPosition position) {
         graph(position).remove(position);
+        this.sideModes.remove(position);
+    }
+
+    // -- side modes of transports (Mekanism's connection types) ------------------------------
+
+    /** Per transport, the sides not in {@link fr.robie.machineengine.api.network.TransportSideMode#DEFAULT}. */
+    private final Map<WorldPosition, Map<Direction, fr.robie.machineengine.api.network.TransportSideMode>> sideModes =
+            new java.util.concurrent.ConcurrentHashMap<>();
+
+    public @NotNull fr.robie.machineengine.api.network.TransportSideMode sideMode(@NotNull WorldPosition transport, @NotNull Direction side) {
+        Map<Direction, fr.robie.machineengine.api.network.TransportSideMode> modes = this.sideModes.get(transport);
+        return modes == null ? fr.robie.machineengine.api.network.TransportSideMode.DEFAULT
+                : modes.getOrDefault(side, fr.robie.machineengine.api.network.TransportSideMode.DEFAULT);
+    }
+
+    /** The sides of {@code transport} not in the default mode, e.g. to save them with the block. */
+    public @NotNull Map<Direction, fr.robie.machineengine.api.network.TransportSideMode> sideModes(@NotNull WorldPosition transport) {
+        Map<Direction, fr.robie.machineengine.api.network.TransportSideMode> modes = this.sideModes.get(transport);
+        return modes == null ? Map.of() : Map.copyOf(modes);
+    }
+
+    /** Sets how {@code side} of {@code transport} connects; its network re-reads its endpoints. */
+    public void setSideMode(@NotNull WorldPosition transport, @NotNull Direction side, @NotNull fr.robie.machineengine.api.network.TransportSideMode mode) {
+        if (mode == fr.robie.machineengine.api.network.TransportSideMode.DEFAULT) {
+            Map<Direction, fr.robie.machineengine.api.network.TransportSideMode> modes = this.sideModes.get(transport);
+            if (modes != null) {
+                modes.remove(side);
+                if (modes.isEmpty()) this.sideModes.remove(transport);
+            }
+        } else {
+            this.sideModes.computeIfAbsent(transport, key -> new java.util.concurrent.ConcurrentHashMap<>()).put(side, mode);
+        }
+        // Toward another transport, "none" cuts the link: the networks are rebuilt around it.
+        if (transportAt(transport.relative(side)) != null) graph(transport).relink(transport);
+        machineChanged(transport.relative(side));
+    }
+
+    /** Whether the transports at {@code position} and on its {@code side} link up (neither side set to none). */
+    private boolean linked(WorldPosition position, Direction side) {
+        return sideMode(position, side) != fr.robie.machineengine.api.network.TransportSideMode.NONE
+                && sideMode(position.relative(side), side.opposite()) != fr.robie.machineengine.api.network.TransportSideMode.NONE;
     }
 
     /** A machine next to {@code position} loaded, unloaded, rotated or was removed. */
@@ -121,20 +162,27 @@ public final class CoreNetworks {
             WorldPosition neighbor = position.relative(direction);
             TransportType other = transportAt(neighbor);
             if (other != null) {
-                if (other.network() == type.network()) connected.add(direction);
+                if (other.network() == type.network() && linked(position, direction)) connected.add(direction);
                 continue;
             }
+            if (sideMode(position, direction) == fr.robie.machineengine.api.network.TransportSideMode.NONE) continue;
             if (!host.isOwnedByCurrentThread(neighbor)) continue;
             MachineInstanceImpl machine = host.machineAt(neighbor);
-            if (machine != null && carriesThrough(machine, direction.opposite(), carried, tags)) connected.add(direction);
+            if (machine != null) {
+                if (carriesThrough(machine, direction.opposite(), carried, tags)) connected.add(direction);
+            } else if (carried.stream().anyMatch(probe -> probe.type().category().equals(fr.robie.machineengine.api.item.Items.CATEGORY))
+                    && host.worldHandlerAt(neighbor, direction.opposite()) != null) {
+                connected.add(direction); // an item transport next to a container block
+            }
         }
         return connected;
     }
 
     private static boolean carriesThrough(MachineInstanceImpl machine, Direction side, List<ResourceVariant> carried, ResourceTags tags) {
         for (fr.robie.machineengine.api.machine.PortDefinition port : machine.type().ports()) {
-            if (port.direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
-            if (port.sides().stream().noneMatch(relative -> relative.toAbsolute(machine.facing()) == side)) continue;
+            // The machine's own configuration: a mode may disable a port, side configuration moves it.
+            if (machine.context().portDirection(port.id()) == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            if (machine.context().portSides(port.id()).stream().noneMatch(relative -> relative.toAbsolute(machine.facing()) == side)) continue;
             var storage = machine.type().storages().stream().filter(definition -> definition.id().equals(port.storage())).findFirst();
             if (storage.isEmpty()) continue;
             for (ResourceVariant probe : carried) {
@@ -167,7 +215,8 @@ public final class CoreNetworks {
             for (Direction direction : Direction.values()) {
                 WorldPosition neighbor = position.relative(direction);
                 Network network = this.networkOf.get(neighbor);
-                if (network != null && network.type == type.network() && host.isOwnedByCurrentThread(neighbor)) joined.add(network);
+                if (network != null && network.type == type.network() && host.isOwnedByCurrentThread(neighbor)
+                        && linked(position, direction)) joined.add(network);
             }
             Network target;
             if (joined.isEmpty()) {
@@ -211,7 +260,7 @@ public final class CoreNetworks {
                     component.add(current);
                     for (Direction direction : Direction.values()) {
                         WorldPosition next = current.relative(direction);
-                        if (unvisited.remove(next)) queue.add(next);
+                        if (linked(current, direction) && unvisited.remove(next)) queue.add(next);
                     }
                 }
                 components.add(component);
@@ -227,6 +276,16 @@ public final class CoreNetworks {
                 component.forEach(member -> this.networkOf.put(member, split));
                 split.topologyChanged(this.transports);
             }
+        }
+
+        /** Takes a transport out and puts it back, so its links follow changed side modes. */
+        synchronized void relink(WorldPosition position) {
+            TransportType type = this.transports.get(position);
+            Network network = this.networkOf.get(position);
+            if (type == null || network == null) return;
+            MachineHost host = network.host;
+            remove(position);
+            add(type, position, host);
         }
 
         synchronized @Nullable TransportType transportAt(WorldPosition position) {
@@ -328,16 +387,55 @@ public final class CoreNetworks {
                 for (Direction direction : Direction.values()) {
                     WorldPosition neighbor = transport.relative(direction);
                     if (members.contains(neighbor) || !this.host.isOwnedByCurrentThread(neighbor)) continue;
+                    var mode = CoreNetworks.this.sideMode(transport, direction);
+                    if (mode == fr.robie.machineengine.api.network.TransportSideMode.NONE) continue;
                     MachineInstanceImpl machine = this.host.machineAt(neighbor);
-                    if (machine == null) continue;
                     Direction side = direction.opposite();
-                    ResourceHandler handler = machine.capability(Capabilities.RESOURCE_HANDLER, side).orElse(null);
-                    if (handler != null) found.putIfAbsent(neighbor + "|" + side, new NetworkEndpoint(neighbor, side, handler));
+                    ResourceHandler handler = machine != null ? machine.capability(Capabilities.RESOURCE_HANDLER, side).orElse(null)
+                            : this.host.worldHandlerAt(neighbor, side);
+                    if (handler == null) continue;
+                    // Pull: only taken from. Push: only filled. Default: machines as their ports say, containers only filled.
+                    handler = switch (mode) {
+                        case PULL -> restricted(handler, false, true);
+                        case PUSH -> restricted(handler, true, false);
+                        default -> machine == null ? restricted(handler, true, false) : handler;
+                    };
+                    found.putIfAbsent(neighbor + "|" + side, new NetworkEndpoint(neighbor, side, handler, machine == null));
                 }
             }
             List<NetworkEndpoint> sorted = new ArrayList<>(found.values());
             sorted.sort(ENDPOINT_ORDER);
             this.endpoints = List.copyOf(sorted);
+        }
+
+        /** {@code handler}, allowing only insertion and/or extraction. */
+        private static ResourceHandler restricted(ResourceHandler handler, boolean insert, boolean extract) {
+            return new ResourceHandler() {
+                @Override
+                public long insert(@NotNull ResourceVariant variant, long maxAmount, @NotNull fr.robie.machineengine.api.transfer.TransactionContext transaction) {
+                    return insert ? handler.insert(variant, maxAmount, transaction) : 0;
+                }
+
+                @Override
+                public long extract(@NotNull ResourceVariant variant, long maxAmount, @NotNull fr.robie.machineengine.api.transfer.TransactionContext transaction) {
+                    return extract ? handler.extract(variant, maxAmount, transaction) : 0;
+                }
+
+                @Override
+                public @NotNull List<fr.robie.machineengine.api.transfer.StorageView> views() {
+                    return handler.views();
+                }
+
+                @Override
+                public boolean supportsInsertion() {
+                    return insert && handler.supportsInsertion();
+                }
+
+                @Override
+                public boolean supportsExtraction() {
+                    return extract && handler.supportsExtraction();
+                }
+            };
         }
 
         private NetworkContext context(ResourceTags tags) {

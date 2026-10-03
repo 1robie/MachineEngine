@@ -58,6 +58,8 @@ final class MachineCodec {
     static final String ESCROW = "escrow";
     static final String SEQUENCE = "sequence";
     static final String DEDUPE = "dedupe";
+    /** Side configuration: port id to the sides it is on, for ports moved from the type's sides. */
+    static final String SIDES = "sides";
 
     private MachineCodec() {
     }
@@ -125,6 +127,14 @@ final class MachineCodec {
                     .build());
         }
         builder.put(DEDUPE, DataValue.list(dedupe));
+
+        var configured = machine.configuredSides();
+        if (!configured.isEmpty()) {
+            DataMap.Builder sides = DataMap.builder();
+            configured.forEach((port, set) -> sides.put(port, DataValue.list(set.stream()
+                    .map(side -> (DataValue) DataValue.of(side.name().toLowerCase(Locale.ROOT))).toList())));
+            builder.put(SIDES, sides.build());
+        }
         return builder.build();
     }
 
@@ -218,6 +228,20 @@ final class MachineCodec {
         machine.sequence = data.getLong(SEQUENCE).orElse(0L);
         machine.active = data.getBool("active").toOptional().orElse(false);
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
+        data.getMap(SIDES).ifOk(sides -> sides.entries().forEach((port, raw) -> {
+            if (!(raw instanceof DataList list)) return;
+            java.util.Set<fr.robie.machineengine.api.world.RelativeSide> set = java.util.EnumSet.noneOf(fr.robie.machineengine.api.world.RelativeSide.class);
+            for (DataValue value : list.values()) {
+                if (value instanceof DataValue.DataString text) {
+                    try {
+                        set.add(fr.robie.machineengine.api.world.RelativeSide.valueOf(text.value().toUpperCase(Locale.ROOT)));
+                    } catch (IllegalArgumentException ignored) {
+                        // a side name from a newer version: skip it
+                    }
+                }
+            }
+            machine.loadSides(port, set);
+        }));
 
         Result<DataMap> scheduler = data.getMap(SCHEDULER);
         SchedulerState state = scheduler.flatMap(map -> map.getString("state")).flatMap(MachineCodec::parseState).orElse(SchedulerState.ACTIVE);

@@ -17,6 +17,28 @@ public interface MachineMenuService {
      */
     boolean open(@NotNull Player player, @NotNull LoadedMachine machine);
 
+    /** Opens the menu file {@code menu} (e.g. a side configuration menu) for {@code machine}. */
+    default boolean open(@NotNull Player player, @NotNull LoadedMachine machine, @NotNull String menu) {
+        return false;
+    }
+
+    /** The menus of the running server, or {@code null} (no menu plugin). */
+    static @org.jetbrains.annotations.Nullable MachineMenuService current() {
+        return Holder.current;
+    }
+
+    /** Set by the menu integration when it starts and stops. */
+    static void setCurrent(@org.jetbrains.annotations.Nullable MachineMenuService service) {
+        Holder.current = service;
+    }
+
+    final class Holder {
+        private static volatile @org.jetbrains.annotations.Nullable MachineMenuService current;
+
+        private Holder() {
+        }
+    }
+
     /** Reloads the menu files. */
     void reload();
 

@@ -37,6 +37,16 @@ public interface MachineHost {
         return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
     }
 
+    /**
+     * A block that is not a machine but holds resources, e.g. a vanilla chest: its handler as seen from
+     * {@code side} (the face touched), or null. Owner thread only. Machines push into it and read it as
+     * a neighbor; networks fill it, and pull from it only on a transport side set to pull.
+     */
+    default @Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+                                                                                       @NotNull fr.robie.machineengine.api.world.Direction side) {
+        return null;
+    }
+
     /** The fluid in the block at {@code position}, or null (none, not loaded, not owned): E5. */
     default @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
         return null;

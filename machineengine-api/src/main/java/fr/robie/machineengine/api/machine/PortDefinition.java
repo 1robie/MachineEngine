@@ -3,6 +3,7 @@ package fr.robie.machineengine.api.machine;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
 import fr.robie.machineengine.api.world.RelativeSide;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.EnumSet;
 import java.util.Objects;
@@ -19,9 +20,12 @@ import java.util.Set;
  * @param filter      what may pass, on top of the storage's own filter
  * @param ratePerTick most that may pass per game tick ({@link Long#MAX_VALUE}: unlimited);
  *                    scaled by the {@code machineengine:transfer_rate} modifier
+ * @param group       ports of one group share sides in side configuration: each side shows at most one
+ *                    of them (e.g. {@code items}, {@code energy}); {@code null} if not configurable
  */
 public record PortDefinition(@NotNull String id, @NotNull String storage, @NotNull PortDirection direction,
-                             @NotNull Set<RelativeSide> sides, @NotNull ResourcePredicate filter, long ratePerTick) {
+                             @NotNull Set<RelativeSide> sides, @NotNull ResourcePredicate filter, long ratePerTick,
+                             @Nullable String group) {
 
     public PortDefinition {
         Objects.requireNonNull(id);
@@ -42,6 +46,7 @@ public record PortDefinition(@NotNull String id, @NotNull String storage, @NotNu
         private Set<RelativeSide> sides = EnumSet.allOf(RelativeSide.class);
         private ResourcePredicate filter = ResourcePredicate.any();
         private long ratePerTick = Long.MAX_VALUE;
+        private @Nullable String group;
 
         private Builder(String id, String storage) {
             this.id = Objects.requireNonNull(id);
@@ -68,8 +73,14 @@ public record PortDefinition(@NotNull String id, @NotNull String storage, @NotNu
             return this;
         }
 
+        /** The side configuration group (see {@link PortDefinition#group()}). */
+        public @NotNull Builder group(@Nullable String group) {
+            this.group = group;
+            return this;
+        }
+
         public @NotNull PortDefinition build() {
-            return new PortDefinition(this.id, this.storage, this.direction, this.sides, this.filter, this.ratePerTick);
+            return new PortDefinition(this.id, this.storage, this.direction, this.sides, this.filter, this.ratePerTick, this.group);
         }
     }
 }

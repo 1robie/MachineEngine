@@ -34,7 +34,8 @@ import java.util.logging.Level;
  *       {@code <namespace>_<value>.yml}, else {@code menus.default};</li>
  *   <li>placeholders {@code %zmenu_machineengine_<key>%} ({@link MachinePlaceholders}) resolve
  *       against the machine the player has open, in any zMenu button;</li>
- *   <li>button types {@code machineengine_slot}, {@code machineengine_cancel_process}, {@code machineengine_upgrades} and {@code machineengine_data} interact
+ *   <li>button types {@code machineengine_slot}, {@code machineengine_cancel_process}, {@code machineengine_upgrades},
+ *       {@code machineengine_data}, {@code machineengine_side} and {@code machineengine_menu} interact
  *       with the machine.</li>
  * </ul>
  */
@@ -49,6 +50,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     private final Map<String, Inventory> menus = new LinkedHashMap<>();
     private final Map<UUID, WorldPosition> openMachines = new ConcurrentHashMap<>();
     private final InventoryListener listener;
+    /** Players being moved to another menu of the same machine: their close is not the end. */
+    private final java.util.Set<UUID> switching = ConcurrentHashMap.newKeySet();
     private Map<Key, String> menuByType = Map.of();
     private String defaultMenu = "machine";
 
@@ -60,6 +63,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.listener = new InventoryListener() {
             @Override
             public void onInventoryClose(Player player, BaseInventory baseInventory) {
+                // Going from one machine menu to another (machineengine_menu) closes the first one.
+                if (ZMenuMachineMenus.this.switching.contains(player.getUniqueId())) return;
                 ZMenuMachineMenus.this.openMachines.remove(player.getUniqueId());
             }
         };
@@ -79,6 +84,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         buttons.register(new CancelProcessButton.Loader(plugin, menus));
         buttons.register(new UpgradeButton.Loader(plugin, menus));
         buttons.register(new DataButton.Loader(plugin, menus));
+        buttons.register(new SideButton.Loader(plugin, menus));
+        buttons.register(new OpenMenuButton.Loader(plugin, menus));
         LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
         inventories.registerInventoryListener(menus.listener);
         menus.reload();
@@ -125,11 +132,25 @@ public final class ZMenuMachineMenus implements MachineMenuService {
 
     @Override
     public boolean open(@NotNull Player player, @NotNull LoadedMachine machine) {
-        Inventory menu = this.menus.get(menuName(machine.inspect().type()));
+        return open(player, machine, null);
+    }
+
+    /** Opens {@code menuName} (a menu file name), or the machine's own menu if {@code null}, for {@code machine}. */
+    @Override
+    public boolean open(@NotNull Player player, @NotNull LoadedMachine machine, @Nullable String menuName) {
+        Inventory menu = this.menus.get(menuName != null ? menuName : menuName(machine.inspect().type()));
         if (menu == null) return false;
         this.openMachines.put(player.getUniqueId(), machine.position());
+        UUID id = player.getUniqueId();
+        this.switching.add(id);
         this.inventories.openInventory(player, menu);
+        // zMenu may open on the player's scheduler (Folia): the old menu's close can come a tick later.
+        player.getScheduler().runDelayed(this.plugin, task -> this.switching.remove(id), () -> this.switching.remove(id), 2);
         return true;
+    }
+
+    @NotNull Plugin plugin() {
+        return this.plugin;
     }
 
     /**
@@ -256,6 +277,10 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         LoadedMachine machine = machineOf(player);
         if (machine == null) return "";
         // data_<id>: a setting the machine type declares (machineengine_data buttons change them).
+        if (key.startsWith("side_") && machine.instance() != null) {
+            String side = SideButton.placeholder(machine.instance(), key);
+            if (side != null) return side;
+        }
         if (key.startsWith("data_") && machine.instance() != null) {
             var data = DataButton.key(machine.instance(), key.substring("data_".length()));
             if (data != null) return String.valueOf(machine.instance().context().get(data));

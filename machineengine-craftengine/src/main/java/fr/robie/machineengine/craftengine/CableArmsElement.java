@@ -28,7 +28,8 @@ import java.util.UUID;
  * The arms of a cable or pipe toward its connected sides: one item display entity per side, sent to
  * the players who see the block (client-side only, like CraftEngine's drawer). The block itself shows
  * the center piece; arm models are CraftEngine items {@code <prefix>/<direction>} (e.g.
- * {@code mekanized:cable_part/basic_universal_cable/north}).
+ * {@code mekanized:cable_part/basic_universal_cable/north}), and {@code <prefix>/<direction>_pull} /
+ * {@code _push} on sides set to pull or push, if those items exist.
  */
 final class CableArmsElement implements BlockEntityElement {
     private static final Direction[] DIRECTIONS = Direction.values();
@@ -37,7 +38,9 @@ final class CableArmsElement implements BlockEntityElement {
     private final BlockPos pos;
     private final int[] ids = new int[DIRECTIONS.length];
     private final Object[] spawn = new Object[DIRECTIONS.length];
-    private final Object[] data = new Object[DIRECTIONS.length];
+    /** Entity data per direction and arm kind ("", "_pull", "_push"). */
+    private final java.util.Map<String, Object> data = new java.util.concurrent.ConcurrentHashMap<>();
+    private volatile java.util.Map<Direction, String> kinds = java.util.Map.of();
     private final Object despawnAll;
     private final int centerId = EntityUtils.ENTITY_COUNTER.incrementAndGet();
     private final Object centerSpawn;
@@ -67,6 +70,15 @@ final class CableArmsElement implements BlockEntityElement {
 
     void setConnected(Set<Direction> connected) {
         this.connected = connected.isEmpty() ? EnumSet.noneOf(Direction.class) : EnumSet.copyOf(connected);
+    }
+
+    /** The arm kind of each side: "_pull", "_push", or absent for a plain arm. */
+    java.util.Map<Direction, String> kinds() {
+        return this.kinds;
+    }
+
+    void setKinds(java.util.Map<Direction, String> kinds) {
+        this.kinds = java.util.Map.copyOf(kinds);
     }
 
     @Override
@@ -99,19 +111,21 @@ final class CableArmsElement implements BlockEntityElement {
 
     /** The entity data showing the arm item; built once CraftEngine has the item (null before). */
     private Object data(Direction direction) {
-        Object cached = this.data[direction.ordinal()];
+        String kind = this.kinds.getOrDefault(direction, "");
+        Object cached = this.data.get(direction.name() + kind);
         if (cached != null) return cached;
         // Item displays draw their item turned 180 degrees around Y: the north arm model points south.
         Direction model = direction.isHorizontal() ? direction.opposite() : direction;
-        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(
-                this.itemPrefix + "/" + model.name().toLowerCase(Locale.ROOT)));
+        String base = this.itemPrefix + "/" + model.name().toLowerCase(Locale.ROOT);
+        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(base + kind));
+        if (definition == null) definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(base)); // no pull/push model
         if (definition == null) return null;
         Object stack = definition.buildItem(ItemBuildContext.empty()).minecraftItem();
         Object packet = ClientboundSetEntityDataPacketProxy.INSTANCE.newInstance(this.ids[direction.ordinal()], new ArrayList<>() {{
             DisplayData.ItemDisplayData.ItemStack.addEntityData(stack, this);
             DisplayData.ItemDisplayData.ItemTransform.addEntityData(ItemDisplayContext.NONE.id(), this);
         }});
-        this.data[direction.ordinal()] = packet;
+        this.data.put(direction.name() + kind, packet);
         return packet;
     }
 

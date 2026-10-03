@@ -13,7 +13,9 @@ internal object CableModels {
     private val gson = GsonBuilder().setPrettyPrinting().create()
 
     /**
-     * Writes `models/block/cable/<name>/center.json` and one per direction; returns the model paths.
+     * Writes `models/block/cable/<name>/center.json`, one arm per direction, and per direction the
+     * arms of pull and push sides (`<direction>_pull`: a funnel widening to the block, like a hopper;
+     * `<direction>_push`: a nozzle narrowing to it), as Mekanism draws them. Returns the model paths.
      *
      * @param low the low edge of the square section, in pixels: 5 for small transmitters (cables,
      *            tubes: 32x32 textures, center at UV 5..11), 4 for large ones (pipes: 16x16, 4..12)
@@ -24,8 +26,34 @@ internal object CableModels {
             "side" to "mekanized:block/models/multipart/${texture}_vertical", "particle" to "mekanized:block/models/multipart/$texture")
         val paths = linkedMapOf<String, String>()
         paths["center"] = model(modelsRoot, name, "center", textures, listOf(cube(low, low, low, high, high, high, null, low)))
-        for (direction in DIRECTIONS) paths[direction] = model(modelsRoot, name, direction, textures, listOf(arm(direction, low)))
+        for (direction in DIRECTIONS) {
+            paths[direction] = model(modelsRoot, name, direction, textures, listOf(arm(direction, low)))
+            // Sizes along the arm (from the block's edge) and across it, from Mekanism's OBJ transmitters.
+            val length = low
+            paths["${direction}_pull"] = model(modelsRoot, name, "${direction}_pull", textures, listOf(
+                along(direction, 0, 2, low - 1, high + 1, low), along(direction, 2, length, low, high, low)))
+            paths["${direction}_push"] = model(modelsRoot, name, "${direction}_push", textures, listOf(
+                along(direction, length - 2, length, low, high, low), along(direction, 1, length - 2, low + 1, high - 1, low),
+                along(direction, 0, 1, low + 2, high - 2, low)))
+        }
         return paths
+    }
+
+    /**
+     * A box of an arm toward [direction]: from [from] to [to] pixels away from the block's edge on that
+     * side, and [across1]..[across2] on the two other axes.
+     */
+    private fun along(direction: String, from: Int, to: Int, across1: Int, across2: Int, low: Int): Map<String, Any> {
+        val a = across1
+        val b = across2
+        return when (direction) {
+            "north" -> cube(a, a, from, b, b, to, "z", low)
+            "south" -> cube(a, a, 16 - to, b, b, 16 - from, "z", low)
+            "west" -> cube(from, a, a, to, b, b, "x", low)
+            "east" -> cube(16 - to, a, a, 16 - from, b, b, "x", low)
+            "down" -> cube(a, from, a, b, to, b, "y", low)
+            else -> cube(a, 16 - to, a, b, 16 - from, b, "y", low)
+        }
     }
 
     private fun model(root: File, name: String, part: String, textures: Map<String, String>, elements: List<Map<String, Any>>): String {

@@ -184,7 +184,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         Map<Direction, List<ResourceHandler>> bySide = new EnumMap<>(Direction.class);
         for (PortHandler port : this.ports) {
             if (port.direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
-            for (RelativeSide side : port.definition().sides()) {
+            for (RelativeSide side : port.sides()) {
                 bySide.computeIfAbsent(side.toAbsolute(this.facing), direction -> new ArrayList<>()).add(port);
             }
         }
@@ -329,7 +329,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     /** Whether keep-contents has anything to keep: resources, a process or upgrades (§20.5). */
-    boolean holdsContents() {
+    public boolean holdsContents() {
         if (this.process.get() != null || !this.upgrades.isEmpty()) return true;
         for (MachineStorage storage : this.storages.values()) {
             for (StorageView view : storage.views()) {
@@ -843,6 +843,22 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             return port(id).direction();
         }
 
+        @Override
+        public void setPortSides(@NotNull String id, @NotNull java.util.Set<RelativeSide> sides) {
+            PortHandler port = port(id);
+            if (port.sides().equals(sides)) return;
+            port.setSides(sides);
+            rebuildSides();
+            services.networks().machineChanged(position);
+            markDirty();
+            wake(WakeReason.CONFIG_CHANGED);
+        }
+
+        @Override
+        public @NotNull java.util.Set<RelativeSide> portSides(@NotNull String id) {
+            return port(id).sides();
+        }
+
         private PortHandler port(String id) {
             for (PortHandler port : ports) {
                 if (port.definition().id().equals(id)) return port;
@@ -864,7 +880,12 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             WorldPosition target = position.relative(direction);
             if (!host.isOwnedByCurrentThread(target)) return Optional.empty();
             MachineInstanceImpl neighbor = host.machineAt(target);
-            return neighbor == null ? Optional.empty() : neighbor.capability(type, direction.opposite());
+            if (neighbor != null) return neighbor.capability(type, direction.opposite());
+            // Not a machine: a container block (vanilla chest...) offers its resource handler.
+            if (type != Capabilities.RESOURCE_HANDLER) return Optional.empty();
+            @SuppressWarnings("unchecked")
+            T world = (T) host.worldHandlerAt(target, direction.opposite());
+            return Optional.ofNullable(world);
         }
 
         @Override
@@ -884,8 +905,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             }
             if (host.isOwnedByCurrentThread(route.target())) {
                 MachineInstanceImpl neighbor = host.machineAt(route.target());
-                if (neighbor == null) return PushResult.NO_TARGET;
-                ResourceHandler target = neighbor.capability(Capabilities.RESOURCE_HANDLER, route.side()).orElse(null);
+                ResourceHandler target = neighbor != null ? neighbor.capability(Capabilities.RESOURCE_HANDLER, route.side()).orElse(null)
+                        : host.worldHandlerAt(route.target(), route.side());
                 if (target == null) return PushResult.NO_TARGET;
                 try (Transaction transaction = openTransaction()) {
                     long moved = Transfers.move(source, target, filter, maxAmount, transaction).moved();
@@ -1070,6 +1091,23 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                 services.events().post(type, EventPhase.POST, new MachineEvents.Process(MachineInstanceImpl.this, state.view()));
             }
         }
+    }
+
+    /** Ports whose sides differ from the type's: the side configuration to save. */
+    java.util.Map<String, java.util.Set<RelativeSide>> configuredSides() {
+        java.util.Map<String, java.util.Set<RelativeSide>> configured = new java.util.LinkedHashMap<>();
+        for (PortHandler port : this.ports) {
+            if (!port.sides().equals(port.definition().sides())) configured.put(port.definition().id(), port.sides());
+        }
+        return configured;
+    }
+
+    /** Restores saved side configuration (load only: no wake, no save). Unknown ports are ignored. */
+    void loadSides(String id, java.util.Set<RelativeSide> sides) {
+        for (PortHandler port : this.ports) {
+            if (port.definition().id().equals(id)) port.setSides(sides);
+        }
+        rebuildSides();
     }
 
     MachineStorage requireStorage(String id) {

@@ -143,10 +143,33 @@ public final class MachineBlockEntityController extends BlockEntityController {
         host.machineGone(this.position);
     }
 
+    /** Replaced by another machine block that takes the contents over (tier installers): no drops. */
+    private boolean replacing;
+
+    void replacing(boolean replacing) {
+        this.replacing = replacing;
+    }
+
+    /** A replacement of another type takes over its predecessor's state (E6). */
+    void adopt(fr.robie.machineengine.api.data.DataMap state) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host == null || this.machine == null || this.machine.instance() == null) return;
+        this.machine = host.engine().machines().restoreAs(this.machine, state, host);
+        syncTicker();
+        refreshDisplay();
+        contentsChanged();
+    }
+
     @Override
     public void onRemove() {
         CraftEngineMachineHost host = CraftEngineMachineHost.current();
         if (host == null || this.machine == null || this.position == null) return;
+        if (this.replacing) {
+            host.engine().machines().unload(this.machine); // the new block's machine holds the state now
+            host.unregister(this.position, this);
+            this.machine = null;
+            return;
+        }
         java.util.Optional<fr.robie.machineengine.core.machine.CoreMachines.Packed> packed = this.behavior.keepsContents()
                 ? host.engine().machines().pack(this.machine) : java.util.Optional.empty();
         if (packed.isPresent()) {

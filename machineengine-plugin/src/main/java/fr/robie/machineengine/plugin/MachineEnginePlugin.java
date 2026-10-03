@@ -134,6 +134,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         try {
             this.menus = fr.robie.machineengine.zmenu.ZMenuMachineMenus.enable(this, this.host);
             this.host.setMenus(this.menus);
+            fr.robie.machineengine.paper.MachineMenuService.setCurrent(this.menus);
         } catch (LinkageError | RuntimeException e) {
             getLogger().log(java.util.logging.Level.WARNING, "Could not enable zMenu machine menus", e);
         }
@@ -144,6 +145,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (this.commands != null) this.commands.debugView().stopAll();
         if (this.menus != null) this.menus.disable();
         this.menus = null;
+        fr.robie.machineengine.paper.MachineMenuService.setCurrent(null);
         if (this.host != null) this.host.shutdown();
         this.host = null;
         this.engine = null;

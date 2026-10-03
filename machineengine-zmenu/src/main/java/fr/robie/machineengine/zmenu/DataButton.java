@@ -34,6 +34,15 @@ final class DataButton extends Button {
         this.values = List.copyOf(values);
     }
 
+    /** Hidden on machines whose type does not declare the setting (one menu can serve several types). */
+    @Override
+    public boolean checkPermission(@NotNull Player player, @NotNull fr.maxlego08.menu.api.engine.InventoryEngine inventory,
+                                   @NotNull Placeholders placeholders) {
+        var machine = this.menus.machineOf(player);
+        return super.checkPermission(player, inventory, placeholders)
+                && machine != null && machine.instance() != null && key(machine.instance(), this.data) != null;
+    }
+
     @Override
     public boolean isClickable() {
         return true;

@@ -124,6 +124,15 @@ public interface MachineContext {
     /** The port's current direction ({@link #setPortDirection}, or the type's). */
     @NotNull PortDirection portDirection(@NotNull String port);
 
+    /**
+     * Side configuration (E2): the faces {@code port} is exposed on, relative to the facing. Saved with
+     * the machine; neighbors, networks and hoppers see the change at once.
+     */
+    void setPortSides(@NotNull String port, @NotNull java.util.Set<RelativeSide> sides);
+
+    /** The port's current sides ({@link #setPortSides}, or the type's). */
+    @NotNull java.util.Set<RelativeSide> portSides(@NotNull String port);
+
     // -- neighbors -----------------------------------------------------------------------------
 
     /**

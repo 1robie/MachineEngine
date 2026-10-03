@@ -89,6 +89,20 @@ public final class FakeWorld implements MachineHost {
         return this.fluids.get(position);
     }
 
+    private final Map<WorldPosition, fr.robie.machineengine.api.transfer.ResourceHandler> containers = new java.util.concurrent.ConcurrentHashMap<>();
+
+    /** Puts a container block (like a vanilla chest) at {@code position}, or removes it ({@code null}). */
+    public void setContainer(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.transfer.ResourceHandler container) {
+        if (container == null) this.containers.remove(position);
+        else this.containers.put(position, container);
+    }
+
+    @Override
+    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+                                                                                                               @NotNull Direction side) {
+        return isOwnedByCurrentThread(position) && !this.machines.containsKey(position) ? this.containers.get(position) : null;
+    }
+
     @Override
     public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
         return isOwnedByCurrentThread(position) ? this.fluids.get(position) : null;
