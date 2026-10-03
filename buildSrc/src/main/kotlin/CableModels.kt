@@ -133,7 +133,8 @@ internal object CableModels {
                 from.all { it <= 0.0 } && to.all { it >= 16.0 }
             }
         }
-        val parent = json.get("parent")?.asString ?: return true
+        // No parent and no elements: nothing drawn (Mekanism's "nothing", rendered in code).
+        val parent = json.get("parent")?.asString ?: return false
         return isFullCube(modelsRoot, parent, depth + 1)
     }
 }
