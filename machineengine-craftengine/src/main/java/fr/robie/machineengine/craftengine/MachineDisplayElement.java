@@ -31,6 +31,8 @@ import java.util.UUID;
 final class MachineDisplayElement implements BlockEntityElement {
     private final String displayItem;
     private final int rotation;
+    /** Each facing's blockstate rotation {x, y}; empty: the facing and {@link #rotation} turn the entity. */
+    private final java.util.Map<Direction, int[]> rotations;
     private final BlockPos pos;
     private final int id = EntityUtils.ENTITY_COUNTER.incrementAndGet();
     private final UUID uuid = UUID.randomUUID();
@@ -41,8 +43,13 @@ final class MachineDisplayElement implements BlockEntityElement {
     private volatile @Nullable List<Object> packets;
 
     MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull BlockPos pos) {
+        this(displayItem, rotation, java.util.Map.of(), pos);
+    }
+
+    MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull java.util.Map<Direction, int[]> rotations, @NotNull BlockPos pos) {
         this.displayItem = displayItem;
         this.rotation = rotation;
+        this.rotations = rotations;
         this.pos = pos;
         IntArrayList ids = new IntArrayList();
         ids.add(this.id);
@@ -97,12 +104,24 @@ final class MachineDisplayElement implements BlockEntityElement {
             default -> 180f;
         } + this.rotation) % 360f;
         float pitch = this.facing == Direction.UP ? -90f : this.facing == Direction.DOWN ? 90f : 0f;
+        int[] blockstate = this.rotations.get(this.facing);
+        // The blockstate's own rotation, as the client turns block models: R_y(-y) R_x(-x), then undo the
+        // half turn item displays add around Y. Any x works (a laser facing down is x 180).
+        org.joml.Quaternionf turn = null;
+        if (blockstate != null) {
+            yaw = 0f;
+            pitch = 0f;
+            turn = new org.joml.Quaternionf().rotateY((float) Math.toRadians(-blockstate[1]))
+                    .rotateX((float) Math.toRadians(-blockstate[0])).rotateY((float) Math.PI);
+        }
+        org.joml.Quaternionf finalTurn = turn;
         Object add = ClientboundAddEntityPacketProxy.INSTANCE.newInstance(this.id, this.uuid,
                 this.pos.x() + 0.5, this.pos.y() + 0.5, this.pos.z() + 0.5, pitch, yaw, EntityTypesProxy.ITEM_DISPLAY, 0, Vec3Proxy.ZERO, yaw);
         Object finalStack = stack;
         Object data = ClientboundSetEntityDataPacketProxy.INSTANCE.newInstance(this.id, new ArrayList<>() {{
             DisplayData.ItemDisplayData.ItemStack.addEntityData(finalStack, this);
             DisplayData.ItemDisplayData.ItemTransform.addEntityData(ItemDisplayContext.NONE.id(), this);
+            if (finalTurn != null) DisplayData.LeftRotation.addEntityData(finalTurn, this);
         }});
         List<Object> built = List.of(add, data);
         this.packets = built;

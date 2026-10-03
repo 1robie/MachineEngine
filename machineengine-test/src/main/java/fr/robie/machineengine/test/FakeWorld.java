@@ -98,6 +98,64 @@ public final class FakeWorld implements MachineHost {
         else this.blocks.put(position, block);
     }
 
+    private final Map<WorldPosition, List<ResourceStack>> items = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<WorldPosition, Integer> redstone = new java.util.concurrent.ConcurrentHashMap<>();
+    private final List<ResourceStack> brokenDrops = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    /** Dropped items lying at {@code position} (a tractor beam collects them). */
+    public void dropItems(@NotNull WorldPosition position, @NotNull ResourceStack stack) {
+        this.items.computeIfAbsent(position, key -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(stack);
+    }
+
+    /** The redstone signal the block at {@code position} receives. */
+    public void setRedstone(@NotNull WorldPosition position, int power) {
+        this.redstone.put(position, power);
+    }
+
+    @Override
+    public boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
+        if (!isOwnedByCurrentThread(position) || this.machines.containsKey(position) || this.blocks.containsKey(position)) return false;
+        var current = this.fluids.get(position);
+        if (current != null && current.source()) return false;
+        this.fluids.put(position, new fr.robie.machineengine.api.world.WorldFluid(fluid, true));
+        return true;
+    }
+
+    /** Plain blocks are as hard as stone (1.5); air and machines cannot be broken. */
+    @Override
+    public float worldBlockHardness(@NotNull WorldPosition position) {
+        return isOwnedByCurrentThread(position) && this.blocks.containsKey(position) ? 1.5f : -1;
+    }
+
+    /** Breaking a plain block drops it as an item (its key as the item id) where it was. */
+    @Override
+    public boolean breakWorldBlock(@NotNull WorldPosition position) {
+        if (worldBlockHardness(position) < 0) return false;
+        Key block = this.blocks.remove(position);
+        ResourceStack drop = fr.robie.machineengine.api.item.Items.variant(new fr.robie.machineengine.api.item.ItemData(block,
+                block.asString().getBytes(java.nio.charset.StandardCharsets.UTF_8))).stack(1);
+        dropItems(position, drop);
+        this.brokenDrops.add(drop);
+        return true;
+    }
+
+    @Override
+    public @NotNull List<ResourceStack> collectWorldItems(@NotNull WorldPosition position) {
+        if (!isOwnedByCurrentThread(position)) return List.of();
+        List<ResourceStack> taken = this.items.remove(position);
+        return taken == null ? List.of() : List.copyOf(taken);
+    }
+
+    /** Items dropped at {@code position} and still lying there. */
+    public @NotNull List<ResourceStack> itemsAt(@NotNull WorldPosition position) {
+        return List.copyOf(this.items.getOrDefault(position, List.of()));
+    }
+
+    @Override
+    public int redstonePower(@NotNull WorldPosition position) {
+        return this.redstone.getOrDefault(position, 0);
+    }
+
     /** A machine's block is its type's key; elsewhere the block set with {@link #setBlock}, or air. */
     @Override
     public @org.jetbrains.annotations.Nullable Key blockAt(@NotNull WorldPosition position) {

@@ -887,6 +887,41 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
+        public boolean placeWorldFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition at, @NotNull net.kyori.adventure.key.Key fluid) {
+            return host.placeWorldFluid(new WorldPosition(position.world(), at), fluid);
+        }
+
+        @Override
+        public float worldBlockHardness(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.worldBlockHardness(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public boolean breakWorldBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.breakWorldBlock(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public @NotNull List<ResourceStack> collectWorldItems(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
+            return host.collectWorldItems(new WorldPosition(position.world(), at));
+        }
+
+        @Override
+        public int redstonePower() {
+            return host.redstonePower(position);
+        }
+
+        @Override
+        public void playSound(@NotNull net.kyori.adventure.key.Key sound, float volume, float pitch) {
+            host.playSound(position, sound, volume, pitch);
+        }
+
+        @Override
+        public void particleLine(@NotNull fr.robie.machineengine.api.world.BlockPosition to, int color) {
+            host.particleLine(position, new WorldPosition(position.world(), to), color);
+        }
+
+        @Override
         public void wakeMachine(@NotNull WorldPosition machine) {
             if (!host.isOwnedByCurrentThread(machine)) return;
             MachineInstanceImpl other = host.machineAt(machine);

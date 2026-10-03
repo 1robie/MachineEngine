@@ -51,13 +51,13 @@ public final class MachineBlockEntityController extends BlockEntityController {
         super(blockEntity);
         this.behavior = behavior;
         this.display = behavior.displayItem() == null ? null : new MachineDisplayElement(behavior.displayItem(),
-                behavior.displayRotation(), blockEntity.pos());
+                behavior.displayRotation(), behavior.displayRotations(), blockEntity.pos());
         this.level = behavior.levelDisplay() == null ? null
                 : new LevelDisplayElement(behavior.levelDisplay().item(), behavior.levelDisplay().steps(), blockEntity.pos());
         if (behavior.sideDisplay() != null) {
             for (fr.robie.machineengine.api.world.RelativeSide side : fr.robie.machineengine.api.world.RelativeSide.values()) {
                 MachineDisplayElement element = new MachineDisplayElement(behavior.sideDisplay() + "/" + side.name().toLowerCase(java.util.Locale.ROOT),
-                        behavior.displayRotation(), blockEntity.pos());
+                        behavior.displayRotation(), behavior.displayRotations(), blockEntity.pos());
                 element.setVisible(false);
                 this.sides.put(side, element);
             }

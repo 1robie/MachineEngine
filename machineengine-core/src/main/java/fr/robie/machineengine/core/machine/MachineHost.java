@@ -62,6 +62,34 @@ public interface MachineHost {
         return null;
     }
 
+    // -- the world around a machine (owner thread) ---------------------------------------------
+
+    default boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
+        return false;
+    }
+
+    default float worldBlockHardness(@NotNull WorldPosition position) {
+        return -1;
+    }
+
+    default boolean breakWorldBlock(@NotNull WorldPosition position) {
+        return false;
+    }
+
+    default @NotNull List<ResourceStack> collectWorldItems(@NotNull WorldPosition position) {
+        return List.of();
+    }
+
+    default int redstonePower(@NotNull WorldPosition position) {
+        return 0;
+    }
+
+    default void playSound(@NotNull WorldPosition position, @NotNull Key sound, float volume, float pitch) {
+    }
+
+    default void particleLine(@NotNull WorldPosition from, @NotNull WorldPosition to, int color) {
+    }
+
     /** Where the machine's ports are changed (side configuration, a mode, a turn): e.g. to redraw its sides. */
     default void portsChanged(@NotNull MachineInstanceImpl machine) {
     }

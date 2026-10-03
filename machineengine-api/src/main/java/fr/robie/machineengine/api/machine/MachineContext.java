@@ -163,6 +163,41 @@ public interface MachineContext {
      */
     @NotNull Optional<ResourceHandler> storageAt(@NotNull fr.robie.machineengine.api.world.WorldPosition machine, @NotNull String storage);
 
+    // -- the world around (owner thread; nothing happens on blocks of other regions) -----------
+
+    /** Places a source block of the platform's {@code fluid} (e.g. {@code minecraft:water}) where there is air or flowing fluid. */
+    default boolean placeWorldFluid(@NotNull BlockPosition position, @NotNull Key fluid) {
+        return false;
+    }
+
+    /** How hard the block at {@code position} is to break (vanilla hardness); -1 if unbreakable or unknown. */
+    default float worldBlockHardness(@NotNull BlockPosition position) {
+        return -1;
+    }
+
+    /** Breaks the block at {@code position}, its drops falling as items; false if it could not. */
+    default boolean breakWorldBlock(@NotNull BlockPosition position) {
+        return false;
+    }
+
+    /** Takes the dropped items lying in the block at {@code position} (e.g. a tractor beam), as resources. */
+    default @NotNull java.util.List<fr.robie.machineengine.api.resource.ResourceStack> collectWorldItems(@NotNull BlockPosition position) {
+        return java.util.List.of();
+    }
+
+    /** The redstone signal this machine's block receives (0 to 15). */
+    default int redstonePower() {
+        return 0;
+    }
+
+    /** Plays the platform's {@code sound} at the machine. */
+    default void playSound(@NotNull Key sound, float volume, float pitch) {
+    }
+
+    /** Draws particles from the machine to {@code to} (a beam), e.g. {@code minecraft:dust} in {@code color} (RGB). */
+    default void particleLine(@NotNull BlockPosition to, int color) {
+    }
+
     /** Wakes another machine, if it is loaded and owned by this thread (e.g. a multiblock's anchor when its structure formed). */
     void wakeMachine(@NotNull fr.robie.machineengine.api.world.WorldPosition machine);
 

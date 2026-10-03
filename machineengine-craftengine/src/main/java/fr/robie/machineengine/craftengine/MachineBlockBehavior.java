@@ -41,6 +41,7 @@ import java.util.Locale;
  *   active_property: active     # optional, defaults to "active" when the block has it: shown while working
  *   display_item: mymod:display/refinery   # optional: drawn by a display entity of this item (and <item>/active)
  *   display_rotation: 90        # optional: degrees the item is turned (clockwise from above) when facing north
+ *   display_rotations: north=0/0,up=270/0   # optional: each facing's blockstate rotation x/y (wins over display_rotation)
  *   level_display: mymod:display/core   # optional: a gauge inside the block, items <prefix>/1..<steps> by how full
  *   level_storage: energy               #   the storage is (nothing when empty)
  *   level_steps: 4
@@ -60,6 +61,7 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     private final @Nullable Property<Boolean> active;
     private final @Nullable String displayItem;
     private final int displayRotation;
+    private final java.util.Map<fr.robie.machineengine.api.world.Direction, int[]> displayRotations;
     private final @Nullable LevelDisplay levelDisplay;
     private final @Nullable String sideDisplay;
     private int controllerId;
@@ -81,6 +83,7 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
         this.active = active;
         this.displayItem = displayItem;
         this.displayRotation = displayRotation;
+        this.displayRotations = new java.util.EnumMap<>(fr.robie.machineengine.api.world.Direction.class);
         this.levelDisplay = levelDisplay;
         this.sideDisplay = sideDisplay;
     }
@@ -101,6 +104,27 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     /** Degrees the display item is turned when facing north ({@code display_rotation}). */
     int displayRotation() {
         return this.displayRotation;
+    }
+
+    /** Each facing's blockstate rotation {x, y} in degrees ({@code display_rotations}); empty if not set. */
+    java.util.Map<fr.robie.machineengine.api.world.Direction, int[]> displayRotations() {
+        return this.displayRotations;
+    }
+
+    /** Reads "north=90/180,south=..." into {@link #displayRotations()}. */
+    private MachineBlockBehavior withRotations(@Nullable String spec) {
+        if (spec == null) return this;
+        for (String entry : spec.split(",")) {
+            String[] parts = entry.trim().split("[=/]");
+            if (parts.length != 3) continue;
+            try {
+                this.displayRotations.put(fr.robie.machineengine.api.world.Direction.valueOf(parts[0].toUpperCase(Locale.ROOT)),
+                        new int[]{Integer.parseInt(parts[1]), Integer.parseInt(parts[2])});
+            } catch (IllegalArgumentException ignored) {
+                // a malformed entry: that facing falls back to display_rotation
+            }
+        }
+        return this;
     }
 
     /** The boolean block property showing that the machine works, if the block has one. */
@@ -225,7 +249,8 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
                     section.getString("level_display", (String) null) == null ? null : new LevelDisplay(
                             section.getString("level_display", (String) null), section.getString("level_storage", "energy"),
                             section.getInt("level_steps", 4)),
-                    section.getString("side_display", (String) null));
+                    section.getString("side_display", (String) null))
+                    .withRotations(section.getString("display_rotations", (String) null));
         }
     }
 }

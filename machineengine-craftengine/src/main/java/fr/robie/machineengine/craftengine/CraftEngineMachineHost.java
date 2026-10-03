@@ -360,6 +360,81 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         return block.getType().getKey();
     }
 
+    @Override
+    public boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null || this.controllers.containsKey(position)) return false;
+        org.bukkit.Material material = fluid.asString().equals("minecraft:water") ? org.bukkit.Material.WATER
+                : fluid.asString().equals("minecraft:lava") ? org.bukkit.Material.LAVA : null;
+        if (material == null) return false;
+        boolean air = block.getType().isAir();
+        boolean flowing = block.getType() == material && block.getBlockData() instanceof org.bukkit.block.data.Levelled levelled && levelled.getLevel() != 0;
+        if (!air && !flowing) return false;
+        block.setType(material, true);
+        return true;
+    }
+
+    @Override
+    public float worldBlockHardness(@NotNull WorldPosition position) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null || block.getType().isAir()) return -1;
+        return block.getType().getHardness();
+    }
+
+    @Override
+    public boolean breakWorldBlock(@NotNull WorldPosition position) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        if (block == null || block.getType().isAir() || block.getType().getHardness() < 0) return false;
+        if (net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.isCustomBlock(block)) {
+            return net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.remove(block, null, false, true, true);
+        }
+        return block.breakNaturally();
+    }
+
+    @Override
+    public @NotNull List<ResourceStack> collectWorldItems(@NotNull WorldPosition position) {
+        World world = world(position.world());
+        if (world == null || !isOwnedByCurrentThread(position)) return List.of();
+        var at = position.position();
+        List<ResourceStack> taken = new java.util.ArrayList<>();
+        for (org.bukkit.entity.Entity entity : world.getNearbyEntities(new org.bukkit.util.BoundingBox(at.x(), at.y(), at.z(), at.x() + 1, at.y() + 1, at.z() + 1))) {
+            if (!(entity instanceof org.bukkit.entity.Item item) || item.isDead()) continue;
+            taken.add(fr.robie.machineengine.paper.PaperItems.toResource(item.getItemStack()));
+            item.remove();
+        }
+        return taken;
+    }
+
+    @Override
+    public int redstonePower(@NotNull WorldPosition position) {
+        org.bukkit.block.Block block = ownedBlock(position);
+        return block == null ? 0 : block.getBlockPower();
+    }
+
+    @Override
+    public void playSound(@NotNull WorldPosition position, @NotNull Key sound, float volume, float pitch) {
+        World world = world(position.world());
+        if (world == null) return;
+        var at = position.position();
+        world.playSound(net.kyori.adventure.sound.Sound.sound(sound, net.kyori.adventure.sound.Sound.Source.BLOCK, volume, pitch),
+                at.x() + 0.5, at.y() + 0.5, at.z() + 0.5);
+    }
+
+    @Override
+    public void particleLine(@NotNull WorldPosition from, @NotNull WorldPosition to, int color) {
+        World world = world(from.world());
+        if (world == null) return;
+        var a = from.position();
+        var b = to.position();
+        double dx = b.x() - a.x(), dy = b.y() - a.y(), dz = b.z() - a.z();
+        int steps = (int) Math.max(1, Math.ceil(Math.sqrt(dx * dx + dy * dy + dz * dz) * 2));
+        var dust = new org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(color & 0xFFFFFF), 1.0f);
+        for (int i = 0; i <= steps; i++) {
+            double t = i / (double) steps;
+            world.spawnParticle(org.bukkit.Particle.DUST, a.x() + 0.5 + dx * t, a.y() + 0.5 + dy * t, a.z() + 0.5 + dz * t, 1, dust);
+        }
+    }
+
     /** The block at {@code position} if its chunk is loaded and this thread owns it, else null. */
     private @Nullable org.bukkit.block.Block ownedBlock(WorldPosition position) {
         World world = world(position.world());
