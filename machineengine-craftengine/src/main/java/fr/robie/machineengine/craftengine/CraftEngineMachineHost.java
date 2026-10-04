@@ -375,6 +375,17 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
+    public boolean placeWorldBlock(@NotNull WorldPosition position, @NotNull Key block) {
+        org.bukkit.block.Block at = ownedBlock(position);
+        if (at == null || this.controllers.containsKey(position)) return false;
+        org.bukkit.Material material = org.bukkit.Material.matchMaterial(block.asString());
+        if (material == null || !material.isBlock()) return false;
+        if (!at.getType().isAir() && !at.isLiquid()) return false;
+        at.setType(material, true);
+        return true;
+    }
+
+    @Override
     public float worldBlockHardness(@NotNull WorldPosition position) {
         org.bukkit.block.Block block = ownedBlock(position);
         if (block == null || block.getType().isAir()) return -1;

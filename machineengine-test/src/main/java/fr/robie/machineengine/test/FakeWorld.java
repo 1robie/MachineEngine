@@ -121,6 +121,15 @@ public final class FakeWorld implements MachineHost {
         return true;
     }
 
+    /** Places a plain block where there is air or a fluid. */
+    @Override
+    public boolean placeWorldBlock(@NotNull WorldPosition position, @NotNull Key block) {
+        if (!isOwnedByCurrentThread(position) || this.machines.containsKey(position) || this.blocks.containsKey(position)) return false;
+        this.fluids.remove(position);
+        this.blocks.put(position, block);
+        return true;
+    }
+
     /** Plain blocks are as hard as stone (1.5); air and machines cannot be broken. */
     @Override
     public float worldBlockHardness(@NotNull WorldPosition position) {

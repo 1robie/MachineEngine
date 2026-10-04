@@ -892,6 +892,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
+        public boolean placeWorldBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition at, @NotNull net.kyori.adventure.key.Key block) {
+            return host.placeWorldBlock(new WorldPosition(position.world(), at), block);
+        }
+
+        @Override
         public float worldBlockHardness(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
             return host.worldBlockHardness(new WorldPosition(position.world(), at));
         }
@@ -1046,7 +1051,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                 }
                 long duration = context.modified(StandardModifiers.PROCESS_DURATION, recipe.duration());
                 List<ResourceStack> costs = recipe.costPerTick().stream()
-                        .map(cost -> cost.withAmount(context.modified(StandardModifiers.PROCESS_COST, cost.amount())))
+                        .map(cost -> cost.withAmount(context.modifiedCost(cost.type(), cost.amount())))
                         .filter(cost -> cost.amount() > 0)
                         .toList();
                 // Chance outputs are rolled now, with the machine's own random: the outcome is part of

@@ -67,6 +67,15 @@ public interface MachineContext {
     /** @return {@code base} with this machine's upgrade modifiers of {@code type} applied (D16) */
     long modified(@NotNull ModifierType type, long base);
 
+    /**
+     * A per-tick process cost after upgrades: {@link fr.robie.machineengine.api.upgrade.StandardModifiers#PROCESS_COST},
+     * then the cost modifier of the resource's category ({@code StandardModifiers.processCost}).
+     */
+    default long modifiedCost(@NotNull fr.robie.machineengine.api.resource.ResourceType type, long amount) {
+        long cost = modified(fr.robie.machineengine.api.upgrade.StandardModifiers.PROCESS_COST, amount);
+        return modified(fr.robie.machineengine.api.upgrade.StandardModifiers.processCost(type.category()), cost);
+    }
+
     /** Deterministic per-machine randomness (§19). */
     @NotNull RandomGenerator random();
 
@@ -167,6 +176,11 @@ public interface MachineContext {
 
     /** Places a source block of the platform's {@code fluid} (e.g. {@code minecraft:water}) where there is air or flowing fluid. */
     default boolean placeWorldFluid(@NotNull BlockPosition position, @NotNull Key fluid) {
+        return false;
+    }
+
+    /** Places the vanilla block {@code block} (e.g. {@code minecraft:stone}) where there is air or a fluid. */
+    default boolean placeWorldBlock(@NotNull BlockPosition position, @NotNull Key block) {
         return false;
     }
 

@@ -68,6 +68,10 @@ public interface MachineHost {
         return false;
     }
 
+    default boolean placeWorldBlock(@NotNull WorldPosition position, @NotNull Key block) {
+        return false;
+    }
+
     default float worldBlockHardness(@NotNull WorldPosition position) {
         return -1;
     }
