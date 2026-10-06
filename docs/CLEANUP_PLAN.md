@@ -137,7 +137,14 @@ This is a feature (server owners can tune them), so it needs the owner's approva
    - the per-chemical `count` loop;
    - `adaptedIngredients` fails on shapeless recipes, and should get its own report section.
 
-## Stage 7: tests
+## Stage 7: tests (done 2026-10-06; 231 tests became 280)
+Done:
+- `MekanizedTestKit` (engine builder, item/type/fill/amount/box helpers, `ResetStatics` extension) replaced the per-class copies; `MekanizedChainTest` is split into five classes by family.
+- Moved into Bukkit-free `machine/` code, each with unit tests and the Paper side now calling it: `GearRules` (module targets and fit), `Radiation` (dose, shielding, severity, thresholds), `ConfigurationCard` (card text), `GaugeDropper` (take and put back), `Frequencies.summary` (QIO dashboard totals) and `SaveLines` (data-file line codecs; replaces `paper/persist/WorldPositions`). The teleport cost already was `Frequencies.cost`; it got tests.
+- Left on the Paper side: the item-bound parts (reading and writing the persistent data container, lore, enchantments, the worn-armour lookup, the crafting formula's item serialization).
+- New cheap tests: `MenuConsistencyTest` (every menu names storages, slots and data its machine has, and button slots do not overlap) and `StructuresFormTest` (every `/mekanized build` structure forms).
+
+Original plan:
 - **`MekanizedTestKit`:** the engine builder, `item`, `type`, `fill`, `amount`, `box`, and a JUnit extension that resets static state. Today this code is copied in 7 classes, with 29 helper copies.
 - **Split `MekanizedChainTest` (696 lines)** by family.
 - **Move Paper logic into testable machine-side code:**
