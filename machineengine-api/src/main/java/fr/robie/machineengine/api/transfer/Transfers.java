@@ -55,14 +55,6 @@ public final class Transfers {
         }
     }
 
-    /** @return how much {@code handler} would give, without changing it */
-    public static long simulateExtract(@NotNull ResourceHandler handler, @NotNull ResourceVariant variant, long maxAmount,
-                                       @NotNull TransactionContext transaction) {
-        try (Transaction simulation = transaction.openNested()) {
-            return handler.extract(variant, maxAmount, simulation);
-        }
-    }
-
     static void requireNonNegative(long amount) {
         if (amount < 0) throw new IllegalArgumentException("Amount must not be negative: " + amount);
     }

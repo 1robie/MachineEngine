@@ -90,10 +90,6 @@ public final class SimpleRegistry<T extends Keyed> implements Registry<T> {
         this.frozen = true;
     }
 
-    public boolean isFrozen() {
-        return this.frozen;
-    }
-
     @Override
     public @NotNull Optional<T> get(@NotNull Key id) {
         return Optional.ofNullable(this.entries.get(id));

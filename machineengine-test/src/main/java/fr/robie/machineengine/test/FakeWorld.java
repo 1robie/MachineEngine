@@ -100,7 +100,6 @@ public final class FakeWorld implements MachineHost {
 
     private final Map<WorldPosition, List<ResourceStack>> items = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<WorldPosition, Integer> redstone = new java.util.concurrent.ConcurrentHashMap<>();
-    private final List<ResourceStack> brokenDrops = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     /** Dropped items lying at {@code position} (a tractor beam collects them). */
     public void dropItems(@NotNull WorldPosition position, @NotNull ResourceStack stack) {
@@ -144,7 +143,6 @@ public final class FakeWorld implements MachineHost {
         ResourceStack drop = fr.robie.machineengine.api.item.Items.variant(new fr.robie.machineengine.api.item.ItemData(block,
                 block.asString().getBytes(java.nio.charset.StandardCharsets.UTF_8))).stack(1);
         dropItems(position, drop);
-        this.brokenDrops.add(drop);
         return true;
     }
 

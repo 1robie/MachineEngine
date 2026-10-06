@@ -27,10 +27,6 @@ public enum SchedulerState {
     private static final Set<WakeReason> OUTPUT = Set.of(WakeReason.RESOURCE_EXTRACTED, WakeReason.OUTPUT_AVAILABLE,
             WakeReason.NEIGHBOR_CHANGED, WakeReason.NETWORK_CHANGED);
 
-    public boolean isSleeping() {
-        return this != ACTIVE;
-    }
-
     /** @return whether {@code reason} makes a machine in this state active again */
     public boolean wakesOn(WakeReason reason) {
         return switch (this) {

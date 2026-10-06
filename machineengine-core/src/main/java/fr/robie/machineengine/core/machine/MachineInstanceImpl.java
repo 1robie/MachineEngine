@@ -412,18 +412,6 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         wake(WakeReason.TIMER);
     }
 
-    /**
-     * Called by a host that paused this machine without unloading it (e.g. its chunk stopped
-     * ticking): the paused time does not count as elapsed (D4).
-     */
-    public void resumeClock() {
-        this.lastTick = gameTimeNow() - (this.state == SchedulerState.ACTIVE ? 1 : 0);
-        if (this.wakeAt >= 0) {
-            // Keep the remaining delay of a timer that could not fire while paused.
-            this.host.scheduleWake(this, Math.max(this.wakeAt, gameTimeNow()));
-        }
-    }
-
     private void applyState(SchedulerState newState, long newWakeAt) {
         boolean wasActive = this.state == SchedulerState.ACTIVE;
         if (newState != SchedulerState.BLOCKED) clearBlocked();
@@ -467,10 +455,6 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         if (this.dirty) return;
         this.dirty = true;
         this.host.markDirty(this);
-    }
-
-    boolean isDirty() {
-        return this.dirty;
     }
 
     private long gameTimeNow() {

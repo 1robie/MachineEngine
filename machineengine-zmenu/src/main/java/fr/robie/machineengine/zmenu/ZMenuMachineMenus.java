@@ -237,7 +237,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         for (fr.maxlego08.menu.api.button.Button button : engine.getButtons()) {
             if (!(button instanceof SlotButton)) continue;
             for (int slot : button.getSlots()) engine.cancel(slot);
-            engine.buildButton(button);
+            engine.buildButton(button, new fr.maxlego08.menu.api.utils.Placeholders());
         }
     }
 

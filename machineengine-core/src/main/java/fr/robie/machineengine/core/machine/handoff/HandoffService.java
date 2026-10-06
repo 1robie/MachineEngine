@@ -217,9 +217,4 @@ public final class HandoffService {
     private static long nextSequence(MachineInstanceImpl machine) {
         return machine.nextSequenceForHandoff();
     }
-
-    /** For tests and inspection. */
-    public int orphanedCount() {
-        return this.orphaned.size();
-    }
 }

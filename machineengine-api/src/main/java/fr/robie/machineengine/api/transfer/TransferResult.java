@@ -25,8 +25,4 @@ public record TransferResult(@NotNull Status status, long requested, long moved,
         Status status = moved == requested ? Status.COMPLETE : moved > 0 ? Status.PARTIAL : Status.REJECTED;
         return new TransferResult(status, requested, moved, status == Status.COMPLETE ? null : reason);
     }
-
-    public boolean isComplete() {
-        return this.status == Status.COMPLETE;
-    }
 }
