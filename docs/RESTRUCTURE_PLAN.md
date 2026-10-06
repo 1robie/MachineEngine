@@ -87,7 +87,18 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
   checks) to `/mekanized` test commands, or drop it.
 - Rewrite the `ARCHITECTURE.md` milestone notes that name it as history, not as a module.
 
-## Stage R3: `api` and `common`
+## Stage R3: `api` and `common` (done 2026-10-06)
+**Result:**
+- Four commits: R3.1 `api`, R3.2 `common` from core, R3.3 paper into `common`, R3.4 craftengine into
+  `common`. Each one builds and passes 280 of 280 tests.
+- The jars are `machineengine-api` and `machineengine-common`. `common` keeps CraftEngine's
+  `bukkit-proxy` (compile) and `core` (tests) dependencies.
+- Test sources moved together with their packages, so step 4 needed no separate work.
+- Side changes:
+  - `-Xlint:-classfile` silences javac warnings about JOML's class files;
+  - the CI japicmp line now names `:api`.
+
+**What was planned:**
 1. Rename `machineengine-api` → `api`, keeping its jar name.
 2. Create `common` from `machineengine-core`.
 3. Move `machineengine-paper` and then `machineengine-craftengine` into `common`, one commit each.

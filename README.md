@@ -20,11 +20,9 @@ actual resources and machines. The architecture and every binding decision are i
 
 | Module | Purpose |
 |---|---|
-| `machineengine-api` | Public API and SPI. |
-| `machineengine-core` | Implementation. |
+| `api` | Public API and SPI. |
+| `common` | Implementation: the engine (`core` packages), its Paper integration and its CraftEngine integration. |
 | `machineengine-test` | Headless test harness for MachineEngine and addons. |
-| `machineengine-paper` | Paper integration. |
-| `machineengine-craftengine` | CraftEngine integration. |
 | `machineengine-zmenu` | Optional zMenu integration (machine menus). |
 | `machineengine-mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
 | `machineengine-plugin` | The plugin jar. |
