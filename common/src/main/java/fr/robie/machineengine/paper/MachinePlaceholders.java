@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.paper.ResourceNames;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.process.ProcessView;
 import fr.robie.machineengine.api.resource.ResourceStack;

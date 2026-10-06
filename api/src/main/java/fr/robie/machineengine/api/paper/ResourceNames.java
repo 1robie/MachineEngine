@@ -1,4 +1,4 @@
-package fr.robie.machineengine.paper;
+package fr.robie.machineengine.api.paper;
 
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import org.jetbrains.annotations.NotNull;

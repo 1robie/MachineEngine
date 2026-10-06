@@ -536,6 +536,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         return this.lastError;
     }
 
+    @Override
     public @NotNull MachineContext context() {
         return this.context;
     }

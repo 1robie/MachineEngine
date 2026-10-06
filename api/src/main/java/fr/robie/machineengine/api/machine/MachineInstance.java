@@ -58,4 +58,10 @@ public interface MachineInstance {
     void wake(@NotNull WakeReason reason);
 
     @NotNull MachineInspection inspect();
+
+    /**
+     * The same context the machine's behavior gets, for code outside its tick (listeners, commands,
+     * tools): its data, storages and world. Owner thread only.
+     */
+    @NotNull MachineContext context();
 }
