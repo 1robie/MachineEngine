@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .mekanism
-          key: mekanism-${{ hashFiles('gradle.properties', 'buildSrc/src/**', 'machineengine-mekanized/build.gradle.kts') }}
+          key: mekanism-${{ hashFiles('gradle.properties', 'buildSrc/src/**', 'mekanized/build.gradle.kts') }}
 
       - name: Resolve newest CraftEngine snapshot
         if: matrix.craftengine == 'latest'

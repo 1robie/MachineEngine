@@ -43,5 +43,5 @@ include(
     "nms:v1_20_6",
     "nms:v26_3",
     "plugin",
-    "machineengine-mekanized",
+    "mekanized",
 )

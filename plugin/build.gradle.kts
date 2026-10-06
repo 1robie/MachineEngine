@@ -27,7 +27,7 @@ dependencies {
     implementation(project(":nms:v1_20_6"))
     implementation(project(":nms:v26_3"))
     compileOnly(libs.zmenu.api)
-    devAddons(project(":machineengine-mekanized"))
+    devAddons(project(":mekanized"))
 }
 
 paper {

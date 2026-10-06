@@ -24,7 +24,7 @@ actual resources and machines. The architecture and every binding decision are i
 | `common` | Implementation: the engine (`core` packages), its Paper integration and its CraftEngine integration. |
 | `test` | Headless test harness for MachineEngine and addons, built on the assembled plugin. |
 | `hooks/zmenu` | Optional zMenu integration (machine menus). One `hooks/<plugin>` module per optional plugin. |
-| `machineengine-mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
+| `mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
 | `plugin` | The plugin jar (everything above, plus the dev servers). |
 
 The modules are being reorganised ([docs/RESTRUCTURE_PLAN.md](docs/RESTRUCTURE_PLAN.md)). Every module
@@ -156,17 +156,17 @@ missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes th
 
 ## Mekanized (Mekanism-style content)
 
-`machineengine-mekanized` is a content plugin built on MachineEngine. Server owners: see
+`mekanized` is a content plugin built on MachineEngine. Server owners: see
 [docs/MEKANIZED_GUIDE.md](docs/MEKANIZED_GUIDE.md); its development plan is
 [docs/MEKANIZED_PLAN.md](docs/MEKANIZED_PLAN.md). It is inspired by Mekanism and uses its textures,
 models and recipes (Mekanism by Aidan C. Brady, MIT; `LICENSE-MEKANISM.txt` ships with it). It is not
 affiliated with Mekanism. The build imports one pinned Mekanism commit:
 
 ```
-./gradlew :machineengine-mekanized:importMekanism
+./gradlew :mekanized:importMekanism
 ```
 
-Review `machineengine-mekanized/build/generated/mekanized/import-report.txt` for what was converted
+Review `mekanized/build/generated/mekanized/import-report.txt` for what was converted
 and skipped.
 
 ## License
