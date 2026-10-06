@@ -1,7 +1,7 @@
 package fr.robie.machineengine.nms.v1_20_6;
 
-import fr.robie.machineengine.nms.NmsAccess;
-import fr.robie.machineengine.nms.PlayerInput;
+import fr.robie.machineengine.api.platform.NmsAccess;
+import fr.robie.machineengine.api.platform.PlayerInput;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;

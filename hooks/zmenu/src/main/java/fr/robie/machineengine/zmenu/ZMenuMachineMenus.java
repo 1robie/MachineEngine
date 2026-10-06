@@ -12,7 +12,7 @@ import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
-import fr.robie.machineengine.nms.Nms;
+import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;

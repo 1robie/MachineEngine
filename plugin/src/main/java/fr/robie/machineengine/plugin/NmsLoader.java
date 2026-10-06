@@ -1,6 +1,6 @@
 package fr.robie.machineengine.plugin;
 
-import fr.robie.machineengine.nms.NmsAccess;
+import fr.robie.machineengine.api.platform.NmsAccess;
 import fr.robie.machineengine.nms.ReflectiveNms;
 import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;

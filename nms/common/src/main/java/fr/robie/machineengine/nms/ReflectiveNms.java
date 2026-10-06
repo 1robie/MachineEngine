@@ -1,5 +1,7 @@
 package fr.robie.machineengine.nms;
 
+import fr.robie.machineengine.api.platform.NmsAccess;
+import fr.robie.machineengine.api.platform.PlayerInput;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;

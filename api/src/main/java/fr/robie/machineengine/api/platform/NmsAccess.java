@@ -1,4 +1,4 @@
-package fr.robie.machineengine.nms;
+package fr.robie.machineengine.api.platform;
 
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 /**
  * Everything MachineEngine and its addons need that differs between supported Minecraft versions
  * (D25): newer API, or API whose binary shape changed. Implemented once per version module
- * ({@code nms:v1_20_6}, {@code nms:v26_3}), and by {@link ReflectiveNms} for versions without one.
+ * ({@code nms:v1_20_6}, {@code nms:v26_3}), and reflectively for versions without one.
  * Get it from {@link Nms#get()}.
  */
 public interface NmsAccess {
