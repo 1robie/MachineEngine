@@ -5,5 +5,5 @@ plugins {
 description = "MachineEngine implementation of the API."
 
 dependencies {
-    api(project(":machineengine-api"))
+    api(project(":api"))
 }

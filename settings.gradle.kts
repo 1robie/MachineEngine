@@ -28,8 +28,10 @@ dependencyResolutionManagement {
     }
 }
 
+// Modules of the restructure (ARCHITECTURE.md D24) have short paths; their jars keep the
+// machineengine- prefix. The others move in RESTRUCTURE_PLAN.md R3-R7.
 include(
-    "machineengine-api",
+    "api",
     "machineengine-core",
     "machineengine-test",
     "machineengine-paper",
