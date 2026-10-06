@@ -104,7 +104,9 @@ mekanized/                 MekanizedPlugin, MekanizedContent, MekanizedSettings,
 - Doc comments name what a class does, not "Phase 6 wave N". The history stays in `MEKANIZED_PLAN.md`.
 - Rename `EndgameMachines`, `extrasMenus` and `ExtrasTest` by their content.
 
-## Stage 5: settings (decided: into config.yml)
+## Stage 5: settings (decided: into config.yml; done 2026-10-06)
+Done: one plain settings holder per family in `machine/`, filled from `config.yml` (see `MEKANIZED_PLAN.md`, "Settings", and the server owner's guide). Original plan:
+
 Move gameplay numbers from code to `config.yml` sections:
 - `gear`: capacities, jetpack, module costs, vein limits, damage;
 - `radiation`: decay, thresholds;
