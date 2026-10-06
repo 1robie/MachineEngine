@@ -1,4 +1,3 @@
-import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
@@ -14,7 +13,7 @@ import kotlin.math.abs
  * <p>The item renderers place the model with `translate(0.5, 0.5, 0.5)` then a half turn around Z
  * (entity models have y down): a model point (x, y, z) in pixels is (8 - x, 8 - y, 8 + z) here.</p>
  */
-internal class GearModels(private val source: File, private val assets: File, private val report: Report) {
+internal class GearModels(private val source: MekanismSource, private val assets: File, private val report: Report) {
     private val javaDir = source.resolve("src/main/java/mekanism/client/model")
 
     /** A gear item: its Java model, the model it extends (for inherited parts), its texture, and the extra y the renderer adds. */
@@ -100,7 +99,7 @@ internal class GearModels(private val source: File, private val assets: File, pr
             model.add("display", display)
         }
         base.parentFile.mkdirs()
-        base.writeText(GsonBuilder().setPrettyPrinting().create().toJson(model))
+        base.writeText(prettyGson.toJson(model))
         // The entity texture, where the item model looks for it.
         val texture = source.resolve("src/main/resources/assets/mekanism/render/${gear.texture}.png")
         val target = assets.resolve("textures/render/${gear.texture}.png")
