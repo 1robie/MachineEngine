@@ -198,7 +198,41 @@ up in review.
 5. Tests: data saved as `a:old` loads as `b:new` through an alias and saves back as `b:new`; a
    definition naming `a:old` compiles; a bad alias is a startup error.
 
-## Stage 4: built-in energy, water and lava, configured through the loader
+## Stage 4: built-in energy, water and lava (done 2026-10-06)
+**Result:**
+- **New API** (`api/resource`): `Energy` and `Fluids` declare their config keys
+  (`resources.energy.unit|scale`, `resources.fluid.unit|scale|bucket`, all restart-only) and their
+  getters. `BuiltInResources` (internal) builds them.
+- **Build order:**
+  - `MachineEnginePlugin.onLoad` calls `BuiltInResources.install(config)` right after loading the
+    config;
+  - without a server, the first getter builds them from `MachineEngine.config()` (the defaults);
+  - installing again with other settings throws, since registries cannot change while the server
+    runs.
+- `CoreMachineEngine` registers `machineengine:energy` and `machineengine:fluid` (categories) and
+  `machineengine:energy`, `machineengine:fluid/water` and `machineengine:fluid/lava` (types),
+  owned by MachineEngine.
+- **No world-fluid change in `CraftEngineMachineHost`:** its water/lava table maps world fluid keys
+  to block materials, not resource types, so it is not a copy of Mekanized's and stays as it is.
+  `Fluids.worldFluid` / `fromWorld` replace Mekanized's table in stage 5.
+- New warning `FLUID_OUTSIDE_CATEGORY`: a `*:fluid/*` type outside the global category.
+- `example.yml` uses `machineengine:energy` and declares `custom:fluid/oil` in the global
+  category. A test checks that it compiles with no warnings.
+- **Moved forward from stage 5:** Mekanized's `FLUID` is now `Fluids.category()`, and Mekanized no
+  longer registers its own fluid category. Without this, the new warning fails Mekanized's
+  "definitions load cleanly" test. Its water and lava are still `mekanized:fluid/*` until stage 5.
+- **Tests:**
+  - `BuiltInResourcesTest` (6): registration, units from config, install conflict, ports by type
+    and by category including an addon's fluid, the warning, world fluids, `example.yml`;
+  - the reference `config.yml` is updated. The old-bundled-file test now checks that the file gains
+    the `resources` keys and keeps every line the owner wrote. Bukkit may re-indent a trailing
+    comment when it saves; that is accepted.
+
+  `./gradlew check` passes (306 tests).
+- **Paper 1.20.6 and 26.3 dev servers:** `config.yml` gained the 5 `resources` keys, the registries
+  list the built-ins, and there are no new warnings or errors.
+
+**What was planned:**
 ### Config keys (restart-only), declared in the API next to the resources they configure
 ```yaml
 # Resources MachineEngine provides to every addon and definition. Restart to apply.

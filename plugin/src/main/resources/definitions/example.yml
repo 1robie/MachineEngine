@@ -8,11 +8,16 @@
 # Its menu is menus/machine.yml unless you add menus/custom_iron_press.yml.
 enabled: false
 
-# Resource categories and types (non-item resources: energy, fluids, mana …).
-resource-categories:
-  custom:energy: { unit: FE, scale: 0 }
+# MachineEngine provides machineengine:energy and the fluids machineengine:fluid/water and
+# machineengine:fluid/lava (units in config.yml). Declare your own resources here: a new fluid joins
+# the global fluid category, so every fluid pipe and port takes it.
 resource-types:
-  custom:fe: { category: custom:energy }
+  custom:fluid/oil: { category: machineengine:fluid }
+# A resource of a new kind (mana, heat …) needs its own category:
+# resource-categories:
+#   custom:mana: { unit: MP, scale: 0 }
+# resource-types:
+#   custom:mana: { category: custom:mana }
 
 # Recipe types machines run.
 recipe-types:
@@ -23,7 +28,7 @@ machines:
     storages:
       input:  { slots: 1, capacity: 64, filter: { item: minecraft:raw_iron } }
       output: { slots: 1, capacity: 64 }
-      energy: { capacity: 10000, filter: { type: custom:fe } }
+      energy: { capacity: 10000, filter: { type: machineengine:energy } }
     # Ports: what neighbors, cables and networks may do on each side (relative to the facing).
     ports:
       in:     { storage: input,  direction: input,  sides: [top, back] }
@@ -52,4 +57,4 @@ recipes:
     outputs:
       - { item: minecraft:iron_ingot, amount: 1 }
     cost-per-tick:
-      - { type: custom:fe, amount: 20 }
+      - { type: machineengine:energy, amount: 20 }

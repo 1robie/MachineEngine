@@ -10,6 +10,7 @@ import fr.robie.machineengine.api.diagnostic.Validator;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.Registry;
 import fr.robie.machineengine.api.registry.RegistryType;
+import fr.robie.machineengine.api.resource.Fluids;
 import fr.robie.machineengine.api.resource.ResourceComponentType;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverter;
@@ -102,6 +103,14 @@ public final class BuiltInValidators {
                 if (!components.containsValue(component)) {
                     context.report(unregistered(types, type, "component type " + component.key().asString()));
                 }
+            }
+            // Pipes and ports take fluids by the global category (D29); a fluid elsewhere is almost always a mistake.
+            if (type.key().value().startsWith("fluid/") && !Fluids.isFluid(type)) {
+                context.report(Diagnostic.warning(DiagnosticCodes.FLUID_OUTSIDE_CATEGORY,
+                                type.key().asString() + " looks like a fluid but is in " + type.category().key().asString()
+                                        + ", not " + Fluids.CATEGORY_KEY.asString() + "; fluid pipes and ports will not take it."
+                                        + " Create it with Fluids.create(key) or give it category " + Fluids.CATEGORY_KEY.asString())
+                        .source(types.owner(type.key()).orElse(AddonId.MACHINE_ENGINE)).subject(type.key()).build());
             }
         }
     }

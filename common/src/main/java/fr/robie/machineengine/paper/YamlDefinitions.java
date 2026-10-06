@@ -90,7 +90,8 @@ public final class YamlDefinitions {
         return Result.ok(PaperItems.toResource(new ItemStack(material)).variant());
     }
 
-    static @NotNull DataMap toData(@NotNull ConfigurationSection section) {
+    /** A YAML section as a format-neutral tree, as definitions are compiled from. */
+    public static @NotNull DataMap toData(@NotNull ConfigurationSection section) {
         Map<String, DataValue> entries = new LinkedHashMap<>();
         for (String key : section.getKeys(false)) {
             DataValue value = toData(section.get(key));

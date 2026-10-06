@@ -1,5 +1,8 @@
 package fr.robie.machineengine.api.config;
 
+import fr.robie.machineengine.api.resource.Energy;
+import fr.robie.machineengine.api.resource.Fluids;
+
 import java.util.Map;
 
 /**
@@ -35,6 +38,14 @@ public final class EngineConfig {
             .key(MENUS_BY_TYPE)
             .key(BUKKIT_EVENT_BRIDGE)
             .key(ALLOW_BREAKING_PLACEHOLDERS)
+            .section("resources", "Resources MachineEngine provides to every addon and definition:",
+                    "machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.",
+                    "Restart to apply.")
+            .key(Energy.UNIT)
+            .key(Energy.SCALE)
+            .key(Fluids.UNIT)
+            .key(Fluids.SCALE)
+            .key(Fluids.BUCKET)
             .build();
 
     private EngineConfig() {

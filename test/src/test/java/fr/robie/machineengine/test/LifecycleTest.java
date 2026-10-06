@@ -187,7 +187,7 @@ class LifecycleTest {
     @Test
     void reservedNamespacesAreRejected() {
         CoreMachineEngine engine = TestEngine.builder()
-                .addon("squatter", ctx -> ctx.resourceCategories().register(ResourceCategory.builder(Key.key("machineengine", "energy")).build()))
+                .addon("squatter", ctx -> ctx.resourceCategories().register(ResourceCategory.builder(Key.key("machineengine", "squat")).build()))
                 .start();
 
         assertHasError(engine, DiagnosticCodes.RESERVED_NAMESPACE, "squatter");

@@ -6,6 +6,7 @@ import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.config.ConfigFile;
 import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.config.EngineConfig;
+import fr.robie.machineengine.api.resource.BuiltInResources;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
@@ -68,6 +69,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         // Before addons' onLoad: they may read MachineEngine.config().
         this.config = ConfigFile.load(this, "config.yml", EngineConfig.SPEC);
         MachineEngineAccess.installConfig(this.config);
+        BuiltInResources.install(this.config);
         // The running version's nms class only (NmsLoader); another version's may not even load here.
         Nms.install(NmsLoader.load(getLogger()));
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.

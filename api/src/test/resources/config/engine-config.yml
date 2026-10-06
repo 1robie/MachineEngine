@@ -23,3 +23,20 @@ placeholders:
   # Whether players without machineengine.admin.breakplaceholders may break placeholder machines
   # (machines whose addon is not installed). Breaking one destroys its data.
   allow-breaking: false
+
+# Resources MachineEngine provides to every addon and definition:
+# machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.
+# Restart to apply.
+resources:
+  energy:
+    # Unit shown after energy amounts.
+    unit: J
+    # Decimal digits of energy amounts: with 3, 1500 is shown as 1.500.
+    scale: 0
+  fluid:
+    # Unit shown after fluid amounts.
+    unit: mB
+    # Decimal digits of fluid amounts.
+    scale: 0
+    # Amount of fluid in one bucket (and one source block).
+    bucket: 1000

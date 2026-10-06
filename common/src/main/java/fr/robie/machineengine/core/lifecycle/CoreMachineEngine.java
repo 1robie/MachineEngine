@@ -21,6 +21,7 @@ import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.registry.ReloadContext;
+import fr.robie.machineengine.api.resource.BuiltInResources;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverterLookup;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
@@ -130,6 +131,13 @@ public final class CoreMachineEngine implements MachineEngine {
         this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, Items.CATEGORY);
         this.registries.staticRegistry(Registries.RESOURCE_COMPONENT_TYPE).register(AddonId.MACHINE_ENGINE, Items.DATA);
         this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, Items.ITEM);
+        // Energy and fluids every addon shares (D29), with the units of config.yml.
+        BuiltInResources.Built resources = BuiltInResources.get();
+        this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, resources.energyCategory());
+        this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, resources.energy());
+        this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, resources.fluidCategory());
+        this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, resources.water());
+        this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, resources.lava());
         for (ModifierType modifier : List.of(StandardModifiers.PROCESS_DURATION, StandardModifiers.PROCESS_COST,
                 StandardModifiers.TRANSFER_RATE, StandardModifiers.PROCESSES_PER_TICK)) {
             this.registries.staticRegistry(Registries.MODIFIER_TYPE).register(AddonId.MACHINE_ENGINE, modifier);
