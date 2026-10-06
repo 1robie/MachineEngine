@@ -1,4 +1,3 @@
-import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import java.io.File
 
@@ -10,7 +9,7 @@ import java.io.File
  */
 internal object CableModels {
     val DIRECTIONS = listOf("north", "south", "east", "west", "up", "down")
-    private val gson = GsonBuilder().setPrettyPrinting().create()
+    private val gson = prettyGson
 
     /**
      * Writes `models/block/cable/<name>/center.json`, one arm per direction, and per direction the
