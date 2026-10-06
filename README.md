@@ -25,6 +25,9 @@ actual resources and machines. The architecture and every binding decision are i
 | `machineengine-test` | Headless test harness for MachineEngine and addons. |
 | `machineengine-paper` | Paper integration. |
 | `machineengine-craftengine` | CraftEngine adapter (the only module importing CraftEngine). |
+| `machineengine-zmenu` | Optional zMenu integration (machine menus). |
+| `machineengine-example` | A small addon built only on the API. |
+| `machineengine-mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
 | `machineengine-plugin` | The plugin jar. |
 
 `api`, `core` and `test` fail `check` if Paper, Bukkit or CraftEngine reach their classpaths.
@@ -35,7 +38,8 @@ actual resources and machines. The architecture and every binding decision are i
 ./gradlew build
 ```
 
-The plugin jar is written to `machineengine-plugin/build/libs/`.
+The plugin jar is written to `machineengine-plugin/build/libs/`. The build also fetches the pinned
+Mekanism commit into `.mekanism/` (sparse, a few MB) for Mekanized; later builds skip the network.
 
 ## Dev servers
 
@@ -52,7 +56,7 @@ same snapshot MachineEngine compiles against. The first run clones and builds Cr
 instead, pass `-Pcraftengine_runtime=modrinth`; `-Pcraftengine_runtime=none` starts a server without
 CraftEngine (MachineEngine must then refuse to load).
 
-Servers run in `run/paper-<version>/`. On first start Paper stops and asks you to accept the
+Servers run in `run/paper-<version>/` (`run/folia-<version>/` for the Folia tasks). On first start Paper stops and asks you to accept the
 Minecraft EULA in `run/paper-<version>/eula.txt`.
 
 ## Machine menus (zMenu)

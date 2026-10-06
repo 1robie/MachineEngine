@@ -9,6 +9,10 @@ run/
 # Mekanism checkout imported by Mekanized
 .mekanism/
 
+# Logs and Kotlin compiler state
+*.log
+.kotlin/
+
 # IDEs
 .idea/
 *.iml
