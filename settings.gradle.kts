@@ -32,7 +32,7 @@ dependencyResolutionManagement {
 // machineengine- prefix. The others move in RESTRUCTURE_PLAN.md R3-R7.
 include(
     "api",
-    "machineengine-core",
+    "common",
     "machineengine-test",
     "machineengine-paper",
     "machineengine-craftengine",
