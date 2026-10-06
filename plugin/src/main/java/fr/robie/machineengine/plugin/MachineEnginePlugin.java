@@ -3,6 +3,9 @@ package fr.robie.machineengine.plugin;
 import fr.robie.machineengine.api.MachineEngineAccess;
 import fr.robie.machineengine.api.MachineEngineApi;
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.config.ConfigFile;
+import fr.robie.machineengine.api.config.ConfigLoadResult;
+import fr.robie.machineengine.api.config.EngineConfig;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
@@ -44,7 +47,7 @@ import java.util.logging.Level;
  * MachineEngine plugin entry point (§8.2).
  *
  * <ol>
- *   <li>{@code onLoad}: register the CraftEngine block behavior; addons submit registrations.</li>
+ *   <li>{@code onLoad}: load {@code config.yml}, register the CraftEngine block behavior; addons submit registrations.</li>
  *   <li>{@code onEnable} (STARTUP, after CraftEngine, before worlds load): start the engine
  *       (registration, validation, freeze), start the CraftEngine host, check block bindings.</li>
  *   <li>{@code onDisable}: snapshot machines into their block entities for CraftEngine's final save.</li>
@@ -57,12 +60,14 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
     private @Nullable ZMenuMachineMenus menus;
-    private int maxMachinesPerChunk;
-    private boolean allowBreakingPlaceholders;
+    private ConfigFile config;
 
     @Override
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
+        // Before addons' onLoad: they may read MachineEngine.config().
+        this.config = ConfigFile.load(this, "config.yml", EngineConfig.SPEC);
+        MachineEngineAccess.installConfig(this.config);
         // The running version's nms class only (NmsLoader); another version's may not even load here.
         Nms.install(NmsLoader.load(getLogger()));
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
@@ -102,10 +107,6 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         }
         getLogger().info("Using CraftEngine " + craftEngine.getPluginMeta().getVersion());
 
-        saveDefaultConfig();
-        this.maxMachinesPerChunk = getConfig().getInt("limits.max-machines-per-chunk", 256);
-        this.allowBreakingPlaceholders = getConfig().getBoolean("placeholders.allow-breaking", false);
-
         List<AddonRegistration> registrations = MachineEngineAccess.closeRegistration();
         MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());
         registrations.forEach(builder::addon);
@@ -120,7 +121,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         items.attach(() -> this.engine);
         getServer().getPluginManager().registerEvents(items, this);
         MachineEngineAccess.install(started);
-        if (getConfig().getBoolean("events.bukkit-bridge", true)) {
+        if (this.config.get(EngineConfig.BUKKIT_EVENT_BRIDGE)) {
             BukkitEventBridge.install(started.events());
         }
         this.host = CraftEngineMachineHost.start(this, started);
@@ -132,10 +133,17 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(this.host.keptContents(), this);
-        MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host);
+        MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
         this.commands = commands;
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
                 event -> event.registrar().register(commands.build(), "MachineEngine admin commands", List.of("me")));
+    }
+
+    /** {@code /machineengine reload config}: new values apply at once; menus are reloaded for {@code menus.*}. */
+    private ConfigLoadResult reloadSettings() {
+        ConfigLoadResult result = this.config.reload();
+        if (this.menus != null && result.error() == null) this.menus.reload();
+        return result;
     }
 
     /** Machine GUIs need zMenu (optional dependency); without it machines simply have no menu. */
@@ -189,7 +197,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         Location location = event.location();
         LoadedMachine machine = this.host.machine(WorldPosition.of(location.getWorld().getKey(),
                 location.getBlockX(), location.getBlockY(), location.getBlockZ()));
-        if (machine instanceof PlaceholderMachine placeholder && !this.allowBreakingPlaceholders
+        if (machine instanceof PlaceholderMachine placeholder && !this.config.get(EngineConfig.ALLOW_BREAKING_PLACEHOLDERS)
                 && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(Messages.placeholderBreakDenied(placeholder.missingType().asString()));
@@ -199,13 +207,14 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     /** Enforces {@code limits.max-machines-per-chunk} (§23.3). */
     @EventHandler(ignoreCancelled = true)
     public void onCustomBlockPlace(CustomBlockAttemptPlaceEvent event) {
-        if (this.host == null || this.maxMachinesPerChunk <= 0 || event.getPlayer().hasPermission(MachineEngineCommands.PERMISSION)) return;
+        int limit = this.config.get(EngineConfig.MAX_MACHINES_PER_CHUNK);
+        if (this.host == null || limit <= 0 || event.getPlayer().hasPermission(MachineEngineCommands.PERMISSION)) return;
         if (!CraftEngineIntegration.isMachineBlock(event.blockState())) return;
         Location location = event.location();
         int count = this.host.machinesInChunk(location.getWorld().getKey(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
-        if (count >= this.maxMachinesPerChunk) {
+        if (count >= limit) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Messages.chunkLimit(count, this.maxMachinesPerChunk));
+            event.getPlayer().sendMessage(Messages.chunkLimit(count, limit));
         }
     }
 

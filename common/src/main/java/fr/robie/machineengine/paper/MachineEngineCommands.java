@@ -5,6 +5,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.tree.LiteralCommandNode;
+import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.machine.MachineInspection;
@@ -46,13 +47,15 @@ public final class MachineEngineCommands {
     private final Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
+    private final Supplier<ConfigLoadResult> reloadConfig;
     private final MachineDebugView debugView;
 
     public MachineEngineCommands(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
-                                 @NotNull Supplier<MachineLocator> locator) {
+                                 @NotNull Supplier<MachineLocator> locator, @NotNull Supplier<ConfigLoadResult> reloadConfig) {
         this.plugin = plugin;
         this.engine = engine;
         this.locator = locator;
+        this.reloadConfig = reloadConfig;
         this.debugView = new MachineDebugView(plugin, engine, locator);
     }
 
@@ -83,6 +86,7 @@ public final class MachineEngineCommands {
                                 })
                                 .executes(this::registry)))
                 .then(Commands.literal("reload")
+                        .then(Commands.literal("config").executes(this::reloadConfig))
                         .then(Commands.literal("recipes").executes(context -> reload(context, Registries.RECIPE)))
                         .then(Commands.literal("tags").executes(context -> {
                             reload(context, Registries.ITEM_TAG);
@@ -289,6 +293,25 @@ public final class MachineEngineCommands {
         sender.sendMessage(Component.text("Registry " + key.asString() + " (" + registry.size() + " entries)", NamedTextColor.GOLD));
         for (Key entry : registry.keys()) {
             sender.sendMessage(line(entry.asString(), registry.owner(entry).map(Object::toString).orElse("?")));
+        }
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private int reloadConfig(CommandContext<CommandSourceStack> context) {
+        CommandSender sender = context.getSource().getSender();
+        ConfigLoadResult result = this.reloadConfig.get();
+        if (result.error() != null) {
+            sender.sendMessage(Component.text("config.yml could not be read; the previous settings stay live: " + result.error(), NamedTextColor.RED));
+            return 0;
+        }
+        sender.sendMessage(Component.text("Reloaded config.yml.", NamedTextColor.GREEN));
+        if (!result.changed().isEmpty()) sender.sendMessage(line("Changed", String.join(", ", result.changed())));
+        if (!result.added().isEmpty()) sender.sendMessage(line("Added with defaults", String.join(", ", result.added())));
+        if (!result.restartRequired().isEmpty()) {
+            sender.sendMessage(Component.text("Restart to apply: " + String.join(", ", result.restartRequired()), NamedTextColor.YELLOW));
+        }
+        if (!result.invalid().isEmpty()) {
+            sender.sendMessage(Component.text("Invalid, using the default (see the console): " + String.join(", ", result.invalid()), NamedTextColor.YELLOW));
         }
         return Command.SINGLE_SUCCESS;
     }

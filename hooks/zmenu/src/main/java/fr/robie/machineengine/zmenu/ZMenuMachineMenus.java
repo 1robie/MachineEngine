@@ -9,6 +9,8 @@ import fr.maxlego08.menu.api.engine.BaseInventory;
 import fr.maxlego08.menu.api.engine.InventoryEngine;
 import fr.maxlego08.menu.api.placeholder.LocalPlaceholder;
 import fr.maxlego08.menu.api.utils.Placeholders;
+import fr.robie.machineengine.api.MachineEngine;
+import fr.robie.machineengine.api.config.EngineConfig;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
@@ -112,13 +114,12 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     public void reload() {
         this.inventories.deleteInventories(this.plugin);
         this.menus.clear();
-        var config = this.plugin.getConfig();
-        this.defaultMenu = config.getString("menus.default", "machine");
+        this.defaultMenu = MachineEngine.config().get(EngineConfig.DEFAULT_MENU);
         Map<Key, String> byType = new LinkedHashMap<>();
-        var section = config.getConfigurationSection("menus.by-type");
-        if (section != null) {
-            for (String type : section.getKeys(false)) byType.put(Key.key(type), section.getString(type));
-        }
+        MachineEngine.config().get(EngineConfig.MENUS_BY_TYPE).forEach((type, menu) -> {
+            if (Key.parseable(type)) byType.put(Key.key(type), menu);
+            else this.plugin.getLogger().warning("config.yml: menus.by-type has an invalid machine type '" + type + "'");
+        });
         this.menuByType = Map.copyOf(byType);
 
         File folder = new File(this.plugin.getDataFolder(), "menus");

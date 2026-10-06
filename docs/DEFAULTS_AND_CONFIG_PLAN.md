@@ -123,7 +123,28 @@ up in review.
 - A key nobody registered stays in the file.
 - `reload()` swaps reloadable values, keeps `restartOnly` ones and reports them.
 
-## Stage 2: the engine's existing keys use the loader
+## Stage 2: the engine's existing keys use the loader (done 2026-10-06)
+**Result:**
+- `api/config/EngineConfig` holds the 5 keys and `SPEC`. The keys are in `api`, not `common`, so
+  addons can read them through `MachineEngine.config()`. Without a server, `MachineEngine.config()`
+  gives the defaults.
+- `MachineEnginePlugin` loads the file in `onLoad` and reads the values when it needs them, so a
+  reload applies at once. `events.bukkit-bridge` is restart-only.
+- `ZMenuMachineMenus` reads `menus.*` through the getter. An invalid machine type in `by-type` now
+  logs a warning instead of failing the menu reload.
+- `/machineengine reload config` reloads the file and the zMenu menus, and prints what changed,
+  what was added, what needs a restart and what was invalid.
+- `plugin/src/main/resources/config.yml` is deleted.
+- `EngineConfigTest` compares a new server's file with `api/src/test/resources/config/engine-config.yml`.
+  It also checks that the old bundled file loads without being rewritten.
+- Paper 1.20.6 dev server:
+  - an old file missing 4 keys gained them, with their comments;
+  - `reload config` applied `max-machines-per-chunk: 128`;
+  - it reported `bukkit-bridge` as needing a restart and an invalid `menus.default`;
+  - zMenu reloaded its menus.
+- `./gradlew check` passes.
+
+**What was planned:**
 1. `common`: `EngineConfig` holds the engine's keys as constants:
    `limits.max-machines-per-chunk`, `placeholders.allow-breaking`, `events.bukkit-bridge`
    (restart-only), `menus.default`, `menus.by-type`. The same paths, defaults and comments as

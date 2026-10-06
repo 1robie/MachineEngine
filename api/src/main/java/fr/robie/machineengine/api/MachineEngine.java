@@ -2,6 +2,8 @@ package fr.robie.machineengine.api;
 
 import fr.robie.machineengine.api.addon.AddonId;
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.config.ConfigValues;
+import fr.robie.machineengine.api.config.EngineConfig;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
@@ -45,6 +47,15 @@ public interface MachineEngine {
      */
     static @NotNull MachineEngine get() {
         return MachineEngineAccess.engine();
+    }
+
+    /**
+     * MachineEngine's settings ({@link EngineConfig}), loaded before addons' {@code onLoad}. Without a
+     * server (headless tests) every key has its default. A reload swaps the values; read them when
+     * needed instead of keeping them.
+     */
+    static @NotNull ConfigValues config() {
+        return MachineEngineAccess.config();
     }
 
     @NotNull LifecyclePhase phase();

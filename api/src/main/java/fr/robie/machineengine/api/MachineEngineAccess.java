@@ -1,6 +1,8 @@
 package fr.robie.machineengine.api;
 
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.config.ConfigValues;
+import fr.robie.machineengine.api.config.EngineConfig;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -18,6 +20,7 @@ import java.util.Objects;
 public final class MachineEngineAccess {
     private static final List<AddonRegistration> PENDING = new ArrayList<>();
     private static @Nullable MachineEngine engine;
+    private static volatile @Nullable ConfigValues config;
     private static boolean closed;
 
     private MachineEngineAccess() {
@@ -35,6 +38,17 @@ public final class MachineEngineAccess {
     static synchronized @NotNull MachineEngine engine() {
         if (engine == null) throw new IllegalStateException("MachineEngine has not started yet");
         return engine;
+    }
+
+    static @NotNull ConfigValues config() {
+        ConfigValues loaded = config;
+        return loaded != null ? loaded : EngineConfig.SPEC.defaults();
+    }
+
+    /** The loaded {@code config.yml}; installed in {@code onLoad}, before addons register. */
+    @ApiStatus.Internal
+    public static void installConfig(@Nullable ConfigValues loaded) {
+        config = loaded;
     }
 
     /** Closes registration and hands the submitted registrations to the platform. */
@@ -56,6 +70,7 @@ public final class MachineEngineAccess {
     public static synchronized void reset() {
         PENDING.clear();
         engine = null;
+        config = null;
         closed = false;
     }
 }
