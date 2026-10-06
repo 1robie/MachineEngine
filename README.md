@@ -20,16 +20,25 @@ actual resources and machines. The architecture and every binding decision are i
 
 | Module | Purpose |
 |---|---|
-| `api` | Public API and SPI. |
+| `api` | Public API and SPI, including the Paper-facing services addons use (`api.paper`) and version access (`api.platform`). |
 | `common` | Implementation: the engine (`core` packages), its Paper integration and its CraftEngine integration. |
-| `test` | Headless test harness for MachineEngine and addons, built on the assembled plugin. |
 | `hooks/zmenu` | Optional zMenu integration (machine menus). One `hooks/<plugin>` module per optional plugin. |
-| `mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
+| `nms/common` | Reflective fallback for Minecraft versions without a module of their own. |
+| `nms/v1_20_6`, `nms/v26_3` | Version-specific code, built with paperweight userdev against each version. |
 | `plugin` | The plugin jar (everything above, plus the dev servers). |
+| `test` | Headless test harness for MachineEngine and addons, built on the assembled plugin. |
+| `mekanized` | Mekanism-style content plugin built on `api` only (imports Mekanism's data at build time). |
 
-The modules are being reorganised ([docs/RESTRUCTURE_PLAN.md](docs/RESTRUCTURE_PLAN.md)). Every module
-compiles against the newest Paper API (26.3) and CraftEngine. `check` fails if the bytecode uses
-anything missing from Paper 1.20.6, or is newer than Java 21 (`verifyPaperBaseline`).
+```text
+api <- nms:common <- common <- hooks:*  <- plugin <- test
+                       nms:v1_20_6, nms:v26_3 <- plugin
+api <- mekanized (plugin runs it on the dev servers)
+```
+
+Every module compiles against the newest Paper API (26.3) and CraftEngine, and emits Java 21
+bytecode except `nms/v26_3` (Java 25, loaded only on 26.3). `check` fails if the bytecode uses
+anything missing from Paper 1.20.6, or is newer than Java 21 (`verifyPaperBaseline`). Why it is laid
+out this way: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §5 and decisions D24-D28.
 
 ## Building
 

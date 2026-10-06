@@ -24,7 +24,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D3 | **Missing content is kept as opaque placeholders**, never deleted: missing machine types, resource types, components and codecs. | Uninstalling an addon must not destroy world data. See §21. |
 | D4 | **Unloaded machines are frozen in time by default** (no catch-up). Machine types MAY opt in to a bounded, closed-form catch-up. Networks never catch up. Chunks are never loaded by MachineEngine to process or transfer. | Matches vanilla expectations, keeps simulation deterministic, prevents unloaded-chunk exploits and load-time lag spikes. See §18. |
 | D5 | **Two registry kinds:** *static* registries (types, codecs, categories) freeze after registration; *reloadable* registries (recipes, data-driven definitions) are swapped atomically as validated immutable snapshots. | Types must be stable for the server lifetime; content like recipes must be reloadable. |
-| D6 | **Identity uses Adventure `net.kyori.adventure.key.Key`** in the public API. CraftEngine's own `net.momirealms.craftengine.core.util.Key` appears only inside the CraftEngine adapter. | Paper ships Adventure; `adventure-key` is a tiny, server-free artifact usable in pure unit tests. |
+| D6 | **Identity uses Adventure `net.kyori.adventure.key.Key`** in the public API. CraftEngine's own `net.momirealms.craftengine.core.util.Key` appears only inside the CraftEngine integration (`common`, package `craftengine`; D26 lets any module see CraftEngine, but identity stays Adventure `Key`). | Paper ships Adventure; `adventure-key` is a tiny, server-free artifact usable in pure unit tests. |
 | D7 | **CraftEngine is a hard runtime requirement** of the MachineEngine plugin. MachineEngine builds against the **latest CraftEngine dev snapshot** (currently `26.10-SNAPSHOT`). The `api` and `core` modules still MUST NOT depend on CraftEngine. | Product decision. The adapter boundary is preserved for testability and to contain CraftEngine API churn. |
 | D8 | **Paper only** (no Spigot). Folia compatibility is designed in from day one and validated in milestone M4. | CraftEngine is Folia-capable; the threading model must not need a rewrite later. |
 | D9 | **Resource hierarchy is not generic.** `ResourceCategory`, `ResourceType`, `ResourceStack` carry runtime identity (`Key`), not Java type parameters. | Generics are erased; they would give false safety. Runtime identity is the contract (§6). |
@@ -91,17 +91,20 @@ The core MUST NOT assume a resource is FE, EU, mana, fluid, item, gas, heat, ste
 
 # 5. Modules and API Boundaries
 
-Layout decided in D24–D27 (2026-10-06). Every module compiles against the Paper API 26.3 and CraftEngine (`compileOnly`), restricted to API present in 1.20.6 except in `nms:v*` (D25, D26). Gradle paths are short (`:api`, `:hooks:zmenu`); jars keep the `machineengine-` prefix.
+Layout decided in D24–D28 (2026-10-06). Every module compiles against the Paper API 26.3 and CraftEngine (`compileOnly`), restricted to API present in 1.20.6 except in `nms:v*` (D25, D26). Gradle paths are short (`:api`, `:hooks:zmenu`); jars keep the `machineengine-` prefix.
 
 ```text
-api            Public API + SPI only. No implementation classes.
+api            Public API + SPI only. Includes the Paper-facing services addons use
+               (api.paper: items, menus, machine blocks, command arguments) and the
+               version access interfaces (api.platform: Nms, D28).
 common         Implementation of the API: engine, Paper integration (bootstrap, lifecycle,
                commands, scheduler bridge, PDC, item resource category, vanilla interop) and
                the CraftEngine integration (block behavior, block-entity controller, ticker,
-               persistence bridge). Calls server internals only through nms:common.
+               persistence bridge). Reaches version-specific code only through Nms.get().
 hooks:zmenu    Optional machine menus on zMenu (D20). One hooks:<name> module per optional
                third-party plugin.
-nms:common     Interfaces for server internals and for anything that differs between versions.
+nms:common     ReflectiveNms: the fallback for versions without an nms:v* module (1.21.x,
+               26.1, 26.2). The interfaces are in api.platform (D28).
 nms:v1_20_6    paperweight userdev implementation for 1.20.6 (bytecode Java 21).
 nms:v26_3      paperweight userdev implementation for 26.3 (bytecode Java 25; never
                loaded on 1.20.6). Every other module emits Java 21 bytecode.
@@ -128,12 +131,12 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
 
 | Tier | Marking | Guarantee |
 |------|---------|-----------|
-| Public API | default in `machineengine-api` | Binary compatible within a major version. |
+| Public API | default in `api` | Binary compatible within a major version. |
 | SPI (implement-me interfaces) | `@ApiStatus.OverrideOnly` | Same as public API; new methods only with defaults. |
 | Experimental | `@ApiStatus.Experimental` | May change in any minor release. |
 | Internal | `@ApiStatus.Internal` or outside `api` module | No guarantee. Addons MUST NOT use it. |
 
-Non-extendable API types are marked `@ApiStatus.NonExtendable`. Implementation classes live in `core` and are never returned with their concrete type.
+Non-extendable API types are marked `@ApiStatus.NonExtendable`. Implementation classes live in `common` and are never returned with their concrete type. Exception: the `test` harness hands them out to tests (D28).
 
 ### API versioning
 
@@ -645,7 +648,7 @@ When the missing content returns, placeholders rehydrate on next load with no da
 ### 22.1 Layering
 
 ```text
-MachineEngine API  →  MachineEngine Core  →  machineengine-craftengine (adapter)
+api  →  common: engine (package core)  →  common: CraftEngine integration (package craftengine)
                                                ├── MachineBlockBehavior   (CE BlockBehavior + EntityBlock + WorldlyContainerHolder)
                                                ├── MachineBlockEntityController (CE BlockEntityController)
                                                ├── MachineTicker          (wraps CE SleepingBlockEntityTicker)
@@ -713,7 +716,7 @@ The behavior config names the block-state property that stores facing. The adapt
 
 # 23. Paper Integration
 
-### 23.1 Responsibilities of `machineengine-paper`
+### 23.1 Responsibilities of the Paper integration (`common`, package `paper`)
 
 Bootstrap and service locator, lifecycle (§8), Brigadier commands (Paper lifecycle command registration), region scheduler bridge, PDC for non-block data, protection service, vanilla interop, item resource category, metrics export, configuration file.
 
@@ -802,9 +805,9 @@ Debug output must be useful without attaching a debugger.
 
 ---
 
-# 28. Testability (`machineengine-test`)
+# 28. Testability (`test`)
 
-Core logic MUST be testable without a Minecraft server. The harness provides:
+Core logic MUST be testable without a Minecraft server. The harness (module `test`, which depends on `plugin` and `common`, D24) provides:
 
 - `TestRegistrationEnvironment` — simulates multiple addons registering, dependency ordering, freeze, validation.
 - `FakeWorld` with chunks, load/unload, and a deterministic game clock.
@@ -812,7 +815,7 @@ Core logic MUST be testable without a Minecraft server. The harness provides:
 - In-memory `DataView` for persistence round-trips and migrations.
 - Assertions for resource conservation (§10.3 invariant).
 
-Real-server tests: `run-paper` with the pinned CraftEngine snapshot jar for smoke tests (M3), run on Paper 1.20.6 and 26.3. MockBukkit is not used (it cannot host CraftEngine).
+Real-server tests: `run-paper` with the pinned CraftEngine snapshot jar for smoke tests (M3), run on Paper 1.20.6 and 26.3 and Folia 1.20.6 and 26.2 (`:plugin:runPaper-*`, `:plugin:runFolia-*`), with the `/mekanized check-*` and `test` commands. MockBukkit is not used (it cannot host CraftEngine).
 
 ---
 

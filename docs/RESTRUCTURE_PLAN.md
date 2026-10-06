@@ -233,6 +233,17 @@ dependency in step 1 is a temporary migration step and must be gone when this st
 3. Remove the `common` dependency. Mekanized's tests use `testImplementation(project(":test"))`.
 
 ## Stage R8: docs and cleanup
+**Result (done 2026-10-06):**
+- `machineengine-mekanized` became `:mekanized`; the jar is still `Mekanized-*.jar`.
+- Updated:
+  - the README module table and graph;
+  - `ARCHITECTURE.md` D6, §5 (`nms:common` after D28), the §5 stability table, §22.1, §23.1 and §28;
+  - `MEKANIZED_PLAN.md`;
+  - the CI cache key.
+- Milestone notes (§35) stay as history.
+- Package renames were not done; they stay optional.
+- Still open: the harness returning API types (D28).
+
 - Update the README module table, the rest of `ARCHITECTURE.md` (sections that name
   `machineengine-paper`, `-core` or `-craftengine`) and `MEKANIZED_PLAN.md`. This absorbs the
   README item of `CLEANUP_PLAN.md` Stage 8.
