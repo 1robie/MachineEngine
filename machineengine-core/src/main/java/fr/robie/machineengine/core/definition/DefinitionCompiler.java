@@ -5,9 +5,9 @@ import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.addon.RegistrationContext;
 import fr.robie.machineengine.api.data.Codecs;
 import fr.robie.machineengine.api.data.DataMap;
-import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.data.DataValue.DataList;
 import fr.robie.machineengine.api.data.DataValue.DataString;
+import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.definition.BehaviorType;
 import fr.robie.machineengine.api.definition.DefinitionContext;
 import fr.robie.machineengine.api.definition.DefinitionFile;
@@ -15,6 +15,7 @@ import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
+import fr.robie.machineengine.api.item.ItemTagContribution;
 import fr.robie.machineengine.api.item.Items;
 import fr.robie.machineengine.api.machine.CatchUpPolicy;
 import fr.robie.machineengine.api.machine.MachineBehavior;
@@ -27,6 +28,7 @@ import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.registry.ReloadContext;
 import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceStack;
@@ -34,14 +36,19 @@ import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.match.ResourceMatcher;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
+import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
 import fr.robie.machineengine.api.version.Version;
 import fr.robie.machineengine.api.world.RelativeSide;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -255,7 +262,7 @@ public final class DefinitionCompiler {
      * {@code item-tags: { c:ores/osmium: [mekanized:osmium_ore, "#minecraft:iron_ores"] }}: item ids,
      * or {@code #tag} to include another item tag.
      */
-    static void compileItemTags(ReloadContext<fr.robie.machineengine.api.item.ItemTagContribution> reload, List<DefinitionFile> files) {
+    static void compileItemTags(ReloadContext<ItemTagContribution> reload, List<DefinitionFile> files) {
         Consumer<Diagnostic> report = reload::report;
         for (DefinitionFile file : files) {
             entries(file, "item-tags", report, (tag, spec, where) -> {
@@ -264,8 +271,8 @@ public final class DefinitionCompiler {
                     skip(report, where, "must be a list of item ids or #tags");
                     return;
                 }
-                java.util.Set<Key> items = new java.util.LinkedHashSet<>();
-                java.util.Set<Key> includes = new java.util.LinkedHashSet<>();
+                Set<Key> items = new LinkedHashSet<>();
+                Set<Key> includes = new LinkedHashSet<>();
                 for (String value : values.value()) {
                     boolean include = value.startsWith("#");
                     Result<Key> id = Codecs.parseKey(include ? value.substring(1) : value);
@@ -275,7 +282,7 @@ public final class DefinitionCompiler {
                     }
                     (include ? includes : items).add(id.value());
                 }
-                reload.register(new fr.robie.machineengine.api.item.ItemTagContribution(contributionKey(file, tag), tag, items, includes));
+                reload.register(new ItemTagContribution(contributionKey(file, tag), tag, items, includes));
             });
         }
     }
@@ -284,11 +291,11 @@ public final class DefinitionCompiler {
      * {@code resource-tags: { mekanized:water_vapor: [mekanized:steam, "#other:tag"] }}: resource type
      * keys; {@code #tag} includes a tag defined in the same files.
      */
-    static void compileResourceTags(ReloadContext<fr.robie.machineengine.api.resource.tag.ResourceTagContribution> reload, List<DefinitionFile> files) {
+    static void compileResourceTags(ReloadContext<ResourceTagContribution> reload, List<DefinitionFile> files) {
         Consumer<Diagnostic> report = reload::report;
-        Map<Key, List<String>> declared = new java.util.LinkedHashMap<>();
-        Map<Key, String> locations = new java.util.LinkedHashMap<>();
-        Map<Key, DefinitionFile> owners = new java.util.LinkedHashMap<>();
+        Map<Key, List<String>> declared = new LinkedHashMap<>();
+        Map<Key, String> locations = new LinkedHashMap<>();
+        Map<Key, DefinitionFile> owners = new LinkedHashMap<>();
         for (DefinitionFile file : files) {
             entries(file, "resource-tags", report, (tag, spec, where) -> {
                 Result<List<String>> values = Codecs.list(Codecs.STRING).decode(spec);
@@ -302,18 +309,18 @@ public final class DefinitionCompiler {
             });
         }
         declared.forEach((tag, values) -> {
-            java.util.Set<ResourceType> members = new java.util.LinkedHashSet<>();
+            Set<ResourceType> members = new LinkedHashSet<>();
             List<String> missing = new ArrayList<>();
-            expandResourceTag(tag, declared, reload.registries(), members, missing, new java.util.HashSet<>());
+            expandResourceTag(tag, declared, reload.registries(), members, missing, new HashSet<>());
             if (!missing.isEmpty()) {
                 skip(report, locations.get(tag), "unknown resource types or tags left out: " + missing);
             }
-            if (!members.isEmpty()) reload.register(new fr.robie.machineengine.api.resource.tag.ResourceTagContribution(contributionKey(owners.get(tag), tag), tag, members));
+            if (!members.isEmpty()) reload.register(new ResourceTagContribution(contributionKey(owners.get(tag), tag), tag, members));
         });
     }
 
-    private static void expandResourceTag(Key tag, Map<Key, List<String>> declared, fr.robie.machineengine.api.registry.RegistryAccess registries,
-                                          java.util.Set<ResourceType> members, List<String> missing, java.util.Set<Key> visited) {
+    private static void expandResourceTag(Key tag, Map<Key, List<String>> declared, RegistryAccess registries,
+                                          Set<ResourceType> members, List<String> missing, Set<Key> visited) {
         if (!visited.add(tag)) return;
         for (String value : declared.getOrDefault(tag, List.of())) {
             boolean include = value.startsWith("#");
@@ -331,7 +338,7 @@ public final class DefinitionCompiler {
 
     /** One contribution per file and tag: {@code definitions:<file>/<tag namespace>/<tag value>}. */
     private static Key contributionKey(DefinitionFile file, Key tag) {
-        String fileId = file.name().toLowerCase(java.util.Locale.ROOT).replaceAll("[^a-z0-9_./-]", "_");
+        String fileId = file.name().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_./-]", "_");
         return Key.key(ADDON.name(), fileId + "/" + tag.namespace() + "/" + tag.value());
     }
 
@@ -513,8 +520,8 @@ public final class DefinitionCompiler {
         return Codecs.list(Codecs.KEY).decode(value);
     }
 
-    private static <T extends net.kyori.adventure.key.Keyed> Result<T> lookup(RegistryAccess registries,
-                                                                            fr.robie.machineengine.api.registry.RegistryType<T> type, Key id) {
+    private static <T extends Keyed> Result<T> lookup(RegistryAccess registries,
+                                                                            RegistryType<T> type, Key id) {
         return registries.registry(type).get(id).map(Result::ok)
                 .orElseGet(() -> Result.err(new MachineError.MissingResource(type.key(), id)));
     }

@@ -27,7 +27,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -142,7 +144,7 @@ public final class MachineDebugView {
         ProcessView process = inspection.process();
         if (process != null) {
             bar = bar.append(separator()).append(Component.text(process.recipe().value() + " " + process.progress() + "/" + process.duration()
-                    + " " + process.status().name().toLowerCase(java.util.Locale.ROOT), NamedTextColor.WHITE));
+                    + " " + process.status().name().toLowerCase(Locale.ROOT), NamedTextColor.WHITE));
         }
         for (Map.Entry<String, List<StorageView>> storage : inspection.storages().entrySet()) {
             long amount = storage.getValue().stream().mapToLong(StorageView::amount).sum();
@@ -182,7 +184,7 @@ public final class MachineDebugView {
     private static Color networkColor(NetworkView network) {
         int hash = network.type().key().hashCode();
         WorldPosition anchor = network.transports().stream()
-                .min(java.util.Comparator.comparingLong(p -> ((long) p.position().x() << 40) ^ ((long) p.position().y() << 20) ^ p.position().z()))
+                .min(Comparator.comparingLong(p -> ((long) p.position().x() << 40) ^ ((long) p.position().y() << 20) ^ p.position().z()))
                 .orElse(null);
         if (anchor != null) hash = 31 * hash + anchor.hashCode();
         java.awt.Color hsb = java.awt.Color.getHSBColor((hash & 0xffff) / 65536f, 0.75f, 1f);

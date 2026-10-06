@@ -8,17 +8,20 @@ import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.event.EventPhase;
+import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.machine.CapabilityBinding;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
-import fr.robie.machineengine.api.machine.MachineWorld;
-import fr.robie.machineengine.api.machine.OtherMachines;
 import fr.robie.machineengine.api.machine.MachineDataKey;
+import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.machine.MachineWorld;
+import fr.robie.machineengine.api.machine.OtherMachines;
 import fr.robie.machineengine.api.machine.PortDefinition;
+import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.PushResult;
 import fr.robie.machineengine.api.machine.SchedulerState;
 import fr.robie.machineengine.api.machine.StorageDefinition;
@@ -27,6 +30,7 @@ import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.process.ProcessControl;
 import fr.robie.machineengine.api.process.ProcessStatus;
 import fr.robie.machineengine.api.process.ProcessView;
+import fr.robie.machineengine.api.recipe.ChanceOutput;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.RecipeLookup;
 import fr.robie.machineengine.api.registry.Registries;
@@ -48,17 +52,21 @@ import fr.robie.machineengine.api.upgrade.ModifierType;
 import fr.robie.machineengine.api.upgrade.Modifiers;
 import fr.robie.machineengine.api.upgrade.StandardModifiers;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
+import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.RelativeSide;
+import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.handoff.DedupeEntry;
 import fr.robie.machineengine.core.machine.handoff.Escrow;
 import fr.robie.machineengine.core.machine.handoff.Route;
 import fr.robie.machineengine.core.machine.handoff.TransferId;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumMap;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -66,7 +74,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.SplittableRandom;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 import java.util.logging.Level;
 import java.util.random.RandomGenerator;
@@ -84,7 +95,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     final Map<String, MachineStorage> storages = new LinkedHashMap<>();
     private final List<PortHandler> ports = new ArrayList<>();
     /** Runtime storage capacities ({@code MachineContext#setStorageCapacity}), saved with the machine. */
-    final Map<String, Long> capacities = new java.util.concurrent.ConcurrentHashMap<>();
+    final Map<String, Long> capacities = new ConcurrentHashMap<>();
     /** What every side shows instead of the ports ({@code MachineContext#exposeHandler}), or null. */
     private volatile @Nullable ResourceHandler exposed;
     private final Map<Direction, ResourceHandler> sideHandlers = new EnumMap<>(Direction.class);
@@ -160,10 +171,10 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             List<MachineSlot> slots = new ArrayList<>(definition.slots());
             for (int i = 0; i < definition.slots(); i++) {
                 // Tags are read live: a tag reload must reach machines that already exist.
-                java.util.function.LongSupplier base = definition.capacityModifier() == null ? definition::capacity
+                LongSupplier base = definition.capacityModifier() == null ? definition::capacity
                         : () -> Modifiers.apply(definition.capacityModifier(), definition.capacity(), this.modifiers);
                 // A runtime capacity (multiblocks) wins over the type's.
-                java.util.function.LongSupplier capacity = () -> {
+                LongSupplier capacity = () -> {
                     Long set = this.capacities.get(definition.id());
                     return set != null ? set : base.getAsLong();
                 };
@@ -196,7 +207,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.sideHandlers.clear();
         Map<Direction, List<ResourceHandler>> bySide = new EnumMap<>(Direction.class);
         for (PortHandler port : this.ports) {
-            if (port.direction() == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            if (port.direction() == PortDirection.DISABLED) continue;
             for (RelativeSide side : port.sides()) {
                 bySide.computeIfAbsent(side.toAbsolute(this.facing), direction -> new ArrayList<>()).add(port);
             }
@@ -284,8 +295,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     private void flushResourceEvents() {
-        Map<ResourceVariant, Long> in = this.pendingInserted == null ? Map.of() : java.util.Collections.unmodifiableMap(this.pendingInserted);
-        Map<ResourceVariant, Long> out = this.pendingExtracted == null ? Map.of() : java.util.Collections.unmodifiableMap(this.pendingExtracted);
+        Map<ResourceVariant, Long> in = this.pendingInserted == null ? Map.of() : Collections.unmodifiableMap(this.pendingInserted);
+        Map<ResourceVariant, Long> out = this.pendingExtracted == null ? Map.of() : Collections.unmodifiableMap(this.pendingExtracted);
         this.pendingInserted = null;
         this.pendingExtracted = null;
         this.services.events().post(MachineEvents.RESOURCES_CHANGED, EventPhase.POST, new MachineEvents.Resources(this, in, out));
@@ -367,7 +378,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.valid = false;
     }
 
-    void postLifecycle(fr.robie.machineengine.api.event.EventType<MachineEvents.Lifecycle> type) {
+    void postLifecycle(EventType<MachineEvents.Lifecycle> type) {
         if (this.services.events().hasListeners(type, EventPhase.POST)) {
             this.services.events().post(type, EventPhase.POST, new MachineEvents.Lifecycle(this));
         }
@@ -812,12 +823,12 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
-        public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment() {
+        public @NotNull MachineEnvironment environment() {
             return host.environment(position);
         }
 
         @Override
-        public void setPortDirection(@NotNull String id, @NotNull fr.robie.machineengine.api.machine.PortDirection direction) {
+        public void setPortDirection(@NotNull String id, @NotNull PortDirection direction) {
             PortHandler port = port(id);
             if (port.direction() == direction) return;
             port.setDirection(direction);
@@ -828,7 +839,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
-        public @NotNull fr.robie.machineengine.api.machine.PortDirection portDirection(@NotNull String id) {
+        public @NotNull PortDirection portDirection(@NotNull String id) {
             return port(id).direction();
         }
 
@@ -836,7 +847,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         public void setStorageCapacity(@NotNull String storage, long capacity) {
             requireStorage(storage);
             Long previous = capacity < 0 ? capacities.remove(storage) : capacities.put(storage, capacity);
-            if (!java.util.Objects.equals(previous, capacity < 0 ? null : capacity)) {
+            if (!Objects.equals(previous, capacity < 0 ? null : capacity)) {
                 markDirty();
                 wake(WakeReason.CONFIG_CHANGED);
             }
@@ -850,7 +861,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
-        public void setPortSides(@NotNull String id, @NotNull java.util.Set<RelativeSide> sides) {
+        public void setPortSides(@NotNull String id, @NotNull Set<RelativeSide> sides) {
             PortHandler port = port(id);
             if (port.sides().equals(sides)) return;
             port.setSides(sides);
@@ -862,7 +873,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
-        public @NotNull java.util.Set<RelativeSide> portSides(@NotNull String id) {
+        public @NotNull Set<RelativeSide> portSides(@NotNull String id) {
             return port(id).sides();
         }
 
@@ -939,23 +950,23 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             return others;
         }
 
-        private WorldPosition at(fr.robie.machineengine.api.world.BlockPosition block) {
+        private WorldPosition at(BlockPosition block) {
             return new WorldPosition(position.world(), block);
         }
 
         private final class World implements MachineWorld {
             @Override
-            public @Nullable net.kyori.adventure.key.Key blockAt(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public @Nullable Key blockAt(@NotNull BlockPosition block) {
                 return host.blockAt(at(block));
             }
 
             @Override
-            public @Nullable fr.robie.machineengine.api.world.WorldFluid fluidAt(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public @Nullable WorldFluid fluidAt(@NotNull BlockPosition block) {
                 return host.worldFluidAt(at(block));
             }
 
             @Override
-            public float blockHardness(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public float blockHardness(@NotNull BlockPosition block) {
                 return host.worldBlockHardness(at(block));
             }
 
@@ -965,27 +976,27 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             }
 
             @Override
-            public boolean placeFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition block, @NotNull net.kyori.adventure.key.Key fluid) {
+            public boolean placeFluid(@NotNull BlockPosition block, @NotNull Key fluid) {
                 return host.placeWorldFluid(at(block), fluid);
             }
 
             @Override
-            public boolean takeFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public boolean takeFluid(@NotNull BlockPosition block) {
                 return host.takeWorldFluid(at(block));
             }
 
             @Override
-            public boolean placeBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition block, @NotNull net.kyori.adventure.key.Key key) {
+            public boolean placeBlock(@NotNull BlockPosition block, @NotNull Key key) {
                 return host.placeWorldBlock(at(block), key);
             }
 
             @Override
-            public boolean breakBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public boolean breakBlock(@NotNull BlockPosition block) {
                 return host.breakWorldBlock(at(block));
             }
 
             @Override
-            public @NotNull List<ResourceStack> collectItems(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+            public @NotNull List<ResourceStack> collectItems(@NotNull BlockPosition block) {
                 return host.collectWorldItems(at(block));
             }
 
@@ -995,12 +1006,12 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             }
 
             @Override
-            public void playSound(@NotNull net.kyori.adventure.key.Key sound, float volume, float pitch) {
+            public void playSound(@NotNull Key sound, float volume, float pitch) {
                 host.playSound(position, sound, volume, pitch);
             }
 
             @Override
-            public void particleLine(@NotNull fr.robie.machineengine.api.world.BlockPosition to, int color) {
+            public void particleLine(@NotNull BlockPosition to, int color) {
                 host.particleLine(position, at(to), color);
             }
         }
@@ -1066,7 +1077,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                 // Chance outputs are rolled now, with the machine's own random: the outcome is part of
                 // the process, saved with it, and the same however often the process is loaded.
                 List<ResourceStack> outputs = new ArrayList<>(recipe.outputs());
-                for (fr.robie.machineengine.api.recipe.ChanceOutput chance : recipe.chanceOutputs()) {
+                for (ChanceOutput chance : recipe.chanceOutputs()) {
                     if (random.nextDouble() < chance.chance()) outputs.add(chance.stack());
                 }
                 ProcessState started = new ProcessState(recipe.key(), ProcessStatus.RUNNING, 0, duration, consumed,
@@ -1197,7 +1208,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             }
         }
 
-        private void postProcess(fr.robie.machineengine.api.event.EventType<MachineEvents.Process> type, ProcessState state) {
+        private void postProcess(EventType<MachineEvents.Process> type, ProcessState state) {
             if (services.events().hasListeners(type, EventPhase.POST)) {
                 services.events().post(type, EventPhase.POST, new MachineEvents.Process(MachineInstanceImpl.this, state.view()));
             }
@@ -1205,8 +1216,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     /** Ports whose sides differ from the type's: the side configuration to save. */
-    java.util.Map<String, java.util.Set<RelativeSide>> configuredSides() {
-        java.util.Map<String, java.util.Set<RelativeSide>> configured = new java.util.LinkedHashMap<>();
+    Map<String, Set<RelativeSide>> configuredSides() {
+        Map<String, Set<RelativeSide>> configured = new LinkedHashMap<>();
         for (PortHandler port : this.ports) {
             if (!port.sides().equals(port.definition().sides())) configured.put(port.definition().id(), port.sides());
         }
@@ -1214,7 +1225,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     /** Restores saved side configuration (load only: no wake, no save). Unknown ports are ignored. */
-    void loadSides(String id, java.util.Set<RelativeSide> sides) {
+    void loadSides(String id, Set<RelativeSide> sides) {
         for (PortHandler port : this.ports) {
             if (port.definition().id().equals(id)) port.setSides(sides);
         }

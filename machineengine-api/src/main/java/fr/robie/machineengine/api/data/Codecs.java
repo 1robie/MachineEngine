@@ -6,6 +6,7 @@ import fr.robie.machineengine.api.data.DataValue.DataList;
 import fr.robie.machineengine.api.data.DataValue.DataLong;
 import fr.robie.machineengine.api.data.DataValue.DataString;
 import fr.robie.machineengine.api.error.MachineError.SerializationError;
+import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import net.kyori.adventure.key.InvalidKeyException;
 import net.kyori.adventure.key.Key;
@@ -63,7 +64,7 @@ public final class Codecs {
         }
     }
 
-    private static <T> fr.robie.machineengine.api.error.MachineError underIndex(Result<T> result, int index) {
+    private static <T> MachineError underIndex(Result<T> result, int index) {
         return result.error() instanceof SerializationError error ? error.under("[" + index + "]") : result.error();
     }
 

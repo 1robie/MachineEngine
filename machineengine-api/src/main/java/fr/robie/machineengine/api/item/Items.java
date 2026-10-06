@@ -4,14 +4,18 @@ import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.data.Codecs;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.data.StorageCodec;
+import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceComponentType;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
+import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Objects;
 
 /**
  * Minecraft items as resources (ARCHITECTURE.md §23.4). There is one resource type, {@link #ITEM};
@@ -27,7 +31,7 @@ public final class Items {
             data -> DataMap.builder().put("id", data.item().asString()).put("bytes", Codecs.BYTES.encode(data.data())).build(),
             raw -> {
                 if (!(raw instanceof DataMap map)) {
-                    return Result.err(fr.robie.machineengine.api.error.MachineError.SerializationError.at("", "expected item data (map)"));
+                    return Result.err(MachineError.SerializationError.at("", "expected item data (map)"));
                 }
                 Result<Key> id = map.getString("id").flatMap(Codecs::parseKey);
                 if (id.isErr()) return Result.err(id.error());
@@ -51,9 +55,9 @@ public final class Items {
         return ResourcePredicate.type(ITEM).and(ResourcePredicate.component(DATA, data -> data.item().equals(itemId)));
     }
 
-    /** Matches items in the item tag {@code tag} (e.g. {@code c:ores/iron}), see {@link fr.robie.machineengine.api.resource.tag.ResourceTags#containsItem}. */
+    /** Matches items in the item tag {@code tag} (e.g. {@code c:ores/iron}), see {@link ResourceTags#containsItem}. */
     public static @NotNull ResourcePredicate inTag(@NotNull Key tag) {
-        java.util.Objects.requireNonNull(tag);
+        Objects.requireNonNull(tag);
         return (variant, tags) -> {
             if (variant.type() != ITEM) return false;
             ItemData data = variant.components().get(DATA);

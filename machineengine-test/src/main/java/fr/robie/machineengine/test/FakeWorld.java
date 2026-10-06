@@ -1,14 +1,21 @@
 package fr.robie.machineengine.test;
 
 import fr.robie.machineengine.api.data.DataMap;
+import fr.robie.machineengine.api.item.ItemData;
+import fr.robie.machineengine.api.item.Items;
+import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.SchedulerState;
+import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.Direction;
+import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
+import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
@@ -16,6 +23,7 @@ import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -24,9 +32,13 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 /**
  * A headless world for tests (ARCHITECTURE.md §28): one game clock, machines, and simulated regions
@@ -76,21 +88,21 @@ public final class FakeWorld implements MachineHost {
         return this.engine;
     }
 
-    private fr.robie.machineengine.api.machine.MachineEnvironment environment = fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
-    private final Map<WorldPosition, fr.robie.machineengine.api.world.WorldFluid> fluids = new java.util.concurrent.ConcurrentHashMap<>();
+    private MachineEnvironment environment = MachineEnvironment.NONE;
+    private final Map<WorldPosition, WorldFluid> fluids = new ConcurrentHashMap<>();
 
     /** Puts a fluid (e.g. {@code minecraft:water}) at {@code position}, or removes it ({@code null}). */
-    public void setFluid(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid fluid) {
+    public void setFluid(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable WorldFluid fluid) {
         if (fluid == null) this.fluids.remove(position);
         else this.fluids.put(position, fluid);
     }
 
-    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid fluidAt(@NotNull WorldPosition position) {
+    public @org.jetbrains.annotations.Nullable WorldFluid fluidAt(@NotNull WorldPosition position) {
         return this.fluids.get(position);
     }
 
-    private final Map<WorldPosition, fr.robie.machineengine.api.transfer.ResourceHandler> containers = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Map<WorldPosition, Key> blocks = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<WorldPosition, ResourceHandler> containers = new ConcurrentHashMap<>();
+    private final Map<WorldPosition, Key> blocks = new ConcurrentHashMap<>();
 
     /** Puts a plain block (e.g. {@code minecraft:stone}) at {@code position}, or removes it (air). */
     public void setBlock(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable Key block) {
@@ -98,12 +110,12 @@ public final class FakeWorld implements MachineHost {
         else this.blocks.put(position, block);
     }
 
-    private final Map<WorldPosition, List<ResourceStack>> items = new java.util.concurrent.ConcurrentHashMap<>();
-    private final Map<WorldPosition, Integer> redstone = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<WorldPosition, List<ResourceStack>> items = new ConcurrentHashMap<>();
+    private final Map<WorldPosition, Integer> redstone = new ConcurrentHashMap<>();
 
     /** Dropped items lying at {@code position} (a tractor beam collects them). */
     public void dropItems(@NotNull WorldPosition position, @NotNull ResourceStack stack) {
-        this.items.computeIfAbsent(position, key -> new java.util.concurrent.CopyOnWriteArrayList<>()).add(stack);
+        this.items.computeIfAbsent(position, key -> new CopyOnWriteArrayList<>()).add(stack);
     }
 
     /** The redstone signal the block at {@code position} receives. */
@@ -116,7 +128,7 @@ public final class FakeWorld implements MachineHost {
         if (!isOwnedByCurrentThread(position) || this.machines.containsKey(position) || this.blocks.containsKey(position)) return false;
         var current = this.fluids.get(position);
         if (current != null && current.source()) return false;
-        this.fluids.put(position, new fr.robie.machineengine.api.world.WorldFluid(fluid, true));
+        this.fluids.put(position, new WorldFluid(fluid, true));
         return true;
     }
 
@@ -140,8 +152,8 @@ public final class FakeWorld implements MachineHost {
     public boolean breakWorldBlock(@NotNull WorldPosition position) {
         if (worldBlockHardness(position) < 0) return false;
         Key block = this.blocks.remove(position);
-        ResourceStack drop = fr.robie.machineengine.api.item.Items.variant(new fr.robie.machineengine.api.item.ItemData(block,
-                block.asString().getBytes(java.nio.charset.StandardCharsets.UTF_8))).stack(1);
+        ResourceStack drop = Items.variant(new ItemData(block,
+                block.asString().getBytes(StandardCharsets.UTF_8))).stack(1);
         dropItems(position, drop);
         return true;
     }
@@ -171,9 +183,9 @@ public final class FakeWorld implements MachineHost {
     public record Beam(@NotNull WorldPosition from, @NotNull WorldPosition to, int color) {
     }
 
-    private final List<Sound> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private final List<Beam> beams = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private final Map<WorldPosition, Map<String, String>> blockProperties = new java.util.concurrent.ConcurrentHashMap<>();
+    private final List<Sound> sounds = new CopyOnWriteArrayList<>();
+    private final List<Beam> beams = new CopyOnWriteArrayList<>();
+    private final Map<WorldPosition, Map<String, String>> blockProperties = new ConcurrentHashMap<>();
 
     @Override
     public void playSound(@NotNull WorldPosition position, @NotNull Key sound, float volume, float pitch) {
@@ -187,7 +199,7 @@ public final class FakeWorld implements MachineHost {
 
     @Override
     public void setBlockProperty(@NotNull WorldPosition position, @NotNull String property, @NotNull String value) {
-        this.blockProperties.computeIfAbsent(position, key -> new java.util.concurrent.ConcurrentHashMap<>()).put(property, value);
+        this.blockProperties.computeIfAbsent(position, key -> new ConcurrentHashMap<>()).put(property, value);
     }
 
     /** The sounds machines played, in order. */
@@ -215,19 +227,19 @@ public final class FakeWorld implements MachineHost {
     }
 
     /** Puts a container block (like a vanilla chest) at {@code position}, or removes it ({@code null}). */
-    public void setContainer(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.transfer.ResourceHandler container) {
+    public void setContainer(@NotNull WorldPosition position, @org.jetbrains.annotations.Nullable ResourceHandler container) {
         if (container == null) this.containers.remove(position);
         else this.containers.put(position, container);
     }
 
     @Override
-    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+    public @org.jetbrains.annotations.Nullable ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
                                                                                                                @NotNull Direction side) {
         return isOwnedByCurrentThread(position) && !this.machines.containsKey(position) ? this.containers.get(position) : null;
     }
 
     @Override
-    public @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+    public @org.jetbrains.annotations.Nullable WorldFluid worldFluidAt(@NotNull WorldPosition position) {
         return isOwnedByCurrentThread(position) ? this.fluids.get(position) : null;
     }
 
@@ -239,12 +251,12 @@ public final class FakeWorld implements MachineHost {
     }
 
     /** What every machine in this world sees of the sky (E3). */
-    public void setEnvironment(@NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment) {
+    public void setEnvironment(@NotNull MachineEnvironment environment) {
         this.environment = environment;
     }
 
     @Override
-    public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
+    public @NotNull MachineEnvironment environment(@NotNull WorldPosition position) {
         return this.environment;
     }
 
@@ -262,7 +274,7 @@ public final class FakeWorld implements MachineHost {
     }
 
     /** Places a transport block (cable, pipe …); it joins neighboring networks. */
-    public void placeTransport(@NotNull fr.robie.machineengine.api.network.TransportType type, @NotNull WorldPosition position) {
+    public void placeTransport(@NotNull TransportType type, @NotNull WorldPosition position) {
         runInRegionOf(position, () -> this.engine.machines().networks().addTransport(type, position, this));
     }
 
@@ -331,7 +343,7 @@ public final class FakeWorld implements MachineHost {
     }
 
     /** Runs {@code action} as if on the thread owning {@code position}. */
-    public <T> T inRegionOf(@NotNull WorldPosition position, @NotNull java.util.function.Supplier<T> action) {
+    public <T> T inRegionOf(@NotNull WorldPosition position, @NotNull Supplier<T> action) {
         String previous = this.currentRegion;
         this.currentRegion = region(position).id;
         try {
@@ -396,7 +408,7 @@ public final class FakeWorld implements MachineHost {
     }
 
     /** Breaks a machine keeping its contents for an item (§20.5); empty if it must be removed normally. */
-    public @NotNull java.util.Optional<fr.robie.machineengine.core.machine.CoreMachines.Packed> pack(@NotNull WorldPosition position) {
+    public @NotNull Optional<CoreMachines.Packed> pack(@NotNull WorldPosition position) {
         LoadedMachine machine = this.machines.get(position);
         if (machine == null) throw new IllegalStateException("Nothing loaded at " + position);
         var packed = inRegionOf(position, () -> this.engine.machines().pack(machine));

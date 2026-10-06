@@ -5,6 +5,7 @@ import fr.robie.machineengine.api.addon.RegistrationContext;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.Validator;
+import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.registry.RegistrationException;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
@@ -17,18 +18,19 @@ import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
+import java.util.function.Consumer;
 
 /** The context one addon's registration callback runs with. Closed when the callback returns. */
 final class RegistrationContextImpl implements RegistrationContext {
     private final AddonRecord record;
     private final RegistrySet registries;
-    private final java.util.function.Consumer<Diagnostic> reports;
+    private final Consumer<Diagnostic> reports;
     private boolean open = true;
 
-    private final fr.robie.machineengine.api.event.EventBus events;
+    private final EventBus events;
 
-    RegistrationContextImpl(AddonRecord record, RegistrySet registries, java.util.function.Consumer<Diagnostic> reports,
-                            fr.robie.machineengine.api.event.EventBus events) {
+    RegistrationContextImpl(AddonRecord record, RegistrySet registries, Consumer<Diagnostic> reports,
+                            EventBus events) {
         this.record = record;
         this.registries = registries;
         this.reports = reports;
@@ -36,7 +38,7 @@ final class RegistrationContextImpl implements RegistrationContext {
     }
 
     @Override
-    public @org.jetbrains.annotations.NotNull fr.robie.machineengine.api.event.EventBus events() {
+    public @org.jetbrains.annotations.NotNull EventBus events() {
         return this.events;
     }
 

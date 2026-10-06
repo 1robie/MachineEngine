@@ -24,6 +24,7 @@ import net.kyori.adventure.key.Key;
 import org.junit.jupiter.api.Test;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import static fr.robie.machineengine.test.MachineFixtures.B;
@@ -205,7 +206,7 @@ class MachineIntegrationTest {
         Map<WorldPosition, Object> state = new LinkedHashMap<>();
         world.machines().forEach((position, machine) -> {
             MachineInspection inspection = machine.inspect();
-            state.put(position, java.util.List.of(inspection.type(), inspection.facing(), inspection.state(),
+            state.put(position, List.of(inspection.type(), inspection.facing(), inspection.state(),
                     inspection.storages(), String.valueOf(inspection.process()), inspection.upgrades(), inspection.escrow()));
         });
         return state;
@@ -245,7 +246,7 @@ class MachineIntegrationTest {
             return held;
         }
 
-        private static long sumB(java.util.List<ResourceStack> stacks) {
+        private static long sumB(List<ResourceStack> stacks) {
             return stacks.stream().filter(stack -> stack.type() == B).mapToLong(ResourceStack::amount).sum();
         }
     }

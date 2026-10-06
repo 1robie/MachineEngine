@@ -3,19 +3,19 @@ package fr.robie.machineengine.core.lifecycle;
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.addon.AddonId;
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.capability.Capabilities;
+import fr.robie.machineengine.api.definition.BuiltInBehaviors;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
-import fr.robie.machineengine.api.capability.Capabilities;
+import fr.robie.machineengine.api.event.EngineEvents;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.item.Items;
-import fr.robie.machineengine.api.machine.MachineEvents;
-import fr.robie.machineengine.api.upgrade.ModifierType;
-import fr.robie.machineengine.api.upgrade.StandardModifiers;
-import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
+import fr.robie.machineengine.api.machine.MachineEvents;
+import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.registry.RegistrationException;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
@@ -26,13 +26,19 @@ import fr.robie.machineengine.api.resource.convert.ResourceConverterLookup;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.TransactionManager;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.StandardModifiers;
 import fr.robie.machineengine.api.version.Version;
+import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.event.CoreEventBus;
+import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.core.registry.RegistrySet;
 import fr.robie.machineengine.core.registry.SimpleRegistry;
 import fr.robie.machineengine.core.resource.BuiltInValidators;
 import fr.robie.machineengine.core.resource.CoreConverterLookup;
+import fr.robie.machineengine.core.resource.ItemTagSource;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
+import fr.robie.machineengine.core.resource.TagSnapshot;
 import fr.robie.machineengine.core.transfer.CoreTransactionManager;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
@@ -45,8 +51,10 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -61,12 +69,12 @@ public final class CoreMachineEngine implements MachineEngine {
     private final Set<Diagnostic> startupDiagnostics = new LinkedHashSet<>();
     private volatile LifecyclePhase phase = LifecyclePhase.BOOTSTRAP;
     private volatile ResourceTags tags = ResourceTags.EMPTY;
-    private fr.robie.machineengine.core.resource.ItemTagSource itemTagSource = fr.robie.machineengine.core.resource.ItemTagSource.NONE;
+    private ItemTagSource itemTagSource = ItemTagSource.NONE;
     private ResourceConverterLookup converters;
     private ResourceCodecs resourceCodecs;
     private CoreMachines machines;
-    private volatile java.util.function.Function<fr.robie.machineengine.api.world.WorldPosition,
-            fr.robie.machineengine.api.machine.MachineInstance> machineLookup = position -> null;
+    private volatile Function<WorldPosition,
+            MachineInstance> machineLookup = position -> null;
 
     private CoreMachineEngine(Logger logger) {
         this.logger = logger;
@@ -75,11 +83,11 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger) {
-        return start(registrations, apiVersion, logger, fr.robie.machineengine.core.resource.ItemTagSource.NONE);
+        return start(registrations, apiVersion, logger, ItemTagSource.NONE);
     }
 
     static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger,
-                                   fr.robie.machineengine.core.resource.ItemTagSource itemTags) {
+                                   ItemTagSource itemTags) {
         CoreMachineEngine engine = new CoreMachineEngine(logger);
         engine.itemTagSource = itemTags;
         engine.createBuiltInRegistries();
@@ -88,8 +96,8 @@ public final class CoreMachineEngine implements MachineEngine {
         engine.freeze();
         engine.loadReloadables();
         engine.phase = LifecyclePhase.RUNTIME;
-        engine.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRIES_FROZEN, EventPhase.POST,
-                new fr.robie.machineengine.api.event.EngineEvents.Frozen(engine.registries));
+        engine.events.post(EngineEvents.REGISTRIES_FROZEN, EventPhase.POST,
+                new EngineEvents.Frozen(engine.registries));
         ValidationReport report = engine.startupReport();
         if (report.hasErrors()) {
             logger.warning("MachineEngine started with errors; disabled addons: " + engine.disabledAddons()
@@ -115,9 +123,9 @@ public final class CoreMachineEngine implements MachineEngine {
         // Infrastructure MachineEngine itself provides (never meanings, §4).
         this.registries.staticRegistry(Registries.CAPABILITY_TYPE).register(AddonId.MACHINE_ENGINE, Capabilities.RESOURCE_HANDLER);
         this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
-                fr.robie.machineengine.api.definition.BuiltInBehaviors.PROCESSING);
+                BuiltInBehaviors.PROCESSING);
         this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
-                fr.robie.machineengine.api.definition.BuiltInBehaviors.STORAGE);
+                BuiltInBehaviors.STORAGE);
         // Minecraft items (one resource type; the concrete item is a component, §23.4).
         this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, Items.CATEGORY);
         this.registries.staticRegistry(Registries.RESOURCE_COMPONENT_TYPE).register(AddonId.MACHINE_ENGINE, Items.DATA);
@@ -129,7 +137,7 @@ public final class CoreMachineEngine implements MachineEngine {
         for (EventType<?> event : List.of(MachineEvents.MACHINE_CREATE, MachineEvents.MACHINE_LOAD, MachineEvents.MACHINE_UNLOAD,
                 MachineEvents.MACHINE_REMOVE, MachineEvents.PROCESS_START, MachineEvents.PROCESS_COMPLETE,
                 MachineEvents.UPGRADE_CHANGE, MachineEvents.RESOURCES_CHANGED,
-                fr.robie.machineengine.api.event.EngineEvents.REGISTRIES_FROZEN, fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED)) {
+                EngineEvents.REGISTRIES_FROZEN, EngineEvents.REGISTRY_RELOADED)) {
             this.registries.staticRegistry(Registries.EVENT_TYPE).register(AddonId.MACHINE_ENGINE, event);
         }
     }
@@ -360,7 +368,7 @@ public final class CoreMachineEngine implements MachineEngine {
             tags.computeIfAbsent(contribution.tag(), tag -> new LinkedHashSet<>()).addAll(contribution.members());
         }
         tags.replaceAll((tag, members) -> Collections.unmodifiableSet(members));
-        this.tags = new fr.robie.machineengine.core.resource.TagSnapshot(tags,
+        this.tags = new TagSnapshot(tags,
                 this.registries.exists(Registries.ITEM_TAG) ? this.registries.registry(Registries.ITEM_TAG) : List.of(),
                 this.itemTagSource);
     }
@@ -404,14 +412,14 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     @Override
-    public @NotNull java.util.Optional<fr.robie.machineengine.api.machine.MachineInstance> machineAt(
-            @NotNull fr.robie.machineengine.api.world.WorldPosition position) {
-        return java.util.Optional.ofNullable(this.machineLookup.apply(position));
+    public @NotNull Optional<MachineInstance> machineAt(
+            @NotNull WorldPosition position) {
+        return Optional.ofNullable(this.machineLookup.apply(position));
     }
 
     /** Lets the platform answer {@link #machineAt}. */
-    public void setMachineLookup(@NotNull java.util.function.Function<fr.robie.machineengine.api.world.WorldPosition,
-            fr.robie.machineengine.api.machine.MachineInstance> lookup) {
+    public void setMachineLookup(@NotNull Function<WorldPosition,
+            MachineInstance> lookup) {
         this.machineLookup = lookup;
     }
 
@@ -452,13 +460,13 @@ public final class CoreMachineEngine implements MachineEngine {
             this.logger.warning("Reload of " + type + " rejected; the previous snapshot stays live" + System.lineSeparator() + report.format());
             ValidationReport rejected = report.merge(new ValidationReport(List.of(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
                     "Reload of " + type + " was rejected; the previous snapshot stays live").subject(type.key()).build())));
-            this.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
-                    new fr.robie.machineengine.api.event.EngineEvents.Reloaded(type, false, rejected));
+            this.events.post(EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
+                    new EngineEvents.Reloaded(type, false, rejected));
             return rejected;
         }
         publish(type, build.snapshot);
-        this.events.post(fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
-                new fr.robie.machineengine.api.event.EngineEvents.Reloaded(type, true, report));
+        this.events.post(EngineEvents.REGISTRY_RELOADED, EventPhase.POST,
+                new EngineEvents.Reloaded(type, true, report));
         return report;
     }
 }

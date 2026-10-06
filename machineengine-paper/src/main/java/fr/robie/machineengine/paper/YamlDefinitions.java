@@ -3,6 +3,7 @@ package fr.robie.machineengine.paper;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.definition.DefinitionFile;
+import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.resource.ResourceVariant;
@@ -18,6 +19,9 @@ import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -25,6 +29,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 /**
  * Reads data-driven definitions from {@code plugins/MachineEngine/definitions/*.yml} (§29) into
@@ -44,10 +49,10 @@ public final class YamlDefinitions {
         if (!folder.exists()) this.plugin.saveResource(EXAMPLE, false);
         // Sub-folders too (e.g. definitions/mekanized/), sorted by path for a stable order.
         File[] files;
-        try (var walk = java.nio.file.Files.walk(folder.toPath())) {
+        try (var walk = Files.walk(folder.toPath())) {
             files = walk.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".yml"))
-                    .map(java.nio.file.Path::toFile).filter(File::isFile).toArray(File[]::new);
-        } catch (IOException | java.io.UncheckedIOException e) {
+                    .map(Path::toFile).filter(File::isFile).toArray(File[]::new);
+        } catch (IOException | UncheckedIOException e) {
             this.plugin.getLogger().warning("Could not list definitions: " + e.getMessage());
             return List.of();
         }
@@ -78,7 +83,7 @@ public final class YamlDefinitions {
     private static Result<ResourceVariant> item(Key id) {
         Material material = Material.matchMaterial(id.asString());
         if (material == null || !material.isItem() || material.isAir()) {
-            return Result.err(MachineError.of(fr.robie.machineengine.api.diagnostic.DiagnosticCodes.DEFINITION_SKIPPED,
+            return Result.err(MachineError.of(DiagnosticCodes.DEFINITION_SKIPPED,
                     "'" + id.asString() + "' is not a vanilla item"));
         }
         return Result.ok(PaperItems.toResource(new ItemStack(material)).variant());
@@ -105,7 +110,7 @@ public final class YamlDefinitions {
                 });
                 yield DataMap.of(entries);
             }
-            case List<?> list -> DataValue.list(list.stream().map(YamlDefinitions::toData).filter(java.util.Objects::nonNull).toList());
+            case List<?> list -> DataValue.list(list.stream().map(YamlDefinitions::toData).filter(Objects::nonNull).toList());
             case Boolean bool -> DataValue.of(bool);
             case Double number -> DataValue.of(number);
             case Float number -> DataValue.of((double) number);

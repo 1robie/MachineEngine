@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -46,10 +47,10 @@ public interface MachineMenuService {
      * The machine at {@code position} was removed or unloaded: close the menus showing it, so nobody
      * keeps acting on (or looking at) a machine that is gone.
      */
-    default void machineGone(@NotNull fr.robie.machineengine.api.world.WorldPosition position) {
+    default void machineGone(@NotNull WorldPosition position) {
     }
 
     /** What the machine at {@code position} holds changed: refresh the menus showing it (owner thread). */
-    default void machineChanged(@NotNull fr.robie.machineengine.api.world.WorldPosition position) {
+    default void machineChanged(@NotNull WorldPosition position) {
     }
 }

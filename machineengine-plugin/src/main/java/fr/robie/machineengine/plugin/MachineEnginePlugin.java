@@ -3,15 +3,22 @@ package fr.robie.machineengine.plugin;
 import fr.robie.machineengine.api.MachineEngineAccess;
 import fr.robie.machineengine.api.MachineEngineApi;
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
-import fr.robie.machineengine.craftengine.CraftEngineIntegration;
-import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
-import fr.robie.machineengine.paper.MachineEngineCommands;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
-import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.PlaceholderMachine;
+import fr.robie.machineengine.craftengine.CraftEngineIntegration;
+import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
+import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
+import fr.robie.machineengine.paper.ClassPreloader;
+import fr.robie.machineengine.paper.MachineEngineCommands;
+import fr.robie.machineengine.paper.MachineMenuService;
+import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.YamlDefinitions;
+import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
+import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
@@ -20,11 +27,17 @@ import net.momirealms.craftengine.bukkit.api.event.CustomBlockBreakEvent;
 import org.bukkit.Location;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.Nullable;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
+import java.util.logging.Level;
 
 /**
  * MachineEngine plugin entry point (§8.2).
@@ -42,7 +55,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
-    private @Nullable fr.robie.machineengine.zmenu.ZMenuMachineMenus menus;
+    private @Nullable ZMenuMachineMenus menus;
     private int maxMachinesPerChunk;
     private boolean allowBreakingPlaceholders;
 
@@ -50,7 +63,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
-        fr.robie.machineengine.paper.ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/");
+        ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/");
         CraftEngineIntegration.registerBlockBehavior();
         installCraftEnginePack();
     }
@@ -60,15 +73,15 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
      * CraftEngine loads its packs. Existing files are kept: server owners edit them.
      */
     private void installCraftEnginePack() {
-        java.nio.file.Path target = getDataFolder().toPath().getParent().resolve("CraftEngine/resources/machineengine");
+        Path target = getDataFolder().toPath().getParent().resolve("CraftEngine/resources/machineengine");
         for (String file : List.of("pack.yml", "configuration/lang.yml")) {
-            java.nio.file.Path destination = target.resolve(file);
-            if (java.nio.file.Files.exists(destination)) continue;
-            try (java.io.InputStream in = getResource("craftengine-pack/" + file)) {
-                if (in == null) throw new java.io.IOException("missing resource " + file);
-                java.nio.file.Files.createDirectories(destination.getParent());
-                java.nio.file.Files.copy(in, destination);
-            } catch (java.io.IOException e) {
+            Path destination = target.resolve(file);
+            if (Files.exists(destination)) continue;
+            try (InputStream in = getResource("craftengine-pack/" + file)) {
+                if (in == null) throw new IOException("missing resource " + file);
+                Files.createDirectories(destination.getParent());
+                Files.copy(in, destination);
+            } catch (IOException e) {
                 getLogger().warning("Could not install the CraftEngine pack file " + file + ": " + e.getMessage());
             }
         }
@@ -94,9 +107,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());
         registrations.forEach(builder::addon);
         // Data-driven definitions (§29): plugins/MachineEngine/definitions/*.yml
-        fr.robie.machineengine.paper.YamlDefinitions definitions = new fr.robie.machineengine.paper.YamlDefinitions(this);
+        YamlDefinitions definitions = new YamlDefinitions(this);
         // CraftEngine items in definitions and item tags (E10, E11); recipes wait for CraftEngine's first load.
-        fr.robie.machineengine.craftengine.CraftEngineItemBridge items = new fr.robie.machineengine.craftengine.CraftEngineItemBridge(this);
+        CraftEngineItemBridge items = new CraftEngineItemBridge(this);
         builder.definitions(definitions::load, items);
         builder.itemTags(items);
         CoreMachineEngine started = builder.start();
@@ -105,7 +118,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(items, this);
         MachineEngineAccess.install(started);
         if (getConfig().getBoolean("events.bukkit-bridge", true)) {
-            fr.robie.machineengine.paper.event.BukkitEventBridge.install(started.events());
+            BukkitEventBridge.install(started.events());
         }
         this.host = CraftEngineMachineHost.start(this, started);
         started.setMachineLookup(this.host::machineAt);
@@ -132,11 +145,11 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         // MachineEngine enables at STARTUP (before worlds); zMenu enables later, so wait for it.
         if (!zMenu.isEnabled()) return;
         try {
-            this.menus = fr.robie.machineengine.zmenu.ZMenuMachineMenus.enable(this, this.host);
+            this.menus = ZMenuMachineMenus.enable(this, this.host);
             this.host.setMenus(this.menus);
-            fr.robie.machineengine.paper.MachineMenuService.setCurrent(this.menus);
+            MachineMenuService.setCurrent(this.menus);
         } catch (LinkageError | RuntimeException e) {
-            getLogger().log(java.util.logging.Level.WARNING, "Could not enable zMenu machine menus", e);
+            getLogger().log(Level.WARNING, "Could not enable zMenu machine menus", e);
         }
     }
 
@@ -145,7 +158,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (this.commands != null) this.commands.debugView().stopAll();
         if (this.menus != null) this.menus.disable();
         this.menus = null;
-        fr.robie.machineengine.paper.MachineMenuService.setCurrent(null);
+        MachineMenuService.setCurrent(null);
         if (this.host != null) this.host.shutdown();
         this.host = null;
         this.engine = null;
@@ -153,7 +166,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler
-    public void onPluginEnable(org.bukkit.event.server.PluginEnableEvent event) {
+    public void onPluginEnable(PluginEnableEvent event) {
         if (event.getPlugin().getName().equals("zMenu") && this.menus == null) enableMenus();
     }
 
@@ -176,7 +189,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (machine instanceof PlaceholderMachine placeholder && !this.allowBreakingPlaceholders
                 && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(fr.robie.machineengine.paper.Messages.placeholderBreakDenied(placeholder.missingType().asString()));
+            event.getPlayer().sendMessage(Messages.placeholderBreakDenied(placeholder.missingType().asString()));
         }
     }
 
@@ -189,7 +202,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         int count = this.host.machinesInChunk(location.getWorld().getKey(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
         if (count >= this.maxMachinesPerChunk) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(fr.robie.machineengine.paper.Messages.chunkLimit(count, this.maxMachinesPerChunk));
+            event.getPlayer().sendMessage(Messages.chunkLimit(count, this.maxMachinesPerChunk));
         }
     }
 

@@ -9,6 +9,7 @@ import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.PortDefinition;
 import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.StorageDefinition;
+import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.registry.Registries;
@@ -19,6 +20,7 @@ import fr.robie.machineengine.api.resource.match.ResourceMatcher;
 import fr.robie.machineengine.api.upgrade.Modifier;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.key.Keyed;
 
 import java.util.HashSet;
 import java.util.List;
@@ -79,7 +81,7 @@ final class MachineValidators {
     }
 
     static void transportTypes(ValidationContext context) {
-        Registry<fr.robie.machineengine.api.network.TransportType> transports = context.registries().registry(Registries.TRANSPORT_TYPE);
+        Registry<TransportType> transports = context.registries().registry(Registries.TRANSPORT_TYPE);
         var networks = context.registries().registry(Registries.NETWORK_TYPE);
         for (var transport : transports) {
             if (!networks.containsValue(transport.network())) {
@@ -115,7 +117,7 @@ final class MachineValidators {
     }
 
     /** Reports errors about one entry, attributed to its owner. */
-    private record Reporter(ValidationContext context, Registry<?> registry, net.kyori.adventure.key.Keyed entry) {
+    private record Reporter(ValidationContext context, Registry<?> registry, Keyed entry) {
         void error(String message) {
             Key key = this.entry.key();
             this.context.report(Diagnostic.error(DiagnosticCodes.INVALID_DEFINITION, key.asString() + ": " + message)

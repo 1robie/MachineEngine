@@ -6,6 +6,7 @@ import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.NotNull;
@@ -13,6 +14,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 /** Converts between Paper {@link ItemStack}s and {@link Items#ITEM} resources (§23.4). */
@@ -25,17 +27,17 @@ public final class PaperItems {
 
     /** How an item stack's id is found; the CraftEngine integration reports custom ids (E10). */
     public static void setIdResolver(@NotNull Function<ItemStack, Key> resolver) {
-        idResolver = java.util.Objects.requireNonNull(resolver);
+        idResolver = Objects.requireNonNull(resolver);
     }
 
     private static volatile Function<Key, ItemStack> itemFactory = id -> {
-        org.bukkit.Material material = org.bukkit.Material.matchMaterial(id.asString());
+        Material material = Material.matchMaterial(id.asString());
         return material == null || !material.isItem() || material.isAir() ? null : new ItemStack(material);
     };
 
     /** How an item is built from its id; the CraftEngine integration builds custom items. */
     public static void setItemFactory(@NotNull Function<Key, ItemStack> factory) {
-        itemFactory = java.util.Objects.requireNonNull(factory);
+        itemFactory = Objects.requireNonNull(factory);
     }
 
     /** One item with this id (CraftEngine or vanilla), or {@code null} if there is none. */

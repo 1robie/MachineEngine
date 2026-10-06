@@ -1,17 +1,21 @@
 package fr.robie.machineengine.api;
 
 import fr.robie.machineengine.api.addon.AddonId;
+import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
+import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverterLookup;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.TransactionManager;
+import fr.robie.machineengine.api.world.WorldPosition;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.Optional;
 import java.util.Set;
 
 /** A running MachineEngine: frozen registries and the runtime services built on them. */
@@ -31,7 +35,7 @@ public interface MachineEngine {
      *
      * @throws IllegalStateException if registration is already closed
      */
-    static void register(@NotNull fr.robie.machineengine.api.addon.AddonRegistration registration) {
+    static void register(@NotNull AddonRegistration registration) {
         MachineEngineAccess.submit(registration);
     }
 
@@ -78,6 +82,6 @@ public interface MachineEngine {
      * The loaded machine at {@code position}. Owner thread of that position only. Empty if there is
      * none, if it is a placeholder, or if no platform hosts machines (headless).
      */
-    @NotNull java.util.Optional<fr.robie.machineengine.api.machine.MachineInstance> machineAt(
-            @NotNull fr.robie.machineengine.api.world.WorldPosition position);
+    @NotNull Optional<MachineInstance> machineAt(
+            @NotNull WorldPosition position);
 }

@@ -9,8 +9,10 @@ import fr.robie.machineengine.api.item.Items;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
+import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
+import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import net.kyori.adventure.key.Key;
 import org.junit.jupiter.api.Test;
 
@@ -63,7 +65,7 @@ class ItemTagTest {
         CoreMachineEngine engine = TestEngine.builder().definitions(files).start();
         FakeWorld world = FakeWorld.singleRegion(engine);
         var bin = world.place(engine.registries().registry(Registries.MACHINE_TYPE).getOrThrow(Key.key("pack", "ore_bin")),
-                FakeWorld.at(0, 64, 0), fr.robie.machineengine.api.world.Direction.NORTH);
+                FakeWorld.at(0, 64, 0), Direction.NORTH);
         Key deepslate = Key.key("pack", "deepslate_osmium_ore");
         assertEquals(0, insert(world, bin, item(deepslate)), "not in the tag yet");
 
@@ -115,7 +117,7 @@ class ItemTagTest {
         assertTrue(engine.registries().registry(Registries.RECIPE).contains(Key.key("pack", "crush")));
     }
 
-    private static long insert(FakeWorld world, fr.robie.machineengine.core.machine.MachineInstanceImpl machine, ResourceVariant variant) {
+    private static long insert(FakeWorld world, MachineInstanceImpl machine, ResourceVariant variant) {
         try (var transaction = world.engine().transactions().openOuter()) {
             long inserted = machine.context().storage("ores").insert(variant, 1, transaction);
             transaction.commit();

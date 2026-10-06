@@ -2,7 +2,11 @@ package fr.robie.machineengine.api.upgrade;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.resource.ResourceCategory;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Modifier types for mechanisms MachineEngine owns (ARCHITECTURE.md §14). Addons add their own for
@@ -21,7 +25,7 @@ public final class StandardModifiers {
     /** Per-tick limit of rate-limited ports. */
     public static final ModifierType TRANSFER_RATE = ModifierType.nonNegative(MachineEngineKeys.key("transfer_rate"));
 
-    private static final java.util.Map<net.kyori.adventure.key.Key, ModifierType> COSTS = new java.util.concurrent.ConcurrentHashMap<>();
+    private static final Map<Key, ModifierType> COSTS = new ConcurrentHashMap<>();
 
     private StandardModifiers() {
     }
@@ -34,6 +38,6 @@ public final class StandardModifiers {
     public static @NotNull ModifierType processCost(@NotNull ResourceCategory category) {
         // In the category's namespace: the addon owning the category registers it.
         return COSTS.computeIfAbsent(category.key(), key -> ModifierType.nonNegative(
-                net.kyori.adventure.key.Key.key(key.namespace(), "process_cost/" + key.value())));
+                Key.key(key.namespace(), "process_cost/" + key.value())));
     }
 }

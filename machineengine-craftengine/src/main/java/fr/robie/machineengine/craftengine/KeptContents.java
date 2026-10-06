@@ -6,12 +6,15 @@ import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.data.DataBinary;
 import fr.robie.machineengine.core.machine.CoreMachines;
+import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.PaperItems;
 import net.kyori.adventure.text.Component;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
+import net.momirealms.craftengine.core.util.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Item;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -53,11 +56,11 @@ public final class KeptContents implements Listener {
         this.host = host;
     }
 
-    private record Pending(CoreMachines.Packed packed, net.momirealms.craftengine.core.util.Key item) {
+    private record Pending(CoreMachines.Packed packed, Key item) {
     }
 
     /** A machine was broken and packed (owner thread). */
-    void packed(WorldPosition position, CoreMachines.Packed packed, net.momirealms.craftengine.core.util.Key blockId) {
+    void packed(WorldPosition position, CoreMachines.Packed packed, Key blockId) {
         Pending entry = new Pending(packed, blockId);
         this.pending.put(position, entry);
         World world = world(position);
@@ -74,7 +77,7 @@ public final class KeptContents implements Listener {
     /** Lowest priority, so auto-pickup and other drop plugins see the item with its contents. */
     @EventHandler(priority = EventPriority.LOWEST)
     void onBlockDrop(BlockDropItemEvent event) {
-        org.bukkit.block.Block block = event.getBlock();
+        Block block = event.getBlock();
         WorldPosition position = WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ());
         Pending entry = this.pending.get(position);
         if (entry == null) return;
@@ -111,19 +114,19 @@ public final class KeptContents implements Listener {
         return result;
     }
 
-    /** Lore lines (translated, see {@link fr.robie.machineengine.paper.Messages}): a header, then one line per resource, merged by variant. */
+    /** Lore lines (translated, see {@link Messages}): a header, then one line per resource, merged by variant. */
     static List<Component> describe(List<ResourceStack> contents) {
         Map<ResourceVariant, Long> totals = new LinkedHashMap<>();
         for (ResourceStack stack : contents) totals.merge(stack.variant(), stack.amount(), Long::sum);
         List<Component> lines = new ArrayList<>();
-        lines.add(fr.robie.machineengine.paper.Messages.contentsKept());
+        lines.add(Messages.contentsKept());
         int shown = 0;
         for (Map.Entry<ResourceVariant, Long> entry : totals.entrySet()) {
             if (shown++ == LORE_LINES) {
-                lines.add(fr.robie.machineengine.paper.Messages.contentsMore(totals.size() - LORE_LINES));
+                lines.add(Messages.contentsMore(totals.size() - LORE_LINES));
                 break;
             }
-            lines.add(fr.robie.machineengine.paper.Messages.contentsEntry(entry.getValue(), name(entry.getKey())));
+            lines.add(Messages.contentsEntry(entry.getValue(), name(entry.getKey())));
         }
         return lines;
     }

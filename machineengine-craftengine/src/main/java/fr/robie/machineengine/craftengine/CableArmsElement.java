@@ -9,6 +9,7 @@ import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityEl
 import net.momirealms.craftengine.core.entity.display.ItemDisplayContext;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.item.ItemBuildContext;
+import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundAddEntityPacketProxy;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacketProxy;
@@ -21,8 +22,10 @@ import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The arms of a cable or pipe toward its connected sides: one item display entity per side, sent to
@@ -39,8 +42,8 @@ final class CableArmsElement implements BlockEntityElement {
     private final int[] ids = new int[DIRECTIONS.length];
     private final Object[] spawn = new Object[DIRECTIONS.length];
     /** Entity data per direction and arm kind ("", "_pull", "_push"). */
-    private final java.util.Map<String, Object> data = new java.util.concurrent.ConcurrentHashMap<>();
-    private volatile java.util.Map<Direction, String> kinds = java.util.Map.of();
+    private final Map<String, Object> data = new ConcurrentHashMap<>();
+    private volatile Map<Direction, String> kinds = Map.of();
     private final Object despawnAll;
     private final int centerId = EntityUtils.ENTITY_COUNTER.incrementAndGet();
     private final Object centerSpawn;
@@ -73,12 +76,12 @@ final class CableArmsElement implements BlockEntityElement {
     }
 
     /** The arm kind of each side: "_pull", "_push", or absent for a plain arm. */
-    java.util.Map<Direction, String> kinds() {
+    Map<Direction, String> kinds() {
         return this.kinds;
     }
 
-    void setKinds(java.util.Map<Direction, String> kinds) {
-        this.kinds = java.util.Map.copyOf(kinds);
+    void setKinds(Map<Direction, String> kinds) {
+        this.kinds = Map.copyOf(kinds);
     }
 
     @Override
@@ -117,8 +120,8 @@ final class CableArmsElement implements BlockEntityElement {
         // Item displays draw their item turned 180 degrees around Y: the north arm model points south.
         Direction model = direction.isHorizontal() ? direction.opposite() : direction;
         String base = this.itemPrefix + "/" + model.name().toLowerCase(Locale.ROOT);
-        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(base + kind));
-        if (definition == null) definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(base)); // no pull/push model
+        var definition = CraftEngineItems.byId(Key.of(base + kind));
+        if (definition == null) definition = CraftEngineItems.byId(Key.of(base)); // no pull/push model
         if (definition == null) return null;
         Object stack = definition.buildItem(ItemBuildContext.empty()).minecraftItem();
         Object packet = ClientboundSetEntityDataPacketProxy.INSTANCE.newInstance(this.ids[direction.ordinal()], new ArrayList<>() {{
@@ -132,7 +135,7 @@ final class CableArmsElement implements BlockEntityElement {
     /** The center piece: the item {@code <prefix>/center}. */
     private Object centerData() {
         if (this.centerData != null) return this.centerData;
-        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(this.itemPrefix + "/center"));
+        var definition = CraftEngineItems.byId(Key.of(this.itemPrefix + "/center"));
         if (definition == null) return null;
         Object stack = definition.buildItem(ItemBuildContext.empty()).minecraftItem();
         this.centerData = ClientboundSetEntityDataPacketProxy.INSTANCE.newInstance(this.centerId, new ArrayList<>() {{

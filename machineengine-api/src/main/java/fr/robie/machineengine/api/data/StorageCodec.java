@@ -1,5 +1,6 @@
 package fr.robie.machineengine.api.data;
 
+import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import org.jetbrains.annotations.NotNull;
 
@@ -7,7 +8,7 @@ import java.util.function.Function;
 
 /**
  * Encodes values to {@link DataValue}s and back. Decoding never throws for bad data; it returns an
- * error {@link Result} (usually a {@link fr.robie.machineengine.api.error.MachineError.SerializationError}).
+ * error {@link Result} (usually a {@link MachineError.SerializationError}).
  *
  * <p>Persisted data must go through a {@link VersionedCodec} so it can be migrated later.</p>
  */

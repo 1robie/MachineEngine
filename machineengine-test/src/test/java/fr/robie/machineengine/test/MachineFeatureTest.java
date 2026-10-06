@@ -20,6 +20,7 @@ import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.process.ProcessStatus;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
+import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceType;
@@ -134,7 +135,7 @@ class MachineFeatureTest {
     @Test
     void dataTheTypeNoLongerDeclaresIsKeptVerbatim() {
         FakeWorld v1 = FakeWorld.singleRegion(deltaEngine(true));
-        MachineType type = v1.engine().registries().registry(fr.robie.machineengine.api.registry.Registries.MACHINE_TYPE)
+        MachineType type = v1.engine().registries().registry(Registries.MACHINE_TYPE)
                 .getOrThrow(Key.key("delta", "counter_box"));
         v1.place(type, HERE, Direction.NORTH);
         v1.tick();

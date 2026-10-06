@@ -1,6 +1,7 @@
 package fr.robie.machineengine.api.machine;
 
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
+import fr.robie.machineengine.api.upgrade.ModifierType;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Objects;
@@ -14,7 +15,7 @@ import java.util.Objects;
  *                         energy upgrade enlarging the energy buffer), or {@code null}
  */
 public record StorageDefinition(@NotNull String id, int slots, long capacity, @NotNull ResourcePredicate filter,
-                                @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.upgrade.ModifierType capacityModifier) {
+                                @org.jetbrains.annotations.Nullable ModifierType capacityModifier) {
 
     public StorageDefinition {
         Objects.requireNonNull(id);
@@ -26,7 +27,7 @@ public record StorageDefinition(@NotNull String id, int slots, long capacity, @N
     }
 
     /** Each slot's capacity follows {@code modifier} (applied to {@link #capacity()} with the machine's upgrades). */
-    public @NotNull StorageDefinition capacityModifier(@NotNull fr.robie.machineengine.api.upgrade.ModifierType modifier) {
+    public @NotNull StorageDefinition capacityModifier(@NotNull ModifierType modifier) {
         return new StorageDefinition(this.id, this.slots, this.capacity, this.filter, modifier);
     }
 

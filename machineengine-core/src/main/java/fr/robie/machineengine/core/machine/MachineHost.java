@@ -1,6 +1,11 @@
 package fr.robie.machineengine.core.machine;
 
+import fr.robie.machineengine.api.machine.MachineContext;
+import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.transfer.ResourceHandler;
+import fr.robie.machineengine.api.world.Direction;
+import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
@@ -33,8 +38,8 @@ public interface MachineHost {
     void activityChanged(@NotNull MachineInstanceImpl machine);
 
     /** What the block at {@code position} sees of the world (owner thread). */
-    default @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
-        return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
+    default @NotNull MachineEnvironment environment(@NotNull WorldPosition position) {
+        return MachineEnvironment.NONE;
     }
 
     /**
@@ -42,13 +47,13 @@ public interface MachineHost {
      * {@code side} (the face touched), or null. Owner thread only. Machines push into it and read it as
      * a neighbor; networks fill it, and pull from it only on a transport side set to pull.
      */
-    default @Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
-                                                                                       @NotNull fr.robie.machineengine.api.world.Direction side) {
+    default @Nullable ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+                                                                                       @NotNull Direction side) {
         return null;
     }
 
     /** The fluid in the block at {@code position}, or null (none, not loaded, not owned): E5. */
-    default @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+    default @Nullable WorldFluid worldFluidAt(@NotNull WorldPosition position) {
         return null;
     }
 
@@ -101,7 +106,7 @@ public interface MachineHost {
     default void portsChanged(@NotNull MachineInstanceImpl machine) {
     }
 
-    /** The machine started or stopped working visibly ({@link fr.robie.machineengine.api.machine.MachineContext#setActive}). */
+    /** The machine started or stopped working visibly ({@link MachineContext#setActive}). */
     default void activeChanged(@NotNull MachineInstanceImpl machine) {
     }
 

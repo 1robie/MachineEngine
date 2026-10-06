@@ -6,6 +6,7 @@ import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.core.machine.handoff.HandoffService;
+import fr.robie.machineengine.core.network.CoreNetworks;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
 import org.jetbrains.annotations.NotNull;
 
@@ -28,7 +29,7 @@ public interface MachineServices {
 
     @NotNull HandoffService handoff();
 
-    @NotNull fr.robie.machineengine.core.network.CoreNetworks networks();
+    @NotNull CoreNetworks networks();
 
     @NotNull Logger logger();
 }

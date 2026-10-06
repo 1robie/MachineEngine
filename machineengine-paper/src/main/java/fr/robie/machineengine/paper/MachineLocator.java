@@ -1,8 +1,11 @@
 package fr.robie.machineengine.paper;
 
 import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.network.TransportSideMode;
+import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -37,13 +40,13 @@ public interface MachineLocator {
      * @return false if there is no machine there, it is busy (a process that cannot be cancelled, a
      *         transfer in flight), or the block could not be placed; nothing changed then
      */
-    default boolean replaceBlock(@NotNull WorldPosition position, @NotNull net.kyori.adventure.key.Key blockId) {
+    default boolean replaceBlock(@NotNull WorldPosition position, @NotNull Key blockId) {
         return replaceBlock(position, blockId, null);
     }
 
-    /** {@link #replaceBlock(WorldPosition, net.kyori.adventure.key.Key)} facing {@code facing} ({@code null}: the old facing). */
-    default boolean replaceBlock(@NotNull WorldPosition position, @NotNull net.kyori.adventure.key.Key blockId,
-                                 @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.world.Direction facing) {
+    /** {@link #replaceBlock(WorldPosition, Key)} facing {@code facing} ({@code null}: the old facing). */
+    default boolean replaceBlock(@NotNull WorldPosition position, @NotNull Key blockId,
+                                 @org.jetbrains.annotations.Nullable Direction facing) {
         return false;
     }
 
@@ -53,8 +56,8 @@ public interface MachineLocator {
      *
      * @return the new mode, or {@code null} if there is no transport there
      */
-    default @org.jetbrains.annotations.Nullable fr.robie.machineengine.api.network.TransportSideMode cycleTransportSide(
-            @NotNull WorldPosition position, @NotNull fr.robie.machineengine.api.world.Direction side) {
+    default @org.jetbrains.annotations.Nullable TransportSideMode cycleTransportSide(
+            @NotNull WorldPosition position, @NotNull Direction side) {
         return null;
     }
 

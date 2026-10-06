@@ -2,12 +2,16 @@ package fr.robie.machineengine.core.lifecycle;
 
 import fr.robie.machineengine.api.MachineEngineApi;
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.definition.DefinitionFile;
 import fr.robie.machineengine.api.version.Version;
+import fr.robie.machineengine.core.definition.DefinitionCompiler;
+import fr.robie.machineengine.core.resource.ItemTagSource;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 import java.util.logging.Logger;
 
 /**
@@ -19,13 +23,13 @@ public final class MachineEngineBuilder {
     private final List<AddonRegistration> registrations = new ArrayList<>();
     private Logger logger = Logger.getLogger("MachineEngine");
     private Version apiVersion = Version.parse(MachineEngineApi.version());
-    private java.util.function.Supplier<List<fr.robie.machineengine.api.definition.DefinitionFile>> definitions;
-    private fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items =
-            fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver.NONE;
-    private fr.robie.machineengine.core.resource.ItemTagSource itemTags = fr.robie.machineengine.core.resource.ItemTagSource.NONE;
+    private Supplier<List<DefinitionFile>> definitions;
+    private DefinitionCompiler.ItemResolver items =
+            DefinitionCompiler.ItemResolver.NONE;
+    private ItemTagSource itemTags = ItemTagSource.NONE;
 
     /** The platform's item tags (vanilla and CraftEngine tags on Paper), consulted after addon item tags. */
-    public @NotNull MachineEngineBuilder itemTags(@NotNull fr.robie.machineengine.core.resource.ItemTagSource source) {
+    public @NotNull MachineEngineBuilder itemTags(@NotNull ItemTagSource source) {
         this.itemTags = Objects.requireNonNull(source);
         return this;
     }
@@ -53,8 +57,8 @@ public final class MachineEngineBuilder {
      * @param items resolves {@code item:} ids (platform-specific)
      */
     public @NotNull MachineEngineBuilder definitions(
-            @NotNull java.util.function.Supplier<List<fr.robie.machineengine.api.definition.DefinitionFile>> files,
-            @NotNull fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items) {
+            @NotNull Supplier<List<DefinitionFile>> files,
+            @NotNull DefinitionCompiler.ItemResolver items) {
         this.definitions = Objects.requireNonNull(files);
         this.items = Objects.requireNonNull(items);
         return this;
@@ -63,7 +67,7 @@ public final class MachineEngineBuilder {
     public @NotNull CoreMachineEngine start() {
         List<AddonRegistration> all = new ArrayList<>(this.registrations);
         if (this.definitions != null) {
-            all.add(fr.robie.machineengine.core.definition.DefinitionCompiler.registration(this.definitions, this.items,
+            all.add(DefinitionCompiler.registration(this.definitions, this.items,
                     this.registrations.stream().map(AddonRegistration::addon).toList(), this.apiVersion));
         }
         return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger, this.itemTags);

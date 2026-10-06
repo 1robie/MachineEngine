@@ -9,6 +9,7 @@ import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityEl
 import net.momirealms.craftengine.core.entity.display.ItemDisplayContext;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.item.ItemBuildContext;
+import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundAddEntityPacketProxy;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacketProxy;
@@ -17,9 +18,11 @@ import net.momirealms.craftengine.proxy.minecraft.world.entity.EntityTypesProxy;
 import net.momirealms.craftengine.proxy.minecraft.world.phys.Vec3Proxy;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Quaternionf;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -32,7 +35,7 @@ final class MachineDisplayElement implements BlockEntityElement {
     private final String displayItem;
     private final int rotation;
     /** Each facing's blockstate rotation {x, y}; empty: the facing and {@link #rotation} turn the entity. */
-    private final java.util.Map<Direction, int[]> rotations;
+    private final Map<Direction, int[]> rotations;
     private final BlockPos pos;
     private final int id = EntityUtils.ENTITY_COUNTER.incrementAndGet();
     private final UUID uuid = UUID.randomUUID();
@@ -43,10 +46,10 @@ final class MachineDisplayElement implements BlockEntityElement {
     private volatile @Nullable List<Object> packets;
 
     MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull BlockPos pos) {
-        this(displayItem, rotation, java.util.Map.of(), pos);
+        this(displayItem, rotation, Map.of(), pos);
     }
 
-    MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull java.util.Map<Direction, int[]> rotations, @NotNull BlockPos pos) {
+    MachineDisplayElement(@NotNull String displayItem, int rotation, @NotNull Map<Direction, int[]> rotations, @NotNull BlockPos pos) {
         this.displayItem = displayItem;
         this.rotation = rotation;
         this.rotations = rotations;
@@ -107,14 +110,14 @@ final class MachineDisplayElement implements BlockEntityElement {
         int[] blockstate = this.rotations.get(this.facing);
         // The blockstate's own rotation, as the client turns block models: R_y(-y) R_x(-x), then undo the
         // half turn item displays add around Y. Any x works (a laser facing down is x 180).
-        org.joml.Quaternionf turn = null;
+        Quaternionf turn = null;
         if (blockstate != null) {
             yaw = 0f;
             pitch = 0f;
-            turn = new org.joml.Quaternionf().rotateY((float) Math.toRadians(-blockstate[1]))
+            turn = new Quaternionf().rotateY((float) Math.toRadians(-blockstate[1]))
                     .rotateX((float) Math.toRadians(-blockstate[0])).rotateY((float) Math.PI);
         }
-        org.joml.Quaternionf finalTurn = turn;
+        Quaternionf finalTurn = turn;
         Object add = ClientboundAddEntityPacketProxy.INSTANCE.newInstance(this.id, this.uuid,
                 this.pos.x() + 0.5, this.pos.y() + 0.5, this.pos.z() + 0.5, pitch, yaw, EntityTypesProxy.ITEM_DISPLAY, 0, Vec3Proxy.ZERO, yaw);
         Object finalStack = stack;
@@ -129,7 +132,7 @@ final class MachineDisplayElement implements BlockEntityElement {
     }
 
     private static @Nullable Object stack(String itemId) {
-        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(itemId));
+        var definition = CraftEngineItems.byId(Key.of(itemId));
         return definition == null ? null : definition.buildItem(ItemBuildContext.empty()).minecraftItem();
     }
 }

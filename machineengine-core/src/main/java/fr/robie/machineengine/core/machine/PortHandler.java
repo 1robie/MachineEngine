@@ -8,9 +8,12 @@ import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.transfer.SnapshotParticipant;
 import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.TransactionContext;
+import fr.robie.machineengine.api.world.RelativeSide;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import java.util.function.LongSupplier;
 import java.util.function.Supplier;
 
@@ -27,7 +30,7 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
     /** The type's direction, or what the machine set ({@code MachineContext#setPortDirection}). */
     private volatile PortDirection direction;
     /** The type's sides, or the machine's own side configuration (saved with the machine). */
-    private volatile java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides;
+    private volatile Set<RelativeSide> sides;
     private long usageTick = Long.MIN_VALUE;
     private long used;
 
@@ -42,12 +45,12 @@ final class PortHandler extends SnapshotParticipant<PortHandler.Usage> implement
         this.sides = definition.sides();
     }
 
-    java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides() {
+    Set<RelativeSide> sides() {
         return this.sides;
     }
 
-    void setSides(java.util.Set<fr.robie.machineengine.api.world.RelativeSide> sides) {
-        this.sides = sides.isEmpty() ? java.util.Set.of() : java.util.Set.copyOf(java.util.EnumSet.copyOf(sides));
+    void setSides(Set<RelativeSide> sides) {
+        this.sides = sides.isEmpty() ? Set.of() : Set.copyOf(EnumSet.copyOf(sides));
     }
 
     PortDefinition definition() {

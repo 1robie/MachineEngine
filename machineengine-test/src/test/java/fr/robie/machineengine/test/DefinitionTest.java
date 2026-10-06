@@ -1,5 +1,6 @@
 package fr.robie.machineengine.test;
 
+import fr.robie.machineengine.api.addon.AddonId;
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.data.DataValue;
@@ -8,8 +9,11 @@ import fr.robie.machineengine.api.definition.DefinitionFile;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.error.Result;
+import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.machine.MachineContext;
+import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
@@ -77,9 +81,9 @@ class DefinitionTest {
         world.place(drill, GENERATOR_AT, Direction.EAST);
         world.place(smelter, CONSUMER_AT, Direction.EAST);
         AtomicLong smelted = new AtomicLong();
-        engine.events().subscribe(new fr.robie.machineengine.api.addon.AddonId("test"),
-                fr.robie.machineengine.api.machine.MachineEvents.PROCESS_COMPLETE,
-                fr.robie.machineengine.api.event.EventPhase.POST, event -> {
+        engine.events().subscribe(new AddonId("test"),
+                MachineEvents.PROCESS_COMPLETE,
+                EventPhase.POST, event -> {
                     if (event.process().recipe().equals(Key.key("pack", "smelt_ore"))) smelted.incrementAndGet();
                 });
         world.tick(200);
@@ -123,7 +127,7 @@ class DefinitionTest {
         CoreMachineEngine engine = TestEngine.builder().definitions(files).start();
         files.set(0, new DefinitionFile("definitions/pack.yml", pack(9)));
         assertFalse(engine.reload(Registries.RECIPE).hasErrors());
-        var recipe = (fr.robie.machineengine.api.recipe.ProcessingRecipe) engine.registries().registry(Registries.RECIPE)
+        var recipe = (ProcessingRecipe) engine.registries().registry(Registries.RECIPE)
                 .getOrThrow(Key.key("pack", "mine_ore"));
         assertEquals(9, recipe.outputs().getFirst().amount());
     }

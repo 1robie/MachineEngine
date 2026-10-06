@@ -1,6 +1,7 @@
 package fr.robie.machineengine.api.registry;
 
 import fr.robie.machineengine.api.addon.AddonId;
+import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -23,5 +24,5 @@ public interface ReloadContext<T extends Keyed> {
      * Adds a finding to the reload report. Errors reject the whole reload (§7.3); use warnings for
      * entries that are skipped while the rest loads.
      */
-    void report(@NotNull fr.robie.machineengine.api.diagnostic.Diagnostic diagnostic);
+    void report(@NotNull Diagnostic diagnostic);
 }

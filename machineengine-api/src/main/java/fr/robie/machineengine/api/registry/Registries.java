@@ -2,21 +2,22 @@ package fr.robie.machineengine.api.registry;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.data.VersionedCodec;
 import fr.robie.machineengine.api.definition.BehaviorType;
+import fr.robie.machineengine.api.event.EventType;
+import fr.robie.machineengine.api.item.ItemTagContribution;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
-import fr.robie.machineengine.api.upgrade.ModifierType;
-import fr.robie.machineengine.api.upgrade.UpgradeType;
-import fr.robie.machineengine.api.data.VersionedCodec;
-import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceComponentType;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverter;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.UpgradeType;
 
 /** Registries MachineEngine creates itself (ARCHITECTURE.md §7.2). */
 public final class Registries {
@@ -62,8 +63,8 @@ public final class Registries {
             RegistryType.createReloadable(MachineEngineKeys.key("resource_tag"), ResourceTagContribution.class);
 
     /** Item tags (by item id); reloaded together with resource tags. */
-    public static final RegistryType<fr.robie.machineengine.api.item.ItemTagContribution> ITEM_TAG =
-            RegistryType.createReloadable(MachineEngineKeys.key("item_tag"), fr.robie.machineengine.api.item.ItemTagContribution.class);
+    public static final RegistryType<ItemTagContribution> ITEM_TAG =
+            RegistryType.createReloadable(MachineEngineKeys.key("item_tag"), ItemTagContribution.class);
 
     private Registries() {
     }

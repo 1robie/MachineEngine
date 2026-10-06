@@ -1,6 +1,7 @@
 package fr.robie.machineengine.paper.event;
 
 import fr.robie.machineengine.api.addon.AddonId;
+import fr.robie.machineengine.api.event.EngineEvents;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventType;
@@ -31,7 +32,7 @@ public final class BukkitEventBridge {
                 e -> new MachineProcessCompleteEvent(e.machine(), e.process()));
         mirror(events, MachineEvents.UPGRADE_CHANGE, MachineUpgradeChangeEvent.getHandlerList(),
                 e -> new MachineUpgradeChangeEvent(e.machine(), e.upgrade(), e.previous(), e.current()));
-        mirror(events, fr.robie.machineengine.api.event.EngineEvents.REGISTRY_RELOADED, MachineEngineReloadEvent.getHandlerList(),
+        mirror(events, EngineEvents.REGISTRY_RELOADED, MachineEngineReloadEvent.getHandlerList(),
                 e -> new MachineEngineReloadEvent(e.registry(), e.accepted(), e.report()));
         // RESOURCES_CHANGED is not mirrored: subscribing here would make every machine sum its
         // transfers even when no plugin listens. Use the MachineEngine event bus for it.

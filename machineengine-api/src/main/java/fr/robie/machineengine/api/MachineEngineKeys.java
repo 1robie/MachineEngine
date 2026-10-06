@@ -1,5 +1,6 @@
 package fr.robie.machineengine.api;
 
+import net.kyori.adventure.key.InvalidKeyException;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 
@@ -18,7 +19,7 @@ public final class MachineEngineKeys {
      *
      * @param value the key value, e.g. {@code machine}
      * @return {@code machineengine:<value>}
-     * @throws net.kyori.adventure.key.InvalidKeyException if {@code value} is not a valid key value
+     * @throws InvalidKeyException if {@code value} is not a valid key value
      */
     public static @NotNull Key key(@NotNull String value) {
         return Key.key(NAMESPACE, value);

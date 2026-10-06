@@ -6,7 +6,9 @@ import org.jetbrains.annotations.NotNull;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 /**
  * Everything found in one validation pass. Validation reports all findings at once, not only the
@@ -40,13 +42,13 @@ public record ValidationReport(@NotNull List<Diagnostic> diagnostics) {
         return this.diagnostics.stream()
                 .filter(d -> d.isError() && d.source() != null)
                 .map(Diagnostic::source)
-                .collect(Collectors.toCollection(java.util.TreeSet::new));
+                .collect(Collectors.toCollection(TreeSet::new));
     }
 
     public @NotNull ValidationReport merge(@NotNull ValidationReport other) {
         if (other.diagnostics.isEmpty()) return this;
         if (this.diagnostics.isEmpty()) return other;
-        return new ValidationReport(java.util.stream.Stream.concat(this.diagnostics.stream(), other.diagnostics.stream()).toList());
+        return new ValidationReport(Stream.concat(this.diagnostics.stream(), other.diagnostics.stream()).toList());
     }
 
     /** Multi-line, log-friendly rendering. */

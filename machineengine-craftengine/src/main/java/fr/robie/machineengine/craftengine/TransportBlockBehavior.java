@@ -1,18 +1,35 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.data.DataMap;
+import fr.robie.machineengine.api.data.DataValue;
+import fr.robie.machineengine.api.network.TransportSideMode;
 import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.machineengine.api.resource.ResourceType;
+import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
 import net.kyori.adventure.key.Key;
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.block.behavior.BukkitBlockBehavior;
+import net.momirealms.craftengine.bukkit.util.LocationUtils;
 import net.momirealms.craftengine.core.block.BlockDefinition;
 import net.momirealms.craftengine.core.block.behavior.BlockBehaviorFactory;
 import net.momirealms.craftengine.core.block.behavior.EntityBlock;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
+import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement;
+import net.momirealms.craftengine.core.world.BlockPos;
+import net.momirealms.craftengine.libraries.nbt.CompoundTag;
+import net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy;
+import org.bukkit.World;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.EnumMap;
+import java.util.Locale;
+import java.util.Map;
+import java.util.function.Consumer;
 
 /**
  * The {@code machineengine:transport} CraftEngine block behavior (§15): a cable or pipe of a
@@ -49,10 +66,10 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
     @Override
     public void neighborChanged(Object thisBlock, Object[] args) {
         if (this.connectionItems == null) return;
-        org.bukkit.World world = net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy.INSTANCE.getWorld(args[1]);
+        World world = LevelProxy.INSTANCE.getWorld(args[1]);
         if (world == null) return;
-        net.momirealms.craftengine.core.world.BlockPos pos = net.momirealms.craftengine.bukkit.util.LocationUtils.fromBlockPos(args[2]);
-        BlockEntity blockEntity = net.momirealms.craftengine.bukkit.api.BukkitAdaptor.adapt(world).storageWorld().getBlockEntityAtIfLoaded(pos);
+        BlockPos pos = LocationUtils.fromBlockPos(args[2]);
+        BlockEntity blockEntity = BukkitAdaptor.adapt(world).storageWorld().getBlockEntityAtIfLoaded(pos);
         if (blockEntity == null) return;
         blockEntity.controller.let(Controller.class, this.controllerId, Controller::scheduleRefresh);
     }
@@ -82,8 +99,8 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         private final @Nullable CableArmsElement arms;
         private @Nullable WorldPosition position;
         /** Side modes read from the block, applied when it joins its network, and kept for saving after it left. */
-        private java.util.Map<fr.robie.machineengine.api.world.Direction, fr.robie.machineengine.api.network.TransportSideMode> modes =
-                java.util.Map.of();
+        private Map<Direction, TransportSideMode> modes =
+                Map.of();
 
         private Controller(BlockEntity blockEntity, TransportBlockBehavior behavior) {
             super(blockEntity);
@@ -97,7 +114,7 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         }
 
         @Override
-        public void gatherElements(java.util.function.Consumer<net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement> consumer) {
+        public void gatherElements(Consumer<BlockEntityElement> consumer) {
             if (this.arms != null) consumer.accept(this.arms);
         }
 
@@ -113,19 +130,19 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host == null || this.position == null || this.arms == null) return;
             var probes = host.engine().registries().registry(Registries.RESOURCE_TYPE).values().stream()
-                    .map(fr.robie.machineengine.api.resource.ResourceType::variant).toList();
+                    .map(ResourceType::variant).toList();
             var networks = host.engine().machines().networks();
             // A neighbor block changed (e.g. a chest placed): the network re-reads its endpoints.
-            for (fr.robie.machineengine.api.world.Direction direction : fr.robie.machineengine.api.world.Direction.values()) {
+            for (Direction direction : Direction.values()) {
                 networks.machineChanged(this.position.relative(direction));
             }
             var connected = networks.connections(this.position, host, probes);
             // Pull and push sides toward blocks (not other transports) get Mekanism's funnel and nozzle arms.
-            var kinds = new java.util.EnumMap<fr.robie.machineengine.api.world.Direction, String>(fr.robie.machineengine.api.world.Direction.class);
+            var kinds = new EnumMap<Direction, String>(Direction.class);
             for (var entry : networks.sideModes(this.position).entrySet()) {
                 if (!connected.contains(entry.getKey()) || networks.transportAt(this.position.relative(entry.getKey())) != null) continue;
-                if (entry.getValue() == fr.robie.machineengine.api.network.TransportSideMode.PULL) kinds.put(entry.getKey(), "_pull");
-                if (entry.getValue() == fr.robie.machineengine.api.network.TransportSideMode.PUSH) kinds.put(entry.getKey(), "_push");
+                if (entry.getValue() == TransportSideMode.PULL) kinds.put(entry.getKey(), "_pull");
+                if (entry.getValue() == TransportSideMode.PUSH) kinds.put(entry.getKey(), "_push");
             }
             if (connected.equals(this.arms.connected()) && kinds.equals(this.arms.kinds())) return;
             this.arms.setConnected(connected);
@@ -140,29 +157,29 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
         }
 
         @Override
-        public void loadCustomData(net.momirealms.craftengine.libraries.nbt.CompoundTag data) {
-            if (!(data.get(SIDES_KEY) instanceof net.momirealms.craftengine.libraries.nbt.CompoundTag sides)) return;
-            var read = new java.util.EnumMap<fr.robie.machineengine.api.world.Direction, fr.robie.machineengine.api.network.TransportSideMode>(
-                    fr.robie.machineengine.api.world.Direction.class);
+        public void loadCustomData(CompoundTag data) {
+            if (!(data.get(SIDES_KEY) instanceof CompoundTag sides)) return;
+            var read = new EnumMap<Direction, TransportSideMode>(
+                    Direction.class);
             NbtData.toData(sides).entries().forEach((side, value) -> {
                 try {
-                    read.put(fr.robie.machineengine.api.world.Direction.valueOf(side.toUpperCase(java.util.Locale.ROOT)),
-                            fr.robie.machineengine.api.network.TransportSideMode.valueOf(
-                                    ((fr.robie.machineengine.api.data.DataValue.DataString) value).value().toUpperCase(java.util.Locale.ROOT)));
+                    read.put(Direction.valueOf(side.toUpperCase(Locale.ROOT)),
+                            TransportSideMode.valueOf(
+                                    ((DataValue.DataString) value).value().toUpperCase(Locale.ROOT)));
                 } catch (RuntimeException ignored) {
                     // an unknown side or mode (newer version): left at the default
                 }
             });
-            this.modes = java.util.Map.copyOf(read);
+            this.modes = Map.copyOf(read);
         }
 
         @Override
-        public void saveCustomData(net.momirealms.craftengine.libraries.nbt.CompoundTag data) {
+        public void saveCustomData(CompoundTag data) {
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host != null && this.position != null) this.modes = host.engine().machines().networks().sideModes(this.position);
             if (this.modes.isEmpty()) return;
-            fr.robie.machineengine.api.data.DataMap.Builder sides = fr.robie.machineengine.api.data.DataMap.builder();
-            this.modes.forEach((side, mode) -> sides.put(side.name().toLowerCase(java.util.Locale.ROOT), mode.name().toLowerCase(java.util.Locale.ROOT)));
+            DataMap.Builder sides = DataMap.builder();
+            this.modes.forEach((side, mode) -> sides.put(side.name().toLowerCase(Locale.ROOT), mode.name().toLowerCase(Locale.ROOT)));
             data.put(SIDES_KEY, NbtData.toTag(sides.build()));
         }
 

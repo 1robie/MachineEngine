@@ -1,6 +1,7 @@
 package fr.robie.machineengine.test;
 
 import fr.robie.machineengine.api.addon.AddonRegistration;
+import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineType;
@@ -8,6 +9,8 @@ import fr.robie.machineengine.api.machine.PortDefinition;
 import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.SchedulerState;
 import fr.robie.machineengine.api.machine.StorageDefinition;
+import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.RelativeSide;
@@ -101,7 +104,7 @@ class WorldApiTest {
 
     private static void run(FakeWorld world, Consumer<MachineContext> action) {
         ACTION.set(action);
-        world.machine(HERE).wake(fr.robie.machineengine.api.machine.WakeReason.CONFIG_CHANGED);
+        world.machine(HERE).wake(WakeReason.CONFIG_CHANGED);
         world.tick(1);
     }
 
@@ -245,13 +248,13 @@ class WorldApiTest {
         FakeWorld world = FakeWorld.singleRegion(this.engine);
         world.place(PROBE, HERE, Direction.NORTH);
         world.place(MachineFixtures.CHEST, NEXT, Direction.NORTH);
-        var handler = new fr.robie.machineengine.api.transfer.ResourceHandler[1];
+        var handler = new ResourceHandler[1];
         run(world, context -> {
             handler[0] = context.machines().storage(NEXT, "items").orElseThrow();
             context.exposeHandler(handler[0]);
         });
         // The probe's own port is on its back only (south): the exposed handler shows on every side.
-        var capability = fr.robie.machineengine.api.capability.Capabilities.RESOURCE_HANDLER;
+        var capability = Capabilities.RESOURCE_HANDLER;
         assertSame(handler[0], world.machine(HERE).capability(capability, Direction.EAST).orElseThrow());
 
         run(world, context -> context.exposeHandler(null));

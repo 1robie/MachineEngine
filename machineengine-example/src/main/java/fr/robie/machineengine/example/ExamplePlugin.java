@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 
 /**
@@ -65,7 +66,7 @@ public final class ExamplePlugin extends JavaPlugin {
             try (InputStream in = getResource("craftengine-pack/" + file)) {
                 if (in == null) throw new IOException("missing resource " + file);
                 Files.createDirectories(destination.getParent());
-                Files.copy(in, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                Files.copy(in, destination, StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 getLogger().warning("Could not install the CraftEngine pack file " + file + ": " + e.getMessage());
             }

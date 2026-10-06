@@ -3,6 +3,7 @@ package fr.robie.machineengine.api.process;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -34,7 +35,7 @@ public record ProcessBinding(@NotNull List<String> inputs, @NotNull String outpu
     /** Every output storage, in the order outputs try them. */
     public @NotNull List<String> outputs() {
         if (this.extraOutputs.isEmpty()) return List.of(this.output);
-        List<String> all = new java.util.ArrayList<>(List.of(this.output));
+        List<String> all = new ArrayList<>(List.of(this.output));
         all.addAll(this.extraOutputs);
         return List.copyOf(all);
     }

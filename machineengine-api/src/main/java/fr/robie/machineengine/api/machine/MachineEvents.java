@@ -1,13 +1,18 @@
 package fr.robie.machineengine.api.machine;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
+import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.process.ProcessView;
+import fr.robie.machineengine.api.resource.ResourceVariant;
+import fr.robie.machineengine.api.upgrade.UpgradeType;
 import org.jetbrains.annotations.NotNull;
+
+import java.util.Map;
 
 /**
  * Machine lifecycle and process events (ARCHITECTURE.md §26). All are posted in the
- * {@link fr.robie.machineengine.api.event.EventPhase#POST} phase, after the change happened.
+ * {@link EventPhase#POST} phase, after the change happened.
  */
 public final class MachineEvents {
     public static final EventType<Lifecycle> MACHINE_CREATE = EventType.of(MachineEngineKeys.key("machine_create"), Lifecycle.class);
@@ -34,13 +39,13 @@ public final class MachineEvents {
     }
 
     /** @param previous how many were installed before; {@code current} how many now (0: removed) */
-    public record Upgrade(@NotNull MachineInstance machine, @NotNull fr.robie.machineengine.api.upgrade.UpgradeType upgrade,
+    public record Upgrade(@NotNull MachineInstance machine, @NotNull UpgradeType upgrade,
                           int previous, int current) {
     }
 
     /** Amounts inserted and extracted since the last event of this machine. */
     public record Resources(@NotNull MachineInstance machine,
-                            @NotNull java.util.Map<fr.robie.machineengine.api.resource.ResourceVariant, Long> inserted,
-                            @NotNull java.util.Map<fr.robie.machineengine.api.resource.ResourceVariant, Long> extracted) {
+                            @NotNull Map<ResourceVariant, Long> inserted,
+                            @NotNull Map<ResourceVariant, Long> extracted) {
     }
 }

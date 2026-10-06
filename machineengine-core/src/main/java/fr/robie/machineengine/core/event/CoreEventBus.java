@@ -9,6 +9,7 @@ import fr.robie.machineengine.api.event.Subscription;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumMap;
 import java.util.List;
@@ -85,7 +86,7 @@ public final class CoreEventBus implements EventBus {
     public synchronized void unsubscribeAll(@NotNull AddonId owner) {
         for (EventType<?> type : List.copyOf(this.listeners.keySet())) {
             EnumMap<EventPhase, Listener<?>[]> byPhase = new EnumMap<>(this.listeners.get(type));
-            byPhase.replaceAll((phase, array) -> java.util.Arrays.stream(array)
+            byPhase.replaceAll((phase, array) -> Arrays.stream(array)
                     .filter(listener -> {
                         if (!listener.owner.equals(owner)) return true;
                         listener.active = false;
@@ -102,7 +103,7 @@ public final class CoreEventBus implements EventBus {
         EnumMap<EventPhase, Listener<?>[]> byPhase = new EnumMap<>(existing);
         Listener<?>[] array = byPhase.get(listener.phase);
         if (array == null) return;
-        byPhase.put(listener.phase, java.util.Arrays.stream(array).filter(other -> other != listener).toArray(Listener<?>[]::new));
+        byPhase.put(listener.phase, Arrays.stream(array).filter(other -> other != listener).toArray(Listener<?>[]::new));
         this.listeners.put(listener.type, byPhase);
     }
 

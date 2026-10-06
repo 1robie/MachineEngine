@@ -8,6 +8,7 @@ import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityEl
 import net.momirealms.craftengine.core.entity.display.ItemDisplayContext;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.item.ItemBuildContext;
+import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundAddEntityPacketProxy;
 import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.ClientboundRemoveEntitiesPacketProxy;
@@ -75,7 +76,7 @@ final class LevelDisplayElement implements BlockEntityElement {
         if (this.level == 0) return null;
         List<Object> cached = this.packets;
         if (cached != null) return cached;
-        var definition = CraftEngineItems.byId(net.momirealms.craftengine.core.util.Key.of(this.prefix + "/" + this.level));
+        var definition = CraftEngineItems.byId(Key.of(this.prefix + "/" + this.level));
         if (definition == null) return null;
         Object stack = definition.buildItem(ItemBuildContext.empty()).minecraftItem();
         Object add = ClientboundAddEntityPacketProxy.INSTANCE.newInstance(this.id, this.uuid,

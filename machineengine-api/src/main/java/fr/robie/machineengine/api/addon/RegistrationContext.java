@@ -4,13 +4,15 @@ import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.definition.BehaviorType;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.Validator;
+import fr.robie.machineengine.api.event.EngineEvents;
+import fr.robie.machineengine.api.event.EventBus;
+import fr.robie.machineengine.api.item.ItemTagContribution;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
-import fr.robie.machineengine.api.upgrade.ModifierType;
-import fr.robie.machineengine.api.upgrade.UpgradeType;
+import fr.robie.machineengine.api.registry.RegistrationException;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
@@ -21,6 +23,8 @@ import fr.robie.machineengine.api.resource.ResourceComponentType;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverter;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
+import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.UpgradeType;
 import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
@@ -42,13 +46,13 @@ public interface RegistrationContext {
 
     /**
      * The engine's event bus, already usable during registration (e.g. for
-     * {@link fr.robie.machineengine.api.event.EngineEvents#REGISTRIES_FROZEN}). Subscribe with
+     * {@link EngineEvents#REGISTRIES_FROZEN}). Subscribe with
      * {@link #addon()} as owner.
      */
-    @NotNull fr.robie.machineengine.api.event.EventBus events();
+    @NotNull EventBus events();
 
     /**
-     * @throws fr.robie.machineengine.api.registry.RegistrationException if {@code type} does not
+     * @throws RegistrationException if {@code type} does not
      *         exist or is not a static registry
      */
     <T extends Keyed> @NotNull WritableRegistry<T> registry(@NotNull RegistryType<T> type);
@@ -56,7 +60,7 @@ public interface RegistrationContext {
     /**
      * Creates a new registry owned by this addon (static or reloadable, per {@code type}).
      *
-     * @throws fr.robie.machineengine.api.registry.RegistrationException if it already exists
+     * @throws RegistrationException if it already exists
      */
     <T extends Keyed> void createRegistry(@NotNull RegistryType<T> type);
 
@@ -128,7 +132,7 @@ public interface RegistrationContext {
         reloadable(Registries.RECIPE, provider);
     }
 
-    default void itemTags(@NotNull ReloadableProvider<fr.robie.machineengine.api.item.ItemTagContribution> provider) {
+    default void itemTags(@NotNull ReloadableProvider<ItemTagContribution> provider) {
         reloadable(Registries.ITEM_TAG, provider);
     }
 }

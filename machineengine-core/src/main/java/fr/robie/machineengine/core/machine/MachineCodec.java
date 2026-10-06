@@ -2,11 +2,11 @@ package fr.robie.machineengine.core.machine;
 
 import fr.robie.machineengine.api.data.Codecs;
 import fr.robie.machineengine.api.data.DataMap;
-import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.data.DataValue.DataList;
+import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.data.StorageCodec;
-import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.MachineError.SerializationError;
+import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.machine.MachineDataKey;
 import fr.robie.machineengine.api.machine.MachineType;
@@ -20,6 +20,7 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
 import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.Direction;
+import fr.robie.machineengine.api.world.RelativeSide;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.handoff.DedupeEntry;
 import fr.robie.machineengine.core.machine.handoff.Escrow;
@@ -29,11 +30,13 @@ import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * The persisted form of a machine (ARCHITECTURE.md §20.3). Anything that cannot be decoded is kept
@@ -244,11 +247,11 @@ final class MachineCodec {
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
         data.getMap(SIDES).ifOk(sides -> sides.entries().forEach((port, raw) -> {
             if (!(raw instanceof DataList list)) return;
-            java.util.Set<fr.robie.machineengine.api.world.RelativeSide> set = java.util.EnumSet.noneOf(fr.robie.machineengine.api.world.RelativeSide.class);
+            Set<RelativeSide> set = EnumSet.noneOf(RelativeSide.class);
             for (DataValue value : list.values()) {
                 if (value instanceof DataValue.DataString text) {
                     try {
-                        set.add(fr.robie.machineengine.api.world.RelativeSide.valueOf(text.value().toUpperCase(Locale.ROOT)));
+                        set.add(RelativeSide.valueOf(text.value().toUpperCase(Locale.ROOT)));
                     } catch (IllegalArgumentException ignored) {
                         // a side name from a newer version: skip it
                     }

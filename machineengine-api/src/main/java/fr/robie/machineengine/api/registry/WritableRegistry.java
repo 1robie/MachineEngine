@@ -1,5 +1,6 @@
 package fr.robie.machineengine.api.registry;
 
+import fr.robie.machineengine.api.addon.RegistrationContext;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.ApiStatus;
@@ -7,7 +8,7 @@ import org.jetbrains.annotations.NotNull;
 
 /**
  * Registration-time handle on a static registry. Entries are attributed to the addon whose
- * {@link fr.robie.machineengine.api.addon.RegistrationContext} provided this handle.
+ * {@link RegistrationContext} provided this handle.
  */
 @ApiStatus.NonExtendable
 public interface WritableRegistry<T extends Keyed> {

@@ -5,6 +5,8 @@ import fr.robie.machineengine.api.network.NetworkBehavior;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.NetworkView;
 import fr.robie.machineengine.api.network.TransportType;
+import fr.robie.machineengine.api.registry.Registries;
+import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
@@ -13,6 +15,7 @@ import net.kyori.adventure.key.Key;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Set;
 
 import static fr.robie.machineengine.test.MachineFixtures.A;
 import static fr.robie.machineengine.test.MachineFixtures.CONSUMER;
@@ -55,15 +58,15 @@ class NetworkTest {
     void cablesConnectToEachOtherAndToPortsFacingThem() {
         CoreMachineEngine engine = engine();
         FakeWorld world = line(FakeWorld.singleRegion(engine), CABLE);
-        var probes = engine.registries().registry(fr.robie.machineengine.api.registry.Registries.RESOURCE_TYPE).values().stream()
-                .map(fr.robie.machineengine.api.resource.ResourceType::variant).toList();
+        var probes = engine.registries().registry(Registries.RESOURCE_TYPE).values().stream()
+                .map(ResourceType::variant).toList();
         var networks = engine.machines().networks();
-        assertEquals(java.util.Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(0), world, probes),
+        assertEquals(Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(0), world, probes),
                 "the generator's front port and the next cable");
-        assertEquals(java.util.Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(1), world, probes));
+        assertEquals(Set.of(Direction.WEST, Direction.EAST), networks.connections(CABLES.get(1), world, probes));
         world.removeTransport(CABLES.get(1));
-        assertEquals(java.util.Set.of(Direction.WEST), networks.connections(CABLES.get(0), world, probes), "the gap does not connect");
-        assertEquals(java.util.Set.of(), networks.connections(CABLES.get(1), world, probes), "no cable there any more");
+        assertEquals(Set.of(Direction.WEST), networks.connections(CABLES.get(0), world, probes), "the gap does not connect");
+        assertEquals(Set.of(), networks.connections(CABLES.get(1), world, probes), "no cable there any more");
     }
 
     private static FakeWorld line(FakeWorld world, TransportType middle) {

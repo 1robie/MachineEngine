@@ -2,6 +2,7 @@ package fr.robie.machineengine.test;
 
 import fr.robie.machineengine.api.item.ItemData;
 import fr.robie.machineengine.api.item.Items;
+import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
@@ -24,7 +25,7 @@ class ItemResourceTest {
 
     @Test
     void itemsAreBuiltInAndStackOnlyWhenIdentical() {
-        assertTrue(this.engine.registries().registry(fr.robie.machineengine.api.registry.Registries.RESOURCE_TYPE).containsValue(Items.ITEM));
+        assertTrue(this.engine.registries().registry(Registries.RESOURCE_TYPE).containsValue(Items.ITEM));
         assertEquals(IRON, SAME_IRON);
         SingleVariantStorage slot = SingleVariantStorage.of(64);
         try (Transaction transaction = this.engine.transactions().openOuter()) {

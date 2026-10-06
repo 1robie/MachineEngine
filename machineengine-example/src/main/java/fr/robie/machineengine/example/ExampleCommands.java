@@ -3,12 +3,14 @@ package fr.robie.machineengine.example;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.IntegerArgumentType;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.tree.LiteralCommandNode;
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
+import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
@@ -17,11 +19,16 @@ import fr.robie.machineengine.paper.PositionArguments;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
+import net.momirealms.craftengine.core.util.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
+import org.bukkit.block.Chest;
+import org.bukkit.block.Hopper;
+import org.bukkit.block.data.type.RedstoneWire;
 import org.bukkit.entity.Item;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 
@@ -68,7 +75,7 @@ final class ExampleCommands {
             Bukkit.getRegionScheduler().execute(this.plugin, new Location(world, x, y, z), () -> {
                 try {
                     action.run(context, world, x, y, z);
-                } catch (com.mojang.brigadier.exceptions.CommandSyntaxException e) {
+                } catch (CommandSyntaxException e) {
                     reply(context, e.getMessage());
                 }
             });
@@ -131,15 +138,15 @@ final class ExampleCommands {
             return 0;
         }
         world.getBlockAt(x, y + 1, z).setBlockData(Bukkit.createBlockData("minecraft:hopper[facing=down]"));
-        ((org.bukkit.block.Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory().addItem(new ItemStack(Material.IRON_INGOT, 10));
+        ((Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory().addItem(new ItemStack(Material.IRON_INGOT, 10));
         reply(context, "hopper-test: hopper (10 iron) > crate > hopper > chest; counting in 15 s");
         Bukkit.getRegionScheduler().runDelayed(this.plugin, new Location(world, x, y, z), task -> {
-            int top = count(((org.bukkit.block.Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory());
-            int bottom = count(((org.bukkit.block.Hopper) world.getBlockAt(x, y - 1, z).getState(false)).getInventory());
-            int chest = count(((org.bukkit.block.Chest) world.getBlockAt(x, y - 2, z).getState(false)).getInventory());
+            int top = count(((Hopper) world.getBlockAt(x, y + 1, z).getState(false)).getInventory());
+            int bottom = count(((Hopper) world.getBlockAt(x, y - 1, z).getState(false)).getInventory());
+            int chest = count(((Chest) world.getBlockAt(x, y - 2, z).getState(false)).getInventory());
             MachineInstance crate = MachineEngine.get().machineAt(WorldPosition.of(world.getKey(), x, y, z)).orElse(null);
             long inCrate = crate == null ? -1 : crate.inspect().storages().get("items").stream()
-                    .mapToLong(fr.robie.machineengine.api.transfer.StorageView::amount).sum();
+                    .mapToLong(StorageView::amount).sum();
             this.plugin.getLogger().info("hopper-test: top hopper " + top + ", crate " + inCrate + ", bottom hopper " + bottom
                     + ", chest " + chest + ", total " + (top + inCrate + bottom + chest) + " (expected 10)");
         }, 300);
@@ -167,20 +174,20 @@ final class ExampleCommands {
         }
         Location at = new Location(world, x, y, z);
         Bukkit.getRegionScheduler().runDelayed(this.plugin, at, half -> {
-            int halfPower = ((org.bukkit.block.data.type.RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
+            int halfPower = ((RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
             try (Transaction transaction = MachineEngine.get().transactions().openOuter()) {
                 port.extract(iron.variant(), iron.amount(), transaction);
                 transaction.commit();
             }
             Bukkit.getRegionScheduler().runDelayed(this.plugin, at, empty -> {
-                int emptyPower = ((org.bukkit.block.data.type.RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
+                int emptyPower = ((RedstoneWire) world.getBlockAt(x + 2, y, z).getBlockData()).getPower();
                 this.plugin.getLogger().info("comparator-test: half full " + halfPower + " (expected 8), empty " + emptyPower + " (expected 0)");
             }, 10);
         }, 10);
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int count(org.bukkit.inventory.Inventory inventory) {
+    private static int count(Inventory inventory) {
         int total = 0;
         for (ItemStack stack : inventory.getContents()) {
             if (stack != null && stack.getType() == Material.IRON_INGOT) total += stack.getAmount();
@@ -201,7 +208,7 @@ final class ExampleCommands {
     }
 
     private static boolean place(World world, int x, int y, int z, String name) {
-        return CraftEngineBlocks.place(new Location(world, x, y, z), net.momirealms.craftengine.core.util.Key.of("example", name), false);
+        return CraftEngineBlocks.place(new Location(world, x, y, z), Key.of("example", name), false);
     }
 
     private static void reply(CommandContext<CommandSourceStack> context, String message) {

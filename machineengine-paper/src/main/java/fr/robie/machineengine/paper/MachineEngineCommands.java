@@ -24,10 +24,14 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 
 /**
@@ -38,12 +42,12 @@ import java.util.function.Supplier;
 public final class MachineEngineCommands {
     public static final String PERMISSION = "machineengine.admin";
 
-    private final org.bukkit.plugin.Plugin plugin;
+    private final Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
     private final MachineDebugView debugView;
 
-    public MachineEngineCommands(@NotNull org.bukkit.plugin.Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
+    public MachineEngineCommands(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
                                  @NotNull Supplier<MachineLocator> locator) {
         this.plugin = plugin;
         this.engine = engine;
@@ -108,7 +112,7 @@ public final class MachineEngineCommands {
     }
 
     private int debug(CommandContext<CommandSourceStack> context) {
-        if (!(context.getSource().getExecutor() instanceof org.bukkit.entity.Player player)) {
+        if (!(context.getSource().getExecutor() instanceof Player player)) {
             context.getSource().getSender().sendMessage(Component.text("Only players can see the debug view.", NamedTextColor.RED));
             return 0;
         }
@@ -169,7 +173,7 @@ public final class MachineEngineCommands {
         return Command.SINGLE_SUCCESS;
     }
 
-    private final Map<String, PendingPurge> pendingPurges = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<String, PendingPurge> pendingPurges = new ConcurrentHashMap<>();
 
     private record PendingPurge(WorldPosition position, long until) {
     }
@@ -207,7 +211,7 @@ public final class MachineEngineCommands {
                 return;
             }
             MachineInspection inspection = machine.inspect();
-            List<String> keys = new java.util.ArrayList<>(List.of("type", "state", "facing", "process_status", "process_bar",
+            List<String> keys = new ArrayList<>(List.of("type", "state", "facing", "process_status", "process_bar",
                     "process_percent", "process_remaining_seconds", "upgrades"));
             inspection.storages().keySet().forEach(id -> keys.addAll(List.of("storage_" + id + "_amount",
                     "storage_" + id + "_capacity", "storage_" + id + "_bar", "storage_" + id + "_resource")));
@@ -245,7 +249,7 @@ public final class MachineEngineCommands {
 
     /** Human-readable inspection; also used in logs. */
     public static @NotNull List<String> describe(@NotNull MachineInspection inspection) {
-        List<String> lines = new java.util.ArrayList<>();
+        List<String> lines = new ArrayList<>();
         lines.add("Machine " + inspection.type().asString() + (inspection.placeholder() ? " (PLACEHOLDER: type not installed)" : "")
                 + " at " + inspection.position() + " facing " + inspection.facing());
         lines.add("  state: " + inspection.state() + (inspection.lastWakeReason() == null ? "" : ", last woken by " + inspection.lastWakeReason()));

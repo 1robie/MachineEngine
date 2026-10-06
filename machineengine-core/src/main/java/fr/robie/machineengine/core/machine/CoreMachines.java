@@ -1,22 +1,29 @@
 package fr.robie.machineengine.core.machine;
 
 import fr.robie.machineengine.api.data.DataMap;
+import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeLookup;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.machineengine.api.registry.ReloadableRegistry;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.handoff.HandoffService;
+import fr.robie.machineengine.core.network.CoreNetworks;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 import java.util.function.Supplier;
 import java.util.logging.Logger;
 
@@ -31,7 +38,7 @@ public final class CoreMachines implements MachineServices {
     private final ResourceCodecs codecs;
     private final RecipeLookup recipes;
     private final HandoffService handoff = new HandoffService();
-    private final fr.robie.machineengine.core.network.CoreNetworks networks;
+    private final CoreNetworks networks;
     private final Logger logger;
 
     public CoreMachines(@NotNull RegistryAccess registries, @NotNull TransactionManager transactions,
@@ -42,10 +49,10 @@ public final class CoreMachines implements MachineServices {
         this.tags = tags;
         this.events = events;
         this.codecs = codecs;
-        this.recipes = new CoreRecipeLookup((fr.robie.machineengine.api.registry.ReloadableRegistry<fr.robie.machineengine.api.recipe.Recipe>)
+        this.recipes = new CoreRecipeLookup((ReloadableRegistry<Recipe>)
                 registries.registry(Registries.RECIPE));
         this.logger = logger;
-        this.networks = new fr.robie.machineengine.core.network.CoreNetworks(transactions, tags, logger);
+        this.networks = new CoreNetworks(transactions, tags, logger);
     }
 
     /**
@@ -80,14 +87,14 @@ public final class CoreMachines implements MachineServices {
      * @return empty if there is nothing worth keeping, or a handoff is still in flight (the caller
      *         then removes the machine normally)
      */
-    public @NotNull java.util.Optional<Packed> pack(@NotNull LoadedMachine machine) {
+    public @NotNull Optional<Packed> pack(@NotNull LoadedMachine machine) {
         MachineInstanceImpl instance = machine.instance();
         if (instance == null || !instance.isValid() || instance.hasEscrow() || !instance.holdsContents()) {
-            return java.util.Optional.empty();
+            return Optional.empty();
         }
         DataMap state = MachineCodec.encode(instance, instance.gameTime())
                 .without(MachineCodec.ESCROW).without(MachineCodec.DEDUPE).without(MachineCodec.SAVED_AT);
-        return java.util.Optional.of(new Packed(instance.type().key(), state, instance.removed()));
+        return Optional.of(new Packed(instance.type().key(), state, instance.removed()));
     }
 
     /**
@@ -100,8 +107,8 @@ public final class CoreMachines implements MachineServices {
         MachineInstanceImpl instance = fresh.instance();
         if (instance == null || !state.getString(MachineCodec.TYPE).orElse("").equals(instance.type().key().asString())) return fresh;
         DataMap data = state
-                .with(MachineCodec.SAVED_AT, fr.robie.machineengine.api.data.DataValue.of(host.gameTime(fresh.position().world())))
-                .with(MachineCodec.FACING, fr.robie.machineengine.api.data.DataValue.of(instance.facing().name().toLowerCase(java.util.Locale.ROOT)));
+                .with(MachineCodec.SAVED_AT, DataValue.of(host.gameTime(fresh.position().world())))
+                .with(MachineCodec.FACING, DataValue.of(instance.facing().name().toLowerCase(Locale.ROOT)));
         instance.discarded();
         LoadedMachine restored = MachineCodec.decode(data, fresh.position(), this, host);
         MachineInstanceImpl machine = restored.instance();
@@ -125,7 +132,7 @@ public final class CoreMachines implements MachineServices {
         MachineInstanceImpl instance = fresh.instance();
         if (instance == null) return fresh;
         DataMap retyped = state.without(MachineCodec.PROCESS)
-                .with(MachineCodec.TYPE, fr.robie.machineengine.api.data.DataValue.of(instance.type().key().asString()));
+                .with(MachineCodec.TYPE, DataValue.of(instance.type().key().asString()));
         return restore(fresh, retyped, host);
     }
 
@@ -136,7 +143,7 @@ public final class CoreMachines implements MachineServices {
      * @param contents what the machine held, for hosts that cannot keep {@code state} after all and
      *                 drop these instead
      */
-    public record Packed(@NotNull net.kyori.adventure.key.Key type, @NotNull DataMap state, @NotNull List<ResourceStack> contents) {
+    public record Packed(@NotNull Key type, @NotNull DataMap state, @NotNull List<ResourceStack> contents) {
     }
 
     public void unload(@NotNull LoadedMachine machine) {
@@ -191,7 +198,7 @@ public final class CoreMachines implements MachineServices {
     }
 
     @Override
-    public @NotNull fr.robie.machineengine.core.network.CoreNetworks networks() {
+    public @NotNull CoreNetworks networks() {
         return this.networks;
     }
 

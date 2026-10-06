@@ -5,17 +5,20 @@ import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.process.ProcessControl;
 import fr.robie.machineengine.api.recipe.RecipeLookup;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.api.upgrade.ModifierType;
+import fr.robie.machineengine.api.upgrade.StandardModifiers;
 import fr.robie.machineengine.api.world.RelativeSide;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 import java.util.random.RandomGenerator;
 
@@ -74,12 +77,12 @@ public interface MachineContext {
     long modified(@NotNull ModifierType type, long base);
 
     /**
-     * A per-tick process cost after upgrades: {@link fr.robie.machineengine.api.upgrade.StandardModifiers#PROCESS_COST},
+     * A per-tick process cost after upgrades: {@link StandardModifiers#PROCESS_COST},
      * then the cost modifier of the resource's category ({@code StandardModifiers.processCost}).
      */
-    default long modifiedCost(@NotNull fr.robie.machineengine.api.resource.ResourceType type, long amount) {
-        long cost = modified(fr.robie.machineengine.api.upgrade.StandardModifiers.PROCESS_COST, amount);
-        return modified(fr.robie.machineengine.api.upgrade.StandardModifiers.processCost(type.category()), cost);
+    default long modifiedCost(@NotNull ResourceType type, long amount) {
+        long cost = modified(StandardModifiers.PROCESS_COST, amount);
+        return modified(StandardModifiers.processCost(type.category()), cost);
     }
 
     /** Deterministic per-machine randomness (§19). */
@@ -130,10 +133,10 @@ public interface MachineContext {
      * Side configuration (E2): the faces {@code port} is exposed on, relative to the facing. Saved with
      * the machine; neighbors, networks and hoppers see the change at once.
      */
-    void setPortSides(@NotNull String port, @NotNull java.util.Set<RelativeSide> sides);
+    void setPortSides(@NotNull String port, @NotNull Set<RelativeSide> sides);
 
     /** The port's current sides ({@link #setPortSides}, or the type's). */
-    @NotNull java.util.Set<RelativeSide> portSides(@NotNull String port);
+    @NotNull Set<RelativeSide> portSides(@NotNull String port);
 
     // -- storages and ports --------------------------------------------------------------------
 

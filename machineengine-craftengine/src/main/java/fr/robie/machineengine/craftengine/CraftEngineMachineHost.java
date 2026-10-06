@@ -1,26 +1,48 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.network.TransportSideMode;
 import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.transfer.ResourceHandler;
+import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
+import fr.robie.machineengine.paper.MachineMenuService;
+import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.paper.event.PlayerMachineInteractEvent;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.sound.Sound;
+import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
+import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
+import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.Particle;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.data.Levelled;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.util.BoundingBox;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -40,7 +62,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     private final CoreMachineEngine engine;
     private final Map<WorldPosition, MachineBlockEntityController> controllers = new ConcurrentHashMap<>();
     private final CraftEngineProtection protection;
-    private volatile @Nullable fr.robie.machineengine.paper.MachineMenuService menus;
+    private volatile @Nullable MachineMenuService menus;
     private final KeptContents keptContents;
 
     private CraftEngineMachineHost(Plugin plugin, CoreMachineEngine engine) {
@@ -64,7 +86,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         controller.purgePlaceholder();
         World world = world(position.world());
         if (world != null) {
-            net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.remove(world.getBlockAt(
+            CraftEngineBlocks.remove(world.getBlockAt(
                     position.position().x(), position.position().y(), position.position().z()));
         }
         return "placeholder machine " + type + " deleted with its block";
@@ -72,7 +94,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     /** Closes the menus of a machine that was removed or unloaded. */
     void machineGone(@NotNull WorldPosition position) {
-        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+        MachineMenuService service = this.menus;
         if (service != null) service.machineGone(position);
     }
 
@@ -82,7 +104,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     /** The menu integration (zMenu), or {@code null} for no machine GUIs. */
-    public void setMenus(@Nullable fr.robie.machineengine.paper.MachineMenuService menus) {
+    public void setMenus(@Nullable MachineMenuService menus) {
         this.menus = menus;
     }
 
@@ -92,21 +114,21 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
      *
      * @return whether the click was handled
      */
-    boolean interact(@NotNull org.bukkit.entity.Player player, @NotNull WorldPosition position) {
-        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+    boolean interact(@NotNull Player player, @NotNull WorldPosition position) {
+        MachineMenuService service = this.menus;
         LoadedMachine machine = machine(position);
         if (service == null || machine == null) return false;
         if (machine.instance() == null) {
-            player.sendMessage(fr.robie.machineengine.paper.Messages.missingAddon(machine.inspect().type().asString()));
+            player.sendMessage(Messages.missingAddon(machine.inspect().type().asString()));
             return true;
         }
         if (!player.hasPermission("machineengine.use")) return false;
         World world = world(position.world());
-        if (world != null && !this.protection.canOpen(player, new org.bukkit.Location(world,
+        if (world != null && !this.protection.canOpen(player, new Location(world,
                 position.position().x(), position.position().y(), position.position().z()))) {
             return true;
         }
-        var event = new fr.robie.machineengine.paper.event.PlayerMachineInteractEvent(player, machine.instance());
+        var event = new PlayerMachineInteractEvent(player, machine.instance());
         if (!event.callEvent()) return true;
         return service.open(player, machine);
     }
@@ -114,7 +136,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public static @NotNull CraftEngineMachineHost start(@NotNull Plugin plugin, @NotNull CoreMachineEngine engine) {
         CraftEngineMachineHost host = new CraftEngineMachineHost(plugin, engine);
         current = host;
-        fr.robie.machineengine.paper.MachineLocator.setCurrent(host);
+        MachineLocator.setCurrent(host);
         return host;
     }
 
@@ -127,7 +149,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
      * world save keeps the data without calling back into MachineEngine (§8.2 shutdown).
      */
     public void shutdown() {
-        fr.robie.machineengine.paper.MachineLocator.setCurrent(null);
+        MachineLocator.setCurrent(null);
         for (MachineBlockEntityController controller : this.controllers.values()) {
             LoadedMachine machine = controller.machine();
             if (machine == null) continue;
@@ -182,7 +204,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     @Override
     public @NotNull Collection<LoadedMachine> loadedMachines() {
         return this.controllers.values().stream().map(MachineBlockEntityController::machine)
-                .filter(java.util.Objects::nonNull).toList();
+                .filter(Objects::nonNull).toList();
     }
 
     @Override
@@ -236,41 +258,41 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
-    public @NotNull fr.robie.machineengine.api.machine.MachineEnvironment environment(@NotNull WorldPosition position) {
+    public @NotNull MachineEnvironment environment(@NotNull WorldPosition position) {
         World world = world(position.world());
-        if (world == null) return fr.robie.machineengine.api.machine.MachineEnvironment.NONE;
-        org.bukkit.block.Block above = world.getBlockAt(position.position().x(), position.position().y() + 1, position.position().z());
+        if (world == null) return MachineEnvironment.NONE;
+        Block above = world.getBlockAt(position.position().x(), position.position().y() + 1, position.position().z());
         int skyLight = above.getLightFromSky();
         boolean skyVisible = world.getHighestBlockYAt(above.getX(), above.getZ()) < above.getY() || skyLight >= 15;
         boolean daytime = world.isDayTime() && world.getEnvironment() == World.Environment.NORMAL;
         boolean raining = world.hasStorm() && above.getTemperature() < 2.0;
-        return new fr.robie.machineengine.api.machine.MachineEnvironment(skyVisible, daytime, raining, skyLight);
+        return new MachineEnvironment(skyVisible, daytime, raining, skyLight);
     }
 
     @Override
-    public @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull WorldPosition position) {
-        org.bukkit.block.Block block = ownedBlock(position);
-        if (block == null || !(block.getBlockData() instanceof org.bukkit.block.data.Levelled levelled)) return null;
+    public @Nullable WorldFluid worldFluidAt(@NotNull WorldPosition position) {
+        Block block = ownedBlock(position);
+        if (block == null || !(block.getBlockData() instanceof Levelled levelled)) return null;
         Key fluid = switch (block.getType()) {
             case WATER -> Key.key("minecraft", "water");
             case LAVA -> Key.key("minecraft", "lava");
             default -> null;
         };
-        return fluid == null ? null : new fr.robie.machineengine.api.world.WorldFluid(fluid, levelled.getLevel() == 0);
+        return fluid == null ? null : new WorldFluid(fluid, levelled.getLevel() == 0);
     }
 
     @Override
     public boolean takeWorldFluid(@NotNull WorldPosition position) {
         var fluid = worldFluidAt(position);
         if (fluid == null || !fluid.source()) return false;
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         if (block == null) return false;
-        block.setType(org.bukkit.Material.AIR, true);
+        block.setType(Material.AIR, true);
         return true;
     }
 
     /** Loaded transport blocks, for their side modes. */
-    private final Map<WorldPosition, TransportBlockBehavior.Controller> transports = new java.util.concurrent.ConcurrentHashMap<>();
+    private final Map<WorldPosition, TransportBlockBehavior.Controller> transports = new ConcurrentHashMap<>();
 
     void registerTransport(WorldPosition position, TransportBlockBehavior.Controller controller) {
         this.transports.put(position, controller);
@@ -281,7 +303,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
-    public @Nullable fr.robie.machineengine.api.network.TransportSideMode cycleTransportSide(@NotNull WorldPosition position,
+    public @Nullable TransportSideMode cycleTransportSide(@NotNull WorldPosition position,
                                                                                           @NotNull fr.robie.machineengine.api.world.Direction side) {
         TransportBlockBehavior.Controller controller = this.transports.get(position);
         if (controller == null || !isOwnedByCurrentThread(position)) return null;
@@ -297,10 +319,10 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     @Override
-    public @Nullable fr.robie.machineengine.api.transfer.ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
+    public @Nullable ResourceHandler worldHandlerAt(@NotNull WorldPosition position,
                                                                                        @NotNull fr.robie.machineengine.api.world.Direction side) {
         if (this.controllers.containsKey(position)) return null; // a machine block, handled as a machine
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         return block == null ? null : ContainerHandler.of(block.getState(false));
     }
 
@@ -317,15 +339,15 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         var packed = this.engine.machines().pack(controller.machine());
         if (packed.isEmpty() && old.holdsContents()) return false; // a transfer in flight
         World world = world(position.world());
-        var definition = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.byId(
+        var definition = CraftEngineBlocks.byId(
                 net.momirealms.craftengine.core.util.Key.of(blockId.namespace(), blockId.value()));
         if (world == null || definition == null) return false;
         // Same facing as the old block, if the new one has a facing property.
-        net.momirealms.craftengine.core.block.ImmutableBlockState state = definition.defaultState();
+        ImmutableBlockState state = definition.defaultState();
         var facing = definition.getProperty("facing");
         if (facing != null) {
             try {
-                state = net.momirealms.craftengine.core.block.ImmutableBlockState.with(state, facing,
+                state = ImmutableBlockState.with(state, facing,
                         net.momirealms.craftengine.core.util.Direction.valueOf((facingOverride != null ? facingOverride : old.facing()).name()));
             } catch (RuntimeException e) {
                 // a 4-direction block and an up/down facing: keep the default
@@ -333,8 +355,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         }
         controller.replacing(true); // its removal must not drop what the new machine takes over
         var at = position.position();
-        boolean placed = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.place(
-                new org.bukkit.Location(world, at.x(), at.y(), at.z()), state, false);
+        boolean placed = CraftEngineBlocks.place(
+                new Location(world, at.x(), at.y(), at.z()), state, false);
         if (!placed) {
             controller.replacing(false);
             return false;
@@ -350,9 +372,9 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public @Nullable Key blockAt(@NotNull WorldPosition position) {
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         if (block == null) return null;
-        var custom = net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.getCustomBlockState(block);
+        var custom = CraftEngineBlocks.getCustomBlockState(block);
         if (custom != null && !custom.isEmpty()) {
             var id = custom.owner().value().id();
             return Key.key(id.namespace(), id.value());
@@ -362,13 +384,13 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         if (block == null || this.controllers.containsKey(position)) return false;
-        org.bukkit.Material material = fluid.asString().equals("minecraft:water") ? org.bukkit.Material.WATER
-                : fluid.asString().equals("minecraft:lava") ? org.bukkit.Material.LAVA : null;
+        Material material = fluid.asString().equals("minecraft:water") ? Material.WATER
+                : fluid.asString().equals("minecraft:lava") ? Material.LAVA : null;
         if (material == null) return false;
         boolean air = block.getType().isAir();
-        boolean flowing = block.getType() == material && block.getBlockData() instanceof org.bukkit.block.data.Levelled levelled && levelled.getLevel() != 0;
+        boolean flowing = block.getType() == material && block.getBlockData() instanceof Levelled levelled && levelled.getLevel() != 0;
         if (!air && !flowing) return false;
         block.setType(material, true);
         return true;
@@ -376,9 +398,9 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public boolean placeWorldBlock(@NotNull WorldPosition position, @NotNull Key block) {
-        org.bukkit.block.Block at = ownedBlock(position);
+        Block at = ownedBlock(position);
         if (at == null || this.controllers.containsKey(position)) return false;
-        org.bukkit.Material material = org.bukkit.Material.matchMaterial(block.asString());
+        Material material = Material.matchMaterial(block.asString());
         if (material == null || !material.isBlock()) return false;
         if (!at.getType().isAir() && !at.isLiquid()) return false;
         at.setType(material, true);
@@ -387,19 +409,19 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public float worldBlockHardness(@NotNull WorldPosition position) {
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         if (block == null || block.getType().isAir()) return -1;
         return block.getType().getHardness();
     }
 
     @Override
     public boolean breakWorldBlock(@NotNull WorldPosition position) {
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         if (block == null || block.getType().isAir() || block.getType().getHardness() < 0) return false;
         // Machines and transports are never broken by other machines (as in the test world).
         if (this.controllers.containsKey(position) || this.transports.containsKey(position)) return false;
-        if (net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.isCustomBlock(block)) {
-            return net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.remove(block, null, false, true, true);
+        if (CraftEngineBlocks.isCustomBlock(block)) {
+            return CraftEngineBlocks.remove(block, null, false, true, true);
         }
         return block.breakNaturally();
     }
@@ -409,10 +431,10 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         World world = world(position.world());
         if (world == null || !isOwnedByCurrentThread(position)) return List.of();
         var at = position.position();
-        List<ResourceStack> taken = new java.util.ArrayList<>();
-        for (org.bukkit.entity.Entity entity : world.getNearbyEntities(new org.bukkit.util.BoundingBox(at.x(), at.y(), at.z(), at.x() + 1, at.y() + 1, at.z() + 1))) {
-            if (!(entity instanceof org.bukkit.entity.Item item) || item.isDead()) continue;
-            taken.add(fr.robie.machineengine.paper.PaperItems.toResource(item.getItemStack()));
+        List<ResourceStack> taken = new ArrayList<>();
+        for (Entity entity : world.getNearbyEntities(new BoundingBox(at.x(), at.y(), at.z(), at.x() + 1, at.y() + 1, at.z() + 1))) {
+            if (!(entity instanceof Item item) || item.isDead()) continue;
+            taken.add(PaperItems.toResource(item.getItemStack()));
             item.remove();
         }
         return taken;
@@ -420,7 +442,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public int redstonePower(@NotNull WorldPosition position) {
-        org.bukkit.block.Block block = ownedBlock(position);
+        Block block = ownedBlock(position);
         return block == null ? 0 : block.getBlockPower();
     }
 
@@ -429,7 +451,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         World world = world(position.world());
         if (world == null) return;
         var at = position.position();
-        world.playSound(net.kyori.adventure.sound.Sound.sound(sound, net.kyori.adventure.sound.Sound.Source.BLOCK, volume, pitch),
+        world.playSound(Sound.sound(sound, Sound.Source.BLOCK, volume, pitch),
                 at.x() + 0.5, at.y() + 0.5, at.z() + 0.5);
     }
 
@@ -441,15 +463,15 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         var b = to.position();
         double dx = b.x() - a.x(), dy = b.y() - a.y(), dz = b.z() - a.z();
         int steps = (int) Math.max(1, Math.ceil(Math.sqrt(dx * dx + dy * dy + dz * dz) * 2));
-        var dust = new org.bukkit.Particle.DustOptions(org.bukkit.Color.fromRGB(color & 0xFFFFFF), 1.0f);
+        var dust = new Particle.DustOptions(Color.fromRGB(color & 0xFFFFFF), 1.0f);
         for (int i = 0; i <= steps; i++) {
             double t = i / (double) steps;
-            world.spawnParticle(org.bukkit.Particle.DUST, a.x() + 0.5 + dx * t, a.y() + 0.5 + dy * t, a.z() + 0.5 + dz * t, 1, dust);
+            world.spawnParticle(Particle.DUST, a.x() + 0.5 + dx * t, a.y() + 0.5 + dy * t, a.z() + 0.5 + dz * t, 1, dust);
         }
     }
 
     /** The block at {@code position} if its chunk is loaded and this thread owns it, else null. */
-    private @Nullable org.bukkit.block.Block ownedBlock(WorldPosition position) {
+    private @Nullable Block ownedBlock(WorldPosition position) {
         World world = world(position.world());
         if (world == null || !isOwnedByCurrentThread(position)) return null;
         var at = position.position();
@@ -479,7 +501,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public void contentsChanged(@NotNull MachineInstanceImpl machine) {
         MachineBlockEntityController controller = this.controllers.get(machine.position());
         if (controller != null) controller.contentsChanged();
-        fr.robie.machineengine.paper.MachineMenuService service = this.menus;
+        MachineMenuService service = this.menus;
         if (service != null) service.machineChanged(machine.position());
     }
 

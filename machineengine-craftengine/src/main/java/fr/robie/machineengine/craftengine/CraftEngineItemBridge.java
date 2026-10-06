@@ -23,6 +23,7 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -119,7 +120,7 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
         Bukkit.getGlobalRegionScheduler().execute(this.plugin, () -> {
             CoreMachineEngine running = this.engine.get();
             if (running == null) return;
-            for (var type : java.util.List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG, Registries.RECIPE)) {
+            for (var type : List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG, Registries.RECIPE)) {
                 var report = running.reload(type);
                 if (report.hasErrors()) this.plugin.getLogger().warning("Reload of " + type.key().asString()
                         + " after CraftEngine loaded: " + System.lineSeparator() + report.format());

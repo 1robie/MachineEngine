@@ -3,6 +3,7 @@ package fr.robie.machineengine.test;
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.machine.CatchUpPolicy;
+import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.ProcessingBehavior;
@@ -38,7 +39,7 @@ class KeepContentsTest {
     private static final MachineType OTHER = generator("other_generator");
     private static final MachineType BOX = MachineType.builder(Key.key("omega", "box"))
             .storage(StorageDefinition.tank("tank", 10))
-            .behavior(type -> fr.robie.machineengine.api.machine.MachineContext::sleep)
+            .behavior(type -> MachineContext::sleep)
             .build();
 
     private static MachineType generator(String name) {

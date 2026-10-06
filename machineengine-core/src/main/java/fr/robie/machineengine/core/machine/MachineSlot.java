@@ -9,6 +9,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.function.LongSupplier;
 import java.util.function.Predicate;
 
 /**
@@ -18,7 +19,7 @@ import java.util.function.Predicate;
  */
 public final class MachineSlot extends SingleVariantStorage {
     private final Listener listener;
-    private final java.util.function.LongSupplier capacity;
+    private final LongSupplier capacity;
     private @Nullable DataValue lockedData;
 
     MachineSlot(long capacity, @NotNull Predicate<ResourceVariant> filter, @NotNull Listener listener) {
@@ -26,7 +27,7 @@ public final class MachineSlot extends SingleVariantStorage {
     }
 
     /** A slot whose capacity can change at runtime (upgrades). */
-    MachineSlot(@NotNull java.util.function.LongSupplier capacity, @NotNull Predicate<ResourceVariant> filter, @NotNull Listener listener) {
+    MachineSlot(@NotNull LongSupplier capacity, @NotNull Predicate<ResourceVariant> filter, @NotNull Listener listener) {
         super(SingleVariantStorage.builder(Long.MAX_VALUE).filter(filter));
         this.capacity = capacity;
         this.listener = listener;

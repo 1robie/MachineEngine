@@ -2,12 +2,17 @@ package fr.robie.machineengine.test;
 
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.addon.RegistrationContext;
+import fr.robie.machineengine.api.definition.DefinitionFile;
 import fr.robie.machineengine.api.version.Version;
+import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
+import fr.robie.machineengine.core.resource.ItemTagSource;
 import org.jetbrains.annotations.NotNull;
 
+import java.util.List;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -53,20 +58,20 @@ public final class TestEngine {
     }
 
     /** Adds data-driven definition files (format-neutral trees, as the YAML loader produces). */
-    public @NotNull TestEngine definitions(@NotNull java.util.List<fr.robie.machineengine.api.definition.DefinitionFile> files) {
-        this.builder.definitions(() -> files, fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver.NONE);
+    public @NotNull TestEngine definitions(@NotNull List<DefinitionFile> files) {
+        this.builder.definitions(() -> files, DefinitionCompiler.ItemResolver.NONE);
         return this;
     }
 
     /** Adds data-driven definition files with a custom item resolver (e.g. one that is not ready yet). */
-    public @NotNull TestEngine definitions(@NotNull java.util.function.Supplier<java.util.List<fr.robie.machineengine.api.definition.DefinitionFile>> files,
-                                           @NotNull fr.robie.machineengine.core.definition.DefinitionCompiler.ItemResolver items) {
+    public @NotNull TestEngine definitions(@NotNull Supplier<List<DefinitionFile>> files,
+                                           @NotNull DefinitionCompiler.ItemResolver items) {
         this.builder.definitions(files, items);
         return this;
     }
 
     /** The platform's item tags (vanilla and CraftEngine tags on a real server). */
-    public @NotNull TestEngine itemTags(@NotNull fr.robie.machineengine.core.resource.ItemTagSource source) {
+    public @NotNull TestEngine itemTags(@NotNull ItemTagSource source) {
         this.builder.itemTags(source);
         return this;
     }

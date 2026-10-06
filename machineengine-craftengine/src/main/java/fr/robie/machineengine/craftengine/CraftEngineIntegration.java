@@ -4,6 +4,7 @@ import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.core.block.BlockDefinition;
+import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.behavior.BlockBehaviors;
 import org.jetbrains.annotations.NotNull;
 
@@ -23,7 +24,7 @@ public final class CraftEngineIntegration {
     }
 
     /** @return whether {@code state} is a block with the {@code machineengine:machine} behavior */
-    public static boolean isMachineBlock(@NotNull net.momirealms.craftengine.core.block.ImmutableBlockState state) {
+    public static boolean isMachineBlock(@NotNull ImmutableBlockState state) {
         return state.behavior().getFirst(MachineBlockBehavior.class) != null;
     }
 

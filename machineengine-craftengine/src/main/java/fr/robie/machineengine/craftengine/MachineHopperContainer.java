@@ -15,6 +15,7 @@ import net.momirealms.craftengine.bukkit.util.ItemStackUtils;
 import net.momirealms.craftengine.bukkit.world.BukkitContainer;
 import net.momirealms.craftengine.core.entity.player.Player;
 import net.momirealms.craftengine.core.item.Item;
+import net.momirealms.craftengine.core.plugin.CraftEngine;
 import net.momirealms.craftengine.core.world.WorldPosition;
 import net.momirealms.craftengine.core.world.WorldlyContainer;
 import org.bukkit.entity.HumanEntity;
@@ -23,8 +24,10 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Hopper (and dropper, hopper minecart) interop (§22.4): a machine's item ports seen as a vanilla
@@ -52,7 +55,7 @@ final class MachineHopperContainer implements BukkitContainer, WorldlyContainer 
     /** The vanilla container handed to hoppers; created once per block entity. */
     Object vanilla() {
         if (this.nms == null) {
-            this.nms = net.momirealms.craftengine.core.plugin.CraftEngine.instance().platform().createContainer(this);
+            this.nms = CraftEngine.instance().platform().createContainer(this);
         }
         return this.nms;
     }
@@ -68,7 +71,7 @@ final class MachineHopperContainer implements BukkitContainer, WorldlyContainer 
         MachineInstanceImpl machine = machine();
         if (machine == null) return List.of();
         List<Exposed> exposed = new ArrayList<>();
-        java.util.Map<String, List<PortDefinition>> byStorage = new java.util.LinkedHashMap<>();
+        Map<String, List<PortDefinition>> byStorage = new LinkedHashMap<>();
         for (PortDefinition port : machine.type().ports()) {
             if (port.direction() != PortDirection.DISABLED) byStorage.computeIfAbsent(port.storage(), id -> new ArrayList<>()).add(port);
         }

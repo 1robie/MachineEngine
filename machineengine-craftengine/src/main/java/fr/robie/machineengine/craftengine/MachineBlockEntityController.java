@@ -1,23 +1,44 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.SchedulerState;
 import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.world.Direction;
+import fr.robie.machineengine.api.world.RelativeSide;
 import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import net.momirealms.craftengine.bukkit.util.BlockStateUtils;
+import net.momirealms.craftengine.bukkit.util.ItemStackUtils;
+import net.momirealms.craftengine.bukkit.util.LocationUtils;
 import net.momirealms.craftengine.core.block.ImmutableBlockState;
+import net.momirealms.craftengine.core.block.UpdateFlags;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
+import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement;
 import net.momirealms.craftengine.core.block.entity.tick.BlockEntityTicker;
 import net.momirealms.craftengine.core.block.entity.tick.SleepingBlockEntityTicker;
 import net.momirealms.craftengine.core.block.property.Property;
+import net.momirealms.craftengine.core.item.Item;
 import net.momirealms.craftengine.core.world.CEWorld;
 import net.momirealms.craftengine.libraries.nbt.CompoundTag;
 import net.momirealms.craftengine.libraries.nbt.Tag;
+import net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy;
+import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Glue between a CraftEngine block entity and a machine (§22.3).
@@ -44,8 +65,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private final @Nullable MachineDisplayElement display;
     private final @Nullable LevelDisplayElement level;
     /** Per side, the part drawn while the side has a port ({@code side_display}). */
-    private final java.util.Map<fr.robie.machineengine.api.world.RelativeSide, MachineDisplayElement> sides =
-            new java.util.EnumMap<>(fr.robie.machineengine.api.world.RelativeSide.class);
+    private final Map<RelativeSide, MachineDisplayElement> sides =
+            new EnumMap<>(RelativeSide.class);
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
@@ -55,8 +76,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
         this.level = behavior.levelDisplay() == null ? null
                 : new LevelDisplayElement(behavior.levelDisplay().item(), behavior.levelDisplay().steps(), blockEntity.pos());
         if (behavior.sideDisplay() != null) {
-            for (fr.robie.machineengine.api.world.RelativeSide side : fr.robie.machineengine.api.world.RelativeSide.values()) {
-                MachineDisplayElement element = new MachineDisplayElement(behavior.sideDisplay() + "/" + side.name().toLowerCase(java.util.Locale.ROOT),
+            for (RelativeSide side : RelativeSide.values()) {
+                MachineDisplayElement element = new MachineDisplayElement(behavior.sideDisplay() + "/" + side.name().toLowerCase(Locale.ROOT),
                         behavior.displayRotation(), behavior.displayRotations(), blockEntity.pos());
                 element.setVisible(false);
                 this.sides.put(side, element);
@@ -70,7 +91,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
     }
 
     @Override
-    public void gatherElements(java.util.function.Consumer<net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement> consumer) {
+    public void gatherElements(Consumer<BlockEntityElement> consumer) {
         if (this.display != null) consumer.accept(this.display);
         if (this.level != null) consumer.accept(this.level);
         this.sides.values().forEach(consumer);
@@ -83,12 +104,12 @@ public final class MachineBlockEntityController extends BlockEntityController {
     void refreshSides() {
         MachineInstanceImpl instance = instance();
         if (this.sides.isEmpty() || instance == null) return;
-        java.util.Set<fr.robie.machineengine.api.world.RelativeSide> used = java.util.EnumSet.noneOf(fr.robie.machineengine.api.world.RelativeSide.class);
+        Set<RelativeSide> used = EnumSet.noneOf(RelativeSide.class);
         for (var port : instance.type().ports()) {
-            if (instance.context().portDirection(port.id()) == fr.robie.machineengine.api.machine.PortDirection.DISABLED) continue;
+            if (instance.context().portDirection(port.id()) == PortDirection.DISABLED) continue;
             used.addAll(instance.context().portSides(port.id()));
         }
-        java.util.List<MachineDisplayElement> changed = new java.util.ArrayList<>();
+        List<MachineDisplayElement> changed = new ArrayList<>();
         for (var entry : this.sides.entrySet()) {
             boolean turned = entry.getValue().update(instance.facing(), false);
             boolean toggled = entry.getValue().setVisible(used.contains(entry.getKey()));
@@ -132,7 +153,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
         refreshLevel(instance);
         refreshSides();
         if (this.display == null) return;
-        fr.robie.machineengine.api.world.Direction facing = instance != null ? instance.facing() : this.behavior.facing(this.blockEntity.blockState());
+        Direction facing = instance != null ? instance.facing() : this.behavior.facing(this.blockEntity.blockState());
         if (!this.display.update(facing, instance != null && instance.isActive())) return;
         CEWorld world = this.blockEntity.world();
         if (world == null) return;
@@ -219,7 +240,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
     }
 
     /** A replacement of another type takes over its predecessor's state (E6). */
-    void adopt(fr.robie.machineengine.api.data.DataMap state) {
+    void adopt(DataMap state) {
         CraftEngineMachineHost host = CraftEngineMachineHost.current();
         if (host == null || this.machine == null || this.machine.instance() == null) return;
         this.machine = host.engine().machines().restoreAs(this.machine, state, host);
@@ -238,8 +259,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
             this.machine = null;
             return;
         }
-        java.util.Optional<fr.robie.machineengine.core.machine.CoreMachines.Packed> packed = this.behavior.keepsContents()
-                ? host.engine().machines().pack(this.machine) : java.util.Optional.empty();
+        Optional<CoreMachines.Packed> packed = this.behavior.keepsContents()
+                ? host.engine().machines().pack(this.machine) : Optional.empty();
         if (packed.isPresent()) {
             host.keptContents().packed(this.position, packed.get(), this.behavior.block().id());
         } else {
@@ -256,12 +277,12 @@ public final class MachineBlockEntityController extends BlockEntityController {
      * it kept, if any (§20.5).
      */
     @Override
-    public void loadCustomDataFromItem(net.momirealms.craftengine.core.item.Item item) {
+    public void loadCustomDataFromItem(Item item) {
         CraftEngineMachineHost host = CraftEngineMachineHost.current();
         if (host == null || this.machine == null || this.machine.instance() == null) return;
-        org.bukkit.inventory.ItemStack stack = net.momirealms.craftengine.bukkit.util.ItemStackUtils.getBukkitStack(item.minecraftItem());
+        ItemStack stack = ItemStackUtils.getBukkitStack(item.minecraftItem());
         if (stack == null) return;
-        fr.robie.machineengine.api.data.DataMap state = host.keptContents().read(stack);
+        DataMap state = host.keptContents().read(stack);
         if (state == null) return;
         LoadedMachine restored = host.engine().machines().restore(this.machine, state, host);
         if (restored == this.machine) {
@@ -315,10 +336,10 @@ public final class MachineBlockEntityController extends BlockEntityController {
         this.comparatorSignal = signal;
         CEWorld world = this.blockEntity.world();
         if (world == null) return;
-        net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy.INSTANCE.updateNeighbourForOutputSignal(
+        LevelProxy.INSTANCE.updateNeighbourForOutputSignal(
                 world.world().minecraftWorld(),
-                net.momirealms.craftengine.bukkit.util.LocationUtils.toBlockPos(this.blockEntity.pos()),
-                net.momirealms.craftengine.bukkit.util.BlockStateUtils.getBlockOwner(this.blockEntity.blockState().customBlockState().minecraftState()));
+                LocationUtils.toBlockPos(this.blockEntity.pos()),
+                BlockStateUtils.getBlockOwner(this.blockEntity.blockState().customBlockState().minecraftState()));
     }
 
     /** Admin purge of a placeholder: forget its data, so removing the block afterwards writes nothing back. */
@@ -348,7 +369,7 @@ public final class MachineBlockEntityController extends BlockEntityController {
         Property<Boolean> current = state.getProperty(property.name());
         if (current == null || state.get(current) == instance.isActive()) return;
         world.world().setBlockState(this.blockEntity.pos().x(), this.blockEntity.pos().y(), this.blockEntity.pos().z(),
-                state.with(current, instance.isActive()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
+                state.with(current, instance.isActive()), UpdateFlags.UPDATE_ALL);
     }
 
     /** Sets the block's property {@code name} to {@code value} (by name: properties change on reload), keeping the block entity. */
@@ -358,12 +379,12 @@ public final class MachineBlockEntityController extends BlockEntityController {
         if (world == null) return;
         ImmutableBlockState state = world.getBlockStateAtIfLoaded(this.blockEntity.pos());
         if (state == null || state.isEmpty() || !state.owner().value().id().equals(this.behavior.block().id())) return;
-        net.momirealms.craftengine.core.block.property.Property property = state.getProperty(name);
+        Property property = state.getProperty(name);
         if (property == null) return;
-        java.util.Optional<?> parsed = property.optional(value);
+        Optional<?> parsed = property.optional(value);
         if (parsed.isEmpty() || parsed.get().equals(state.get(property))) return;
         world.world().setBlockState(this.blockEntity.pos().x(), this.blockEntity.pos().y(), this.blockEntity.pos().z(),
-                state.with(property, (Comparable) parsed.get()), net.momirealms.craftengine.core.block.UpdateFlags.UPDATE_ALL);
+                state.with(property, (Comparable) parsed.get()), UpdateFlags.UPDATE_ALL);
     }
 
     /** Flags the chunk unsaved so CraftEngine writes the new machine state (§20.2). */

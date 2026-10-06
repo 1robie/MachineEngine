@@ -36,7 +36,7 @@ final class DataButton extends Button {
 
     /** Hidden on machines whose type does not declare the setting (one menu can serve several types). */
     @Override
-    public boolean checkPermission(@NotNull Player player, @NotNull fr.maxlego08.menu.api.engine.InventoryEngine inventory,
+    public boolean checkPermission(@NotNull Player player, @NotNull InventoryEngine inventory,
                                    @NotNull Placeholders placeholders) {
         var machine = this.menus.machineOf(player);
         return super.checkPermission(player, inventory, placeholders)

@@ -4,26 +4,36 @@ import fr.maxlego08.menu.api.ButtonManager;
 import fr.maxlego08.menu.api.Inventory;
 import fr.maxlego08.menu.api.InventoryListener;
 import fr.maxlego08.menu.api.InventoryManager;
+import fr.maxlego08.menu.api.button.Button;
 import fr.maxlego08.menu.api.engine.BaseInventory;
+import fr.maxlego08.menu.api.engine.InventoryEngine;
 import fr.maxlego08.menu.api.placeholder.LocalPlaceholder;
+import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
 import net.kyori.adventure.key.Key;
+import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
+import java.lang.reflect.Method;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 
 /**
@@ -51,7 +61,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     private final Map<UUID, WorldPosition> openMachines = new ConcurrentHashMap<>();
     private final InventoryListener listener;
     /** Players being moved to another menu of the same machine: their close is not the end. */
-    private final java.util.Set<UUID> switching = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> switching = ConcurrentHashMap.newKeySet();
     private Map<Key, String> menuByType = Map.of();
     private String defaultMenu = "machine";
 
@@ -175,7 +185,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
      * player at a region border may click a machine owned by another region; that click is ignored
      * rather than touching the machine from the wrong thread.
      */
-    @Nullable fr.robie.machineengine.core.machine.MachineInstanceImpl ownedMachineOf(@NotNull OfflinePlayer player) {
+    @Nullable MachineInstanceImpl ownedMachineOf(@NotNull OfflinePlayer player) {
         LoadedMachine machine = machineOf(player);
         if (machine == null || machine.instance() == null || !machine.instance().isValid()) return null;
         return this.locator.isOwnedByCurrentThread(machine.position()) ? machine.instance() : null;
@@ -194,7 +204,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     }
 
     /** Players with a refresh already queued: at most one refresh per player every 5 ticks. */
-    private final java.util.Set<UUID> pendingRefresh = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> pendingRefresh = ConcurrentHashMap.newKeySet();
 
     @Override
     public void machineChanged(@NotNull WorldPosition position) {
@@ -216,10 +226,10 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         }, null));
     }
 
-    private void forViewers(WorldPosition position, java.util.function.Consumer<Player> action) {
+    private void forViewers(WorldPosition position, Consumer<Player> action) {
         this.openMachines.forEach((id, at) -> {
             if (!at.equals(position)) return;
-            Player viewer = org.bukkit.Bukkit.getPlayer(id);
+            Player viewer = Bukkit.getPlayer(id);
             if (viewer != null) action.accept(viewer);
         });
     }
@@ -231,13 +241,13 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         if (!this.openMachines.containsKey(player.getUniqueId())) return;
         // Not a zMenu menu (or unreadable): nothing to re-render. The close listener, not this, forgets
         // the open machine; forgetting it here would blank every placeholder of a menu still open.
-        if (!(topHolder(player) instanceof fr.maxlego08.menu.api.engine.InventoryEngine engine)) return;
+        if (!(topHolder(player) instanceof InventoryEngine engine)) return;
         // Only slots: their item changes. Gauges (energy, progress) keep their own periodic update,
         // which re-reads the placeholders; rebuilding them would restart that timer before it fires.
-        for (fr.maxlego08.menu.api.button.Button button : engine.getButtons()) {
+        for (Button button : engine.getButtons()) {
             if (!(button instanceof SlotButton)) continue;
             for (int slot : button.getSlots()) engine.cancel(slot);
-            engine.buildButton(button, new fr.maxlego08.menu.api.utils.Placeholders());
+            engine.buildButton(button, new Placeholders());
         }
     }
 
@@ -261,11 +271,11 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         }
     }
 
-    private static final java.lang.reflect.Method GET_TOP_INVENTORY;
+    private static final Method GET_TOP_INVENTORY;
 
     static {
         try {
-            GET_TOP_INVENTORY = org.bukkit.inventory.InventoryView.class.getMethod("getTopInventory");
+            GET_TOP_INVENTORY = InventoryView.class.getMethod("getTopInventory");
         } catch (NoSuchMethodException e) {
             throw new ExceptionInInitializerError(e);
         }
@@ -289,7 +299,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     }
 
     /** Menu file names loaded, for status output. */
-    public @NotNull java.util.Set<String> menuNames() {
-        return java.util.Collections.unmodifiableSet(this.menus.keySet());
+    public @NotNull Set<String> menuNames() {
+        return Collections.unmodifiableSet(this.menus.keySet());
     }
 }

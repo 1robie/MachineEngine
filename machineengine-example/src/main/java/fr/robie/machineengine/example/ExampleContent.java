@@ -1,11 +1,16 @@
 package fr.robie.machineengine.example;
 
 import fr.robie.machineengine.api.addon.RegistrationContext;
+import fr.robie.machineengine.api.item.Items;
+import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.PortDefinition;
 import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.ProcessingBehavior;
 import fr.robie.machineengine.api.machine.StorageDefinition;
+import fr.robie.machineengine.api.network.NetworkBehavior;
+import fr.robie.machineengine.api.network.NetworkType;
+import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
@@ -43,16 +48,16 @@ final class ExampleContent {
             .behavior(ProcessingBehavior.of(BURNING, ProcessBinding.of("input", "input")))
             .build();
 
-    static final fr.robie.machineengine.api.network.NetworkType SPARK_NETWORK = fr.robie.machineengine.api.network.NetworkType.of(
-            Key.key("example", "spark_network"), fr.robie.machineengine.api.network.NetworkBehavior.distributing());
-    static final fr.robie.machineengine.api.network.TransportType SPARK_CABLE = fr.robie.machineengine.api.network.TransportType.of(
+    static final NetworkType SPARK_NETWORK = NetworkType.of(
+            Key.key("example", "spark_network"), NetworkBehavior.distributing());
+    static final TransportType SPARK_CABLE = TransportType.of(
             Key.key("example", "spark_cable"), SPARK_NETWORK, 8, ResourcePredicate.type(SPARK));
 
     /** Holds items on all sides; used to check that broken machines drop their items. */
     static final MachineType CRATE = MachineType.builder(Key.key("example", "crate"))
-            .storage(StorageDefinition.slots("items", 9, 64).filter(fr.robie.machineengine.api.item.Items.anyItem()))
+            .storage(StorageDefinition.slots("items", 9, 64).filter(Items.anyItem()))
             .port(PortDefinition.builder("io", "items").build())
-            .behavior(type -> fr.robie.machineengine.api.machine.MachineContext::sleep)
+            .behavior(type -> MachineContext::sleep)
             .build();
 
     private ExampleContent() {
