@@ -11,7 +11,7 @@ plugins {
 
 description = "The MachineEngine Paper plugin jar (api + core + paper + craftengine)."
 
-/** Addon jars installed on dev servers next to MachineEngine (the example addon). */
+/** Addon jars installed on dev servers next to MachineEngine (Mekanized). */
 val devAddons: Configuration by configurations.creating {
     isTransitive = false
 }
@@ -20,7 +20,6 @@ dependencies {
     implementation(project(":machineengine-craftengine"))
     implementation(project(":machineengine-zmenu"))
     compileOnly(libs.zmenu.api)
-    devAddons(project(":machineengine-example"))
     devAddons(project(":machineengine-mekanized"))
 }
 
@@ -110,7 +109,7 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int, folia: Boolean
         // -PwithMachineEngine=false runs CraftEngine alone (checks that CE keeps machine data, §21).
         val withMachineEngine = providers.gradleProperty("withMachineEngine").orElse("true").get() == "true"
         if (withMachineEngine) pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
-        if (withMachineEngine && providers.gradleProperty("withExample").orElse("true").get() == "true") pluginJars.from(devAddons)
+        if (withMachineEngine && providers.gradleProperty("withAddons").orElse("true").get() == "true") pluginJars.from(devAddons)
         when (craftEngineRuntime) {
             "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
             "modrinth" -> downloadPlugins {

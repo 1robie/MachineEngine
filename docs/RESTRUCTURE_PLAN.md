@@ -72,7 +72,16 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
     purpose;
   - `javap -v` on a class from the plugin jar shows major version 65 (Java 21).
 
-## Stage R2: delete `example`
+## Stage R2: delete `example` (done 2026-10-06)
+**Result:**
+- The module is gone. Its engine checks moved to Mekanized `EngineCheckCommands`: `/mekanized
+  check-drop`, `check-hopper`, `check-comparator` and `fill <size>`, on a basic bin instead of the
+  crate.
+- `place` and `network-line` were dropped: `place-set` and `test-cable` already cover them.
+- `-PwithExample` became `-PwithAddons`.
+- The new commands still need a run on a dev server.
+
+**What was planned:**
 - Remove `machineengine-example` and its `devAddons` entry.
 - Move anything the dev servers still need (`/mexample hopper-test`, `crate-test` and similar
   checks) to `/mekanized` test commands, or drop it.

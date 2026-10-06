@@ -20,17 +20,18 @@ actual resources and machines. The architecture and every binding decision are i
 
 | Module | Purpose |
 |---|---|
-| `machineengine-api` | Public API and SPI. Server-free. |
-| `machineengine-core` | Implementation. Server-free. |
+| `machineengine-api` | Public API and SPI. |
+| `machineengine-core` | Implementation. |
 | `machineengine-test` | Headless test harness for MachineEngine and addons. |
 | `machineengine-paper` | Paper integration. |
-| `machineengine-craftengine` | CraftEngine adapter (the only module importing CraftEngine). |
+| `machineengine-craftengine` | CraftEngine integration. |
 | `machineengine-zmenu` | Optional zMenu integration (machine menus). |
-| `machineengine-example` | A small addon built only on the API. |
 | `machineengine-mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
 | `machineengine-plugin` | The plugin jar. |
 
-`api`, `core` and `test` fail `check` if Paper, Bukkit or CraftEngine reach their classpaths.
+The modules are being reorganised ([docs/RESTRUCTURE_PLAN.md](docs/RESTRUCTURE_PLAN.md)). Every module
+compiles against the newest Paper API (26.3) and CraftEngine. `check` fails if the bytecode uses
+anything missing from Paper 1.20.6, or is newer than Java 21 (`verifyPaperBaseline`).
 
 ## Building
 
@@ -64,7 +65,7 @@ Minecraft EULA in `run/paper-<version>/eula.txt`.
 With [zMenu](https://modrinth.com/plugin/zmenu) installed, right-clicking a machine opens its
 menu. Menus are ordinary zMenu inventories in `plugins/MachineEngine/menus/`:
 
-- `machine.yml` is the default menu; `<namespace>_<value>.yml` (e.g. `example_crate.yml`) is used
+- `machine.yml` is the default menu; `<namespace>_<value>.yml` (e.g. `mekanized_basic_bin.yml`) is used
   for that machine type; `menus.by-type` in `config.yml` overrides both.
 - `%zmenu_machineengine_<key>%` placeholders show live machine values (state, storages, process
   bar …); see the comments in `machine.yml` for the full list.
@@ -120,21 +121,28 @@ Per-tick resource changes (`MachineEvents.RESOURCES_CHANGED`) are only on the Ma
 They fire on the machine's thread (its region on Folia). `events.bukkit-bridge: false` in
 `config.yml` turns the mirrored events off.
 
-## Example addon and commands
+## Commands and server checks
 
-`machineengine-example` is a small addon built only on the API: a spark generator and a spark
-consumer, with the CraftEngine pack that defines their blocks. Dev servers install it by default
-(`-PwithExample=false` to leave it out). From the server console:
+Dev servers install Mekanized next to MachineEngine (`-PwithAddons=false` leaves it out). From the
+server console:
 
 ```text
 forceload add 0 -16 15 15
-mexample place 0 100 0 world
+mekanized place-set 0 100 0 world
 machineengine machine 0 100 0 world
 ```
 
-In game, positions are optional: `/mexample place` builds on the block you look at, and
+In game, positions are optional: `/mekanized place-set` builds on the block you look at, and
 `/machineengine machine` inspects the block you look at. Coordinates accept `~`, and the world (a
 name like `world` or a key like `minecraft:overworld`) defaults to yours.
+
+Server checks of engine features (admins; results in the console log, each with its expected value):
+- `/mekanized check-drop`: a bin with 100 iron ingots broken without a player drops all 100.
+- `/mekanized check-hopper`: hopper → bin → hopper → chest moves all 10 ingots into the chest.
+- `/mekanized check-comparator`: a comparator reads 8 from a half-full bin and 0 from an empty one.
+- `/mekanized fill <size>`: a grid of idle crushers, to measure the idle cost.
+
+Mekanized's own checks: `/mekanized test`, `test-cable`, `test-chemistry`.
 
 Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
 `machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,

@@ -660,7 +660,7 @@ The adapter is the only place CraftEngine classes appear. CraftEngine's extensio
 ### 22.2 Block behavior registration
 
 - In `MachineEngine.onLoad`: `BlockBehaviors.register(Key.of("machineengine", "machine"), MachineBlockBehavior.FACTORY)` (CraftEngine's `BlockBehaviors.register` writes into its built-in behavior-type registry; extension plugins such as *craft-engine-blocks* do this in `onLoad`).
-- Server owners (or addons shipping CE resource packs) attach the behavior in CraftEngine block config, referencing a machine type by key. Verified schema (V1), as used by the example addon's pack:
+- Server owners (or addons shipping CE resource packs) attach the behavior in CraftEngine block config, referencing a machine type by key. Verified schema (V1):
 
 ```yaml
 items:
@@ -896,6 +896,8 @@ MachineEngine MUST NOT: assume FE is default, assume fluids are water-based, ass
 
 Build stable foundations first; do not implement every advanced system at once.
 
+The status notes below are history. The `machineengine-example` addon (`/mexample`) that several of them were verified with was removed on 2026-10-06 (D24). Its engine checks are now `/mekanized check-drop`, `check-hopper`, `check-comparator` and `fill`, run on a Mekanized basic bin instead of the example crate. Likewise, `verifyPureJava` was replaced by `verifyPaperBaseline` (D25, D26).
+
 ### M0 — Scaffold
 Gradle multi-module layout (§5), version catalog, `craftengine_version=26.10-SNAPSHOT`, CI (build, tests, dual-CE job, API compatibility placeholder), `paper-plugin.yml` with required CraftEngine dependency, `run-paper` tasks for Paper 1.20.6 and 26.3 that install the CE snapshot.
 **Accept:** plugin loads on Paper with CE present; refuses to load with a clear message when CE is absent; `api`/`core` have no Paper/CE on the classpath.
@@ -936,7 +938,7 @@ Network/transport API and implementation (incremental graphs, segment-per-region
 GUI module, data-driven YAML definitions (§29), official content plugins, Bukkit event bridge.
 
 **Comparators, purge, events: done (2026-10-02).**
-- **Comparators:** machine blocks have a comparator signal (`comparator: false` turns it off). It uses vanilla's container formula over every slot: 0 when empty, otherwise 1 to 15 from the average fill, in `MachineInstanceImpl.comparatorSignal()`. Neighbors are updated after committed changes, and only when the value changes. `/mexample comparator-test` checks a real comparator; `ComparatorTest` checks the formula.
+- **Comparators:** machine blocks have a comparator signal (`comparator: false` turns it off). It uses vanilla's container formula over every slot: 0 when empty, otherwise 1 to 15 from the average fill, in `MachineInstanceImpl.comparatorSignal()`. Neighbors are updated after committed changes, and only when the value changes. `/mekanized check-comparator` checks a real comparator; `ComparatorTest` checks the formula.
 - **`/machineengine placeholders list|purge`:**
   - `list` shows loaded machines that keep data of missing content: placeholder machines, and machines with locked slots or unknown data.
   - `purge <x y z>` must be run twice within 10 seconds. It deletes a placeholder machine with its block. On a live machine it deletes the unknown data and unlocks the slots (`purgeUnknown()`). The data is gone for good, even if the addon comes back.
@@ -970,7 +972,7 @@ GUI module, data-driven YAML definitions (§29), official content plugins, Bukki
 
 **GUI: done (2026-10-02), on zMenu 1.1.1.9 (D20).** Module `machineengine-zmenu`, shaded into the plugin; zMenu is an optional dependency (without it, machines have no menus).
 - **Opening:** right-clicking a machine block (not while sneaking) opens its menu, after the `machineengine.use` permission (default: everyone) and CraftEngine's anti-grief check (`OPEN_CONTAINER`, reached reflectively because AntiGriefLib is relocated in CraftEngine's plugin jar; V5 resolved). A placeholder machine tells the player its addon is missing.
-- **Fully configurable menus:** standard zMenu inventory files in `plugins/MachineEngine/menus/`. A machine type opens `menus.by-type` from `config.yml`, else the file `<namespace>_<value>.yml` (how addons ship menus; the example installs `example_crate.yml` and `example_consumer.yml` without overwriting edits), else `menus.default` (`machine.yml`, shipped).
+- **Fully configurable menus:** standard zMenu inventory files in `plugins/MachineEngine/menus/`. A machine type opens `menus.by-type` from `config.yml`, else the file `<namespace>_<value>.yml` (how addons ship menus, e.g. Mekanized's `mekanized_<machine>.yml` files), else `menus.default` (`machine.yml`, shipped).
 - **Placeholders** `%zmenu_machineengine_<key>%` work in any zMenu button and in PlaceholderAPI. They cover type, state, facing, position, storages (per storage and per slot: amount, capacity, free, percent, bar, resource), process (status, progress, percent, bar, remaining seconds), upgrades and escrow, and resolve against the machine the player has open. The logic is `MachinePlaceholders` (Paper module, unit-tested); `/machineengine placeholders <x y z> <world>` prints them for a machine.
 - **Button types:** `machineengine_slot` shows a storage slot as the real item and lets players put the cursor item in or take the stack out (`storage`, `storage-slot`, `allow-insert`, `allow-take`); `machineengine_cancel_process` cancels the process and returns its inputs (`always-show`). Both act through transactions, so nothing is lost when the player's inventory is full.
 - **Load order:** MachineEngine enables at `STARTUP`, zMenu after the worlds, so the menus are set up on zMenu's `PluginEnableEvent`.
