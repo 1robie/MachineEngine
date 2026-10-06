@@ -34,7 +34,8 @@ include(
     "api",
     "common",
     "machineengine-test",
-    "machineengine-zmenu",
+    // One module per optional third-party plugin (D24).
+    "hooks:zmenu",
     "machineengine-plugin",
     "machineengine-mekanized",
 )

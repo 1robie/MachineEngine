@@ -105,7 +105,14 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
 4. Merge the test sources of the three modules into `common/src/test`.
 5. Update dependents (`zmenu`, `plugin`, `test`, `mekanized`) to `project(":common")`.
 
-## Stage R4: `hooks:zmenu`
+## Stage R4: `hooks:zmenu` (done 2026-10-06)
+**Result:**
+- The module is at `hooks/zmenu` (Gradle `:hooks:zmenu`); the jar keeps the name `machineengine-zmenu`.
+- `MachineEnginePlugin` still enables the menus only when zMenu is installed and enabled.
+- The plugin jar still contains the zMenu classes and `menus/machine.yml`.
+- 280 of 280 tests pass.
+
+**What was planned:**
 - Move `machineengine-zmenu` → `hooks/zmenu`, with `api(project(":common"))` and `compileOnly`
   zMenu.
 - `plugin` keeps loading it only when zMenu is present.

@@ -18,7 +18,7 @@ val devAddons: Configuration by configurations.creating {
 
 dependencies {
     implementation(project(":common"))
-    implementation(project(":machineengine-zmenu"))
+    implementation(project(":hooks:zmenu"))
     compileOnly(libs.zmenu.api)
     devAddons(project(":machineengine-mekanized"))
 }
