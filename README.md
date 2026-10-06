@@ -22,10 +22,10 @@ actual resources and machines. The architecture and every binding decision are i
 |---|---|
 | `api` | Public API and SPI. |
 | `common` | Implementation: the engine (`core` packages), its Paper integration and its CraftEngine integration. |
-| `machineengine-test` | Headless test harness for MachineEngine and addons. |
+| `test` | Headless test harness for MachineEngine and addons, built on the assembled plugin. |
 | `hooks/zmenu` | Optional zMenu integration (machine menus). One `hooks/<plugin>` module per optional plugin. |
 | `machineengine-mekanized` | Mekanism-style content plugin (imports Mekanism's data at build time). |
-| `machineengine-plugin` | The plugin jar. |
+| `plugin` | The plugin jar (everything above, plus the dev servers). |
 
 The modules are being reorganised ([docs/RESTRUCTURE_PLAN.md](docs/RESTRUCTURE_PLAN.md)). Every module
 compiles against the newest Paper API (26.3) and CraftEngine. `check` fails if the bytecode uses
@@ -37,16 +37,16 @@ anything missing from Paper 1.20.6, or is newer than Java 21 (`verifyPaperBaseli
 ./gradlew build
 ```
 
-The plugin jar is written to `machineengine-plugin/build/libs/`. The build also fetches the pinned
+The plugin jar is written to `plugin/build/libs/`. The build also fetches the pinned
 Mekanism commit into `.mekanism/` (sparse, a few MB) for Mekanized; later builds skip the network.
 
 ## Dev servers
 
 ```bash
-./gradlew :machineengine-plugin:runPaper-1.20.6
-./gradlew :machineengine-plugin:runPaper-26.3
-./gradlew :machineengine-plugin:runFolia-1.20.6
-./gradlew :machineengine-plugin:runFolia-26.2
+./gradlew :plugin:runPaper-1.20.6
+./gradlew :plugin:runPaper-26.3
+./gradlew :plugin:runFolia-1.20.6
+./gradlew :plugin:runFolia-26.2
 ```
 
 By default the dev servers use CraftEngine built from its `dev` branch (`craftengine_dev_ref`), the

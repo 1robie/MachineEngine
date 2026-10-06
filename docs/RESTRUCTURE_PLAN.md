@@ -163,7 +163,18 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
 - **Check:** start `runPaper-1.20.6` and `runPaper-26.3` (and the Folia servers). Each loads,
   picks its own `nms` implementation and reports no problems.
 
-## Stage R6: `plugin` and `test`
+## Stage R6: `plugin` and `test` (done 2026-10-06)
+**Result:**
+- `machineengine-plugin` became `plugin`, and `machineengine-test` became `test`; the jar names are
+  kept. Dev servers are `:plugin:runPaper-*` and `:plugin:runFolia-*`; `run/` is unchanged.
+- `test` depends on `plugin` (the assembled wiring, nms included) and on `common`, which the harness
+  drives directly.
+- The engine tests stay in `test`: they run on the harness.
+- README, CI artifact path and `gradle.properties` were updated.
+- 280 of 280 tests pass.
+- No runtime code changed, so no server run was needed.
+
+**What was planned:**
 - `plugin` depends on `common`, `hooks:*` and `nms:*`. It owns the bootstrap, the shadow jar and
   the run-paper/run-folia tasks; `run/` is unchanged.
 - `test` depends on `plugin` (`api` scope), with the Paper API on its runtime classpath so

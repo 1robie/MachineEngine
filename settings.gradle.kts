@@ -35,13 +35,13 @@ dependencyResolutionManagement {
 include(
     "api",
     "common",
-    "machineengine-test",
+    "test",
     // One module per optional third-party plugin (D24).
     "hooks:zmenu",
     // Version differences (D25): interfaces, then one userdev module per Minecraft version.
     "nms:common",
     "nms:v1_20_6",
     "nms:v26_3",
-    "machineengine-plugin",
+    "plugin",
     "machineengine-mekanized",
 )

@@ -57,4 +57,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MachineEngine
-          path: machineengine-plugin/build/libs/MachineEngine-*.jar
+          path: plugin/build/libs/MachineEngine-*.jar

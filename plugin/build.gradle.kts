@@ -11,6 +11,10 @@ plugins {
 
 description = "The MachineEngine Paper plugin jar (api + common + hooks + nms)."
 
+base {
+    archivesName = "machineengine-plugin"
+}
+
 /** Addon jars installed on dev servers next to MachineEngine (Mekanized). */
 val devAddons: Configuration by configurations.creating {
     isTransitive = false
