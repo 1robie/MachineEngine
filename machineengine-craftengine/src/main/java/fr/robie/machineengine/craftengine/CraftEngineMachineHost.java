@@ -396,6 +396,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public boolean breakWorldBlock(@NotNull WorldPosition position) {
         org.bukkit.block.Block block = ownedBlock(position);
         if (block == null || block.getType().isAir() || block.getType().getHardness() < 0) return false;
+        // Machines and transports are never broken by other machines (as in the test world).
+        if (this.controllers.containsKey(position) || this.transports.containsKey(position)) return false;
         if (net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.isCustomBlock(block)) {
             return net.momirealms.craftengine.bukkit.api.CraftEngineBlocks.remove(block, null, false, true, true);
         }
