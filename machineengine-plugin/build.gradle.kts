@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.run.paper)
 }
 
-description = "The MachineEngine Paper plugin jar (api + common + zmenu)."
+description = "The MachineEngine Paper plugin jar (api + common + hooks + nms)."
 
 /** Addon jars installed on dev servers next to MachineEngine (Mekanized). */
 val devAddons: Configuration by configurations.creating {
@@ -19,6 +19,9 @@ val devAddons: Configuration by configurations.creating {
 dependencies {
     implementation(project(":common"))
     implementation(project(":hooks:zmenu"))
+    // One module per Minecraft version; NmsLoader loads the running one only.
+    implementation(project(":nms:v1_20_6"))
+    implementation(project(":nms:v26_3"))
     compileOnly(libs.zmenu.api)
     devAddons(project(":machineengine-mekanized"))
 }
@@ -62,6 +65,10 @@ paper {
 tasks.shadowJar {
     archiveClassifier = ""
     archiveFileName = "MachineEngine-${project.version}.jar"
+    // The nms modules are Mojang-mapped, like the servers since 1.20.5: Paper must not remap the jar.
+    manifest {
+        attributes["paperweight-mappings-namespace"] = "mojang"
+    }
     // Provided by Paper at runtime.
     dependencies {
         exclude(dependency("net.kyori:.*"))

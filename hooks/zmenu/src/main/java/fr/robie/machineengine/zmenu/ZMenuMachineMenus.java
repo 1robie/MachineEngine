@@ -12,7 +12,7 @@ import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
-import fr.robie.machineengine.paper.InventoryViews;
+import fr.robie.machineengine.nms.Nms;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
@@ -250,10 +250,10 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         }
     }
 
-    /** The holder of the player's open top inventory ({@link InventoryViews}: it differs between versions). */
+    /** The holder of the player's open top inventory (through {@link Nms}: it differs between versions). */
     private @Nullable Object topHolder(Player player) {
         try {
-            return InventoryViews.topInventory(player).getHolder();
+            return Nms.get().topInventory(player).getHolder();
         } catch (IllegalStateException e) {
             if (!this.topHolderFailed) {
                 this.topHolderFailed = true;

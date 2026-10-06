@@ -11,6 +11,7 @@ import fr.robie.machineengine.core.machine.PlaceholderMachine;
 import fr.robie.machineengine.craftengine.CraftEngineIntegration;
 import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
+import fr.robie.machineengine.nms.Nms;
 import fr.robie.machineengine.paper.ClassPreloader;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import fr.robie.machineengine.paper.MachineMenuService;
@@ -63,7 +64,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
+        // Classes of the other version's nms module fail to load here and are skipped (LinkageError).
         ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/");
+        Nms.install(NmsLoader.load(getLogger()));
         CraftEngineIntegration.registerBlockBehavior();
         installCraftEnginePack();
     }

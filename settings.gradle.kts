@@ -12,7 +12,9 @@ plugins {
 }
 
 dependencyResolutionManagement {
-    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    // Modules use these repositories, except the nms:v* ones: paperweight userdev adds its own
+    // (dev bundle, mappings, remapper, decompiler), which replace these there.
+    repositoriesMode = RepositoriesMode.PREFER_PROJECT
     repositories {
         mavenCentral()
         maven("https://repo.papermc.io/repository/maven-public/")
@@ -36,6 +38,10 @@ include(
     "machineengine-test",
     // One module per optional third-party plugin (D24).
     "hooks:zmenu",
+    // Version differences (D25): interfaces, then one userdev module per Minecraft version.
+    "nms:common",
+    "nms:v1_20_6",
+    "nms:v26_3",
     "machineengine-plugin",
     "machineengine-mekanized",
 )
