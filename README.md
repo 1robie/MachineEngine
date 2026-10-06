@@ -81,6 +81,20 @@ menu. Menus are ordinary zMenu inventories in `plugins/MachineEngine/menus/`:
 
 Dev servers download zMenu automatically (`-PwithZMenu=false` to leave it out).
 
+## Configuration
+
+`plugins/MachineEngine/config.yml` is written on first start, with a comment above every setting.
+Settings added by an update are filled in with their defaults at the next start; your values and
+comments are kept. A wrong value is reported in the log and its default is used until you fix it.
+`/machineengine reload config` applies changes without a restart, except the settings marked
+"Restart to apply".
+
+MachineEngine provides an energy and fluids every addon and definition can share:
+`machineengine:energy`, and the fluid category `machineengine:fluid` with
+`machineengine:fluid/water` and `machineengine:fluid/lava`. Their units (`J`, `mB`) and the bucket
+size (1000) are set under `resources:` in `config.yml`. Addons add their own fluids to the same
+category, so any fluid pipe or port takes them.
+
 ## YAML definitions
 
 Server owners can define resources, recipes and whole machines without Java in
@@ -155,7 +169,7 @@ Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
 `machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,
 `placeholders [<x y z>] [world]` (menu placeholder values), `placeholders list` (loaded machines keeping data of
 missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes that data, run twice to confirm),
-`registry <name>`, `reload recipes|tags`.
+`registry <name>` (with its aliases: old keys still accepted), `reload config|recipes|tags`.
 
 `/machineengine debug` toggles an in-world debug view for you:
 - **Machine dots:** a colored dot above each machine shows its state: green active, blue sleeping, orange blocked, red error.

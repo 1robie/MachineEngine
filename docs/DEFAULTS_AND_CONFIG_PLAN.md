@@ -378,7 +378,29 @@ not `machineengine:fluid`. Pipes would ignore it, which is almost always a mista
 9. Tests that name `"fluid/water"` as a string (`ChemistryChainTest`, `GaugeDropperTest`, …) use
    `Fluids.water()` instead.
 
-## Stage 6: docs and verification
+## Stage 6: docs and verification (done 2026-10-06)
+**Result:**
+- `ARCHITECTURE.md`:
+  - **D29**, the built-in energy and fluids and registry aliases. It narrows §4 and §33: the engine
+    ships these meanings but requires none of them;
+  - **D30**, settings are `ConfigKey`s and `config.yml` is generated;
+  - §4 notes the exception, §7.1 describes aliases, §33 notes that D29 narrows it;
+  - new §9.5 (built-in energy and fluids) and new §23.5 (the configuration file and its keys).
+- README: a "Configuration" section (generated file, missing keys added, reload, the shared
+  resources) and `reload config` in the command list.
+- `MEKANIZED_GUIDE.md`: energy and fluids are MachineEngine's; the old keys still work.
+  `MEKANIZED_PLAN.md`: a note that its phases use the old names.
+- **Dev servers, each on its existing world:**
+
+  | Server | `mekanized test` | Startup | Placeholders | `config.yml` |
+  |---|---|---|---|---|
+  | Paper 26.3 | 2 osmium dust, 10000 J (as expected) | 0 errors, 0 warnings | 2, all from the removed `example` addon | — |
+  | Folia 1.20.6 | 2 osmium dust, 10000 J (as expected) | 0 errors, 0 warnings | 0 | gained its 8 missing settings |
+  | Folia 26.2 | 2 osmium dust, 10000 J (as expected) | 0 errors, 0 warnings | 8, all `example:*`; the other 1 010 machines loaded | gained its 8 missing settings |
+
+  Paper 1.20.6 was checked in stage 5.
+
+**What was planned:**
 - `ARCHITECTURE.md`: D29 (the decisions above); §9 lists the built-in resources; a new section
   on the config loader with the rule "a new setting is a `ConfigKey`, never a raw `getConfig()`
   or a constant". README: the config file and the built-ins.

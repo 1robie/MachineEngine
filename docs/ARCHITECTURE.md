@@ -47,6 +47,8 @@ This document is the single source of truth for MachineEngine's architecture.
 | D26 | **Every module may use Paper and CraftEngine, including `api`.** Supersedes the last sentence of D7 and the "pure Java" rule of §5; `verifyPureJava` is removed. CraftEngine stays a hard runtime requirement (D7). Identity in the public API stays Adventure `Key` (D6) by default. Headless tests (`TestEngine`, `FakeWorld`) keep running without a server as long as they do not touch Bukkit statics. | Project owner decision (2026-10-06): CraftEngine is required anyway, so hiding it behind an adapter costs more than it saves. |
 | D27 | **Mekanized is a separate addon jar that compiles against `api` only** (plus Paper and CraftEngine) and is a dev addon of `plugin`. The internals it uses today (`CoreMachineEngine`, `MachineInstanceImpl`, `LoadedMachine`, `PaperItems`, `PaperWorlds`, `MachineLocator`, …) are promoted to `api` as needed; until then it MAY compile against `common`. | Delegated (2026-10-06): it proves third parties can build content on the public API, and replaces `example` as the reference addon. |
 | D28 | **Version-specific calls are public API:** `NmsAccess`, `PlayerInput` and `Nms` live in `api` (`fr.robie.machineengine.api.platform`). `nms:common` keeps only the reflective fallback and depends on `api`. **D27 applies to Mekanized's main code:** its tests may keep using the `test` harness, which exposes engine internals; making the harness return API types is a later, separate step. | Project owner decision (2026-10-06): `api` stays the one public module addons compile against. |
+| D29 | **MachineEngine provides shared energy and fluids:** `machineengine:energy` (one category, one type) and the global fluid category `machineengine:fluid` with `machineengine:fluid/water` and `machineengine:fluid/lava`, registered by the engine itself and always present. Their unit, scale and bucket size are read from `config.yml` (`resources.*`, restart-only) when they are built in `onLoad`, and are then fixed (`Energy`, `Fluids`, `BuiltInResources` in `api.resource`). Addons add their own fluids to the global category (`Fluids.create(key)`, keys `<namespace>:fluid/<name>`), so a port or pipe accepting the category moves every registered fluid; MachineEngine registers no other fluid. A `*:fluid/*` type outside the category is a startup warning. Renamed entries keep loading through **registry aliases** (`WritableRegistry.alias(from, to)`, static registries only, no chains): saved data, definitions and tags resolve the old key, data is saved under the new one. Narrows §4 and §33: the engine now ships these meanings, but nothing requires an addon to use them, and addons may still define other energy or fluid systems. | Project owner decision (2026-10-06), docs/DEFAULTS_AND_CONFIG_PLAN.md: Mekanized's energy, water and lava moved into the engine, `mekanized:*` keys kept as aliases. |
+| D30 | **Settings are typed `ConfigKey`s, never raw `getConfig()` calls or constants.** A key holds its path, default, range and comment; `ConfigFile` (`api.config`) reads a file through them, writes every missing key back with its default and comment, keeps invalid values in the file (warning, default used) and keys it does not know, and saves only when it added something. `config.yml` is generated from `EngineConfig.SPEC`: there is no bundled copy. `/machineengine reload config` swaps the values atomically; restart-only keys keep their value and are reported. Addons read engine settings with `MachineEngine.config()` and may use `ConfigFile` for their own files. | Project owner decision (2026-10-06), docs/DEFAULTS_AND_CONFIG_PLAN.md. |
 
 ---
 
@@ -86,6 +88,8 @@ Third-party plugins (addons) MUST be able to add completely new resource systems
 MachineEngine owns the infrastructure to register, store, transfer, process, network, persist, schedule and execute resources and machines. Addons define what those resources and machines mean.
 
 The core MUST NOT assume a resource is FE, EU, mana, fluid, item, gas, heat, steam, water, oil, electricity or magic. These are examples of resource systems that addons may define. Even first-party resource systems (e.g. the Paper item category, §23.4) are registered through the same public SPI as any addon.
+
+Exception (D29): MachineEngine ships a shared energy (`machineengine:energy`) and a global fluid category with water and lava (§9.5), so addons and definitions agree on them without depending on each other. Nothing in the engine requires them: machines, ports and networks treat them like any other resource, and addons may still define their own systems.
 
 ---
 
@@ -182,6 +186,7 @@ interface ReloadableRegistry<T> extends Registry<T> {       // snapshot-based
 - Duplicate key → validation error naming both owners.
 - Values MUST be immutable definitions.
 - New registries can be created by addons (`ctx.createRegistry(...)`), with the same lifecycle rules.
+- **Aliases (D29):** `WritableRegistry.alias(from, to)` makes an old key of a static registry mean an entry, after a rename or a move to another addon. `get` and `contains` follow aliases; `keys()` and iteration do not include them; `aliases()` lists them. An alias may not be an entry, may not point to another alias, and may not use a reserved namespace (validation error, the alias's addon is disabled). Saved data, definitions and tags resolve keys through the registry, so they follow aliases; data is saved under the entry's own key.
 
 ### 7.2 Built-in registries
 
@@ -332,6 +337,14 @@ MachineEngine MUST NEVER convert one resource into another automatically (FE→E
 - an explicit machine/process.
 
 `ResourceConverterRegistry` lookups are by `(from type, to type)` and return all registered converters; the caller chooses. Nothing in core calls a converter on its own.
+
+### 9.5 Built-in energy and fluids (D29)
+
+- `Energy` (`api.resource`): category and type `machineengine:energy`; `Energy.type()`, `Energy.category()`, `Energy.is()`.
+- `Fluids`: the global category `machineengine:fluid`, `Fluids.water()`, `Fluids.lava()`, `Fluids.any()`, `Fluids.bucket()`, `Fluids.create(key)` for an addon's fluid, and the world mapping `worldFluid(type)` / `fromWorld(minecraft:water|lava)`.
+- Unit, scale and bucket size come from `config.yml` (`resources.energy.*`, `resources.fluid.*`). `MachineEnginePlugin.onLoad` loads the config and calls `BuiltInResources.install(config)` before any addon loads; without a server the getters build them from the defaults (`J`, `mB`, scale 0, bucket 1000). Installing again with other settings throws: registries cannot change while the server runs.
+- The engine registers them, and the energy cost modifier `StandardModifiers.processCost(Energy.category())`, as `MACHINE_ENGINE`.
+- YAML definitions name them like any resource (`{ type: machineengine:energy }`, `{ category: machineengine:fluid }`) and may declare fluids in the global category (`custom:fluid/oil: { category: machineengine:fluid }`).
 
 ---
 
@@ -735,6 +748,12 @@ Bootstrap and service locator, lifecycle (§8), Brigadier commands (Paper lifecy
 - **Ownership:** `MachineState` records the placing player's UUID (optional). Permissions: `machineengine.admin.*`, `machineengine.inspect`, `machineengine.use`.
 - **Limits:** configurable caps on machines per chunk and per player, and per-tick transfer budgets, to prevent lag machines.
 
+### 23.5 Configuration file (D30)
+
+- `plugins/MachineEngine/config.yml` is generated from `EngineConfig.SPEC` (`api.config`) on first start; missing keys are added with their defaults and comments at every start and on `/machineengine reload config`. `api/src/test/resources/config/engine-config.yml` is the file a new server gets; `EngineConfigTest` fails when it changes, so a change shows in review.
+- Keys today: `limits.max-machines-per-chunk`, `menus.default`, `menus.by-type`, `events.bukkit-bridge` (restart-only), `placeholders.allow-breaking`, `resources.energy.unit|scale`, `resources.fluid.unit|scale|bucket` (restart-only, §9.5).
+- Code reads values with `config.get(KEY)` when it needs them, never caching them, so a reload applies at once. A new setting is a `ConfigKey` added to the spec, never a raw `getConfig()` call or a constant.
+
 ### 23.4 Item resource category
 
 `machineengine:item` is registered by the Paper module through the public SPI (not core). `ResourceType` per item id (vanilla or CE item); remaining item data stored as an opaque item-data component; stackability = `ItemStack.isSimilar` semantics. Amount = item count.
@@ -884,7 +903,7 @@ Performance acceptance targets are set in M3 with a benchmark world (e.g. 10,000
 
 # 33. Non-Goals
 
-MachineEngine MUST NOT: assume FE is default, assume fluids are water-based, assume one universal resource system, convert resources automatically, hardcode resource categories or machine types in core, require a particular energy or fluid system, require CraftEngine in the `api`/`core` modules, use CraftEngine outside the adapter module, modify third-party plugins, require a client mod, require every machine to use recipes/networks, tick every machine every tick, load chunks, or expose internal classes as public API.
+MachineEngine MUST NOT (narrowed by D29, which ships an optional shared energy and fluid category): assume FE is default, assume fluids are water-based, assume one universal resource system, convert resources automatically, hardcode resource categories or machine types in core, require a particular energy or fluid system, require CraftEngine in the `api`/`core` modules, use CraftEngine outside the adapter module, modify third-party plugins, require a client mod, require every machine to use recipes/networks, tick every machine every tick, load chunks, or expose internal classes as public API.
 
 ---
 
