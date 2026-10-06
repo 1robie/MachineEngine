@@ -15,6 +15,7 @@ import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.paper.PaperWorlds;
 import fr.robie.machineengine.paper.event.PlayerMachineInteractEvent;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -247,14 +249,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public void markDirty(@NotNull MachineInstanceImpl machine) {
-        MachineBlockEntityController controller = this.controllers.get(machine.position());
-        if (controller != null) controller.markDirty();
+        withController(machine.position(), MachineBlockEntityController::markDirty);
     }
 
     @Override
     public void activityChanged(@NotNull MachineInstanceImpl machine) {
-        MachineBlockEntityController controller = this.controllers.get(machine.position());
-        if (controller != null) controller.syncTicker();
+        withController(machine.position(), MachineBlockEntityController::syncTicker);
     }
 
     @Override
@@ -273,11 +273,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public @Nullable WorldFluid worldFluidAt(@NotNull WorldPosition position) {
         Block block = ownedBlock(position);
         if (block == null || !(block.getBlockData() instanceof Levelled levelled)) return null;
-        Key fluid = switch (block.getType()) {
-            case WATER -> Key.key("minecraft", "water");
-            case LAVA -> Key.key("minecraft", "lava");
-            default -> null;
-        };
+        Key fluid = fluidKey(block.getType());
         return fluid == null ? null : new WorldFluid(fluid, levelled.getLevel() == 0);
     }
 
@@ -386,8 +382,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
         Block block = ownedBlock(position);
         if (block == null || this.controllers.containsKey(position)) return false;
-        Material material = fluid.asString().equals("minecraft:water") ? Material.WATER
-                : fluid.asString().equals("minecraft:lava") ? Material.LAVA : null;
+        Material material = fluidMaterial(fluid);
         if (material == null) return false;
         boolean air = block.getType().isAir();
         boolean flowing = block.getType() == material && block.getBlockData() instanceof Levelled levelled && levelled.getLevel() != 0;
@@ -481,26 +476,22 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     @Override
     public void portsChanged(@NotNull MachineInstanceImpl machine) {
-        MachineBlockEntityController controller = this.controllers.get(machine.position());
-        if (controller != null) controller.refreshSides();
+        withController(machine.position(), MachineBlockEntityController::refreshSides);
     }
 
     @Override
     public void setBlockProperty(@NotNull WorldPosition position, @NotNull String property, @NotNull String value) {
-        MachineBlockEntityController controller = this.controllers.get(position);
-        if (controller != null && isOwnedByCurrentThread(position)) controller.setProperty(property, value);
+        if (isOwnedByCurrentThread(position)) withController(position, controller -> controller.setProperty(property, value));
     }
 
     @Override
     public void activeChanged(@NotNull MachineInstanceImpl machine) {
-        MachineBlockEntityController controller = this.controllers.get(machine.position());
-        if (controller != null) controller.activeChanged();
+        withController(machine.position(), MachineBlockEntityController::activeChanged);
     }
 
     @Override
     public void contentsChanged(@NotNull MachineInstanceImpl machine) {
-        MachineBlockEntityController controller = this.controllers.get(machine.position());
-        if (controller != null) controller.contentsChanged();
+        withController(machine.position(), MachineBlockEntityController::contentsChanged);
         MachineMenuService service = this.menus;
         if (service != null) service.machineChanged(machine.position());
     }
@@ -524,6 +515,28 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     }
 
     private static @Nullable World world(Key key) {
-        return Bukkit.getWorld(new NamespacedKey(key.namespace(), key.value()));
+        return PaperWorlds.world(key);
+    }
+
+    /** Runs {@code action} on the controller of the machine at {@code position}, if there is one. */
+    private void withController(WorldPosition position, Consumer<MachineBlockEntityController> action) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        if (controller != null) action.accept(controller);
+    }
+
+    private static final Key WATER = Key.key("minecraft", "water");
+    private static final Key LAVA = Key.key("minecraft", "lava");
+
+    /** The block material of a fluid's source block, or null for a fluid the platform has no block for. */
+    private static @Nullable Material fluidMaterial(Key fluid) {
+        return fluid.equals(WATER) ? Material.WATER : fluid.equals(LAVA) ? Material.LAVA : null;
+    }
+
+    private static @Nullable Key fluidKey(Material material) {
+        return switch (material) {
+            case WATER -> WATER;
+            case LAVA -> LAVA;
+            default -> null;
+        };
     }
 }

@@ -8,6 +8,7 @@ import fr.robie.machineengine.core.data.DataBinary;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.paper.PaperWorlds;
 import net.kyori.adventure.text.Component;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.core.util.Key;
@@ -137,6 +138,6 @@ public final class KeptContents implements Listener {
     }
 
     private static @Nullable World world(WorldPosition position) {
-        return Bukkit.getWorld(new NamespacedKey(position.world().namespace(), position.world().value()));
+        return PaperWorlds.world(position.world());
     }
 }

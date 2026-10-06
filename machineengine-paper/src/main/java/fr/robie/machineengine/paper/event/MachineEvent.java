@@ -1,10 +1,10 @@
 package fr.robie.machineengine.paper.event;
 
 import fr.robie.machineengine.api.machine.MachineInstance;
+import fr.robie.machineengine.paper.PaperWorlds;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.event.Event;
 import org.jetbrains.annotations.NotNull;
@@ -32,8 +32,7 @@ public abstract class MachineEvent extends Event {
 
     /** The machine's world, or {@code null} if it is not loaded. */
     public @Nullable World getWorld() {
-        Key world = this.machine.position().world();
-        return Bukkit.getWorld(new NamespacedKey(world.namespace(), world.value()));
+        return PaperWorlds.world(this.machine.position().world());
     }
 
     /** The machine's block location, or {@code null} if its world is not loaded. */
