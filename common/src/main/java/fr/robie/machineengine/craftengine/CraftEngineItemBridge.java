@@ -8,7 +8,7 @@ import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.resource.ItemTagSource;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import net.kyori.adventure.key.Key;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;

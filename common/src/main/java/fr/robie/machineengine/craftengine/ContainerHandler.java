@@ -5,7 +5,7 @@ import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.transfer.SnapshotParticipant;
 import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.TransactionContext;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import org.bukkit.block.Barrel;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;

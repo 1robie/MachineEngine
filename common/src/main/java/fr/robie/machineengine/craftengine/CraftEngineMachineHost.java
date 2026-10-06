@@ -14,7 +14,7 @@ import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
 import fr.robie.machineengine.paper.event.PlayerMachineInteractEvent;
 import net.kyori.adventure.key.Key;

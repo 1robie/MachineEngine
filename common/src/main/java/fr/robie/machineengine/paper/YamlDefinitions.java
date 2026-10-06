@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.definition.DefinitionFile;

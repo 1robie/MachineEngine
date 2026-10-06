@@ -13,7 +13,7 @@ import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.core.machine.MachineSlot;
 import fr.robie.machineengine.core.machine.MachineStorage;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryAction;

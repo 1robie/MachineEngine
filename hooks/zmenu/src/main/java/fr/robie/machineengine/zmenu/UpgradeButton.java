@@ -9,7 +9,7 @@ import fr.robie.machineengine.api.upgrade.InstalledUpgrade;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import net.kyori.adventure.key.Key;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;

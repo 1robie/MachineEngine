@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.paper.PositionArguments;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.context.CommandContext;

@@ -1,4 +1,4 @@
-package fr.robie.machineengine.paper;
+package fr.robie.machineengine.api.paper;
 
 import fr.robie.machineengine.api.item.ItemData;
 import fr.robie.machineengine.api.item.Items;
@@ -9,6 +9,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -26,6 +27,7 @@ public final class PaperItems {
     }
 
     /** How an item stack's id is found; the CraftEngine integration reports custom ids (E10). */
+    @ApiStatus.Internal
     public static void setIdResolver(@NotNull Function<ItemStack, Key> resolver) {
         idResolver = Objects.requireNonNull(resolver);
     }
@@ -36,6 +38,7 @@ public final class PaperItems {
     };
 
     /** How an item is built from its id; the CraftEngine integration builds custom items. */
+    @ApiStatus.Internal
     public static void setItemFactory(@NotNull Function<Key, ItemStack> factory) {
         itemFactory = Objects.requireNonNull(factory);
     }

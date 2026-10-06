@@ -12,7 +12,7 @@ import fr.robie.machineengine.craftengine.CraftEngineIntegration;
 import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
 import fr.robie.machineengine.api.platform.Nms;
-import fr.robie.machineengine.paper.ClassPreloader;
+import fr.robie.machineengine.api.paper.ClassPreloader;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;

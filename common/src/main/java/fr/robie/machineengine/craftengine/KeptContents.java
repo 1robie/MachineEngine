@@ -7,7 +7,7 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.data.DataBinary;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.paper.Messages;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
 import net.kyori.adventure.text.Component;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;

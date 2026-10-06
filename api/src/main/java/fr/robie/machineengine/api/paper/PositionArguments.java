@@ -1,4 +1,4 @@
-package fr.robie.machineengine.paper;
+package fr.robie.machineengine.api.paper;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.ArgumentBuilder;

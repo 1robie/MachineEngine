@@ -10,7 +10,7 @@ import fr.robie.machineengine.api.world.RelativeSide;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.core.machine.MachineSlot;
 import fr.robie.machineengine.core.machine.MachineStorage;
-import fr.robie.machineengine.paper.PaperItems;
+import fr.robie.machineengine.api.paper.PaperItems;
 import net.momirealms.craftengine.bukkit.util.ItemStackUtils;
 import net.momirealms.craftengine.bukkit.world.BukkitContainer;
 import net.momirealms.craftengine.core.entity.player.Player;
