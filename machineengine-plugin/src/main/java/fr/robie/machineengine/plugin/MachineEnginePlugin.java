@@ -63,10 +63,10 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     @Override
     public void onLoad() {
         getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
-        // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
-        // Classes of the other version's nms module fail to load here and are skipped (LinkageError).
-        ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/");
+        // The running version's nms class only (NmsLoader); another version's may not even load here.
         Nms.install(NmsLoader.load(getLogger()));
+        // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
+        ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/", "fr/robie/machineengine/nms/v");
         CraftEngineIntegration.registerBlockBehavior();
         installCraftEnginePack();
     }

@@ -117,7 +117,38 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
   zMenu.
 - `plugin` keeps loading it only when zMenu is present.
 
-## Stage R5: `nms`
+## Stage R5: `nms` (done 2026-10-06)
+**Result:**
+- **`nms:common`** holds:
+  - `NmsAccess`: the open top inventory, the player's input keys and item gliding;
+  - `Nms.get()`;
+  - `ReflectiveNms`, the fallback for versions without a module of their own (1.21.x, 26.1, 26.2),
+    which headless tests also use.
+- **`nms:v1_20_6` and `nms:v26_3`** use userdev against their own dev bundles. The bytecode
+  confirms it: v1_20_6 is Java 21 with an `invokevirtual` on `InventoryView`; v26_3 is Java 25 with
+  `invokeinterface` and direct calls to `getCurrentInput` and `setGlider`.
+- **`NmsLoader`** (plugin) picks the module by exact version.
+- **Gone:** `InventoryViews` and Mekanized's `getCurrentInput` and `setGlider` reflection.
+- **Repositories:** `repositoriesMode` is now `PREFER_PROJECT`. Paperweight adds seven repositories
+  of its own, so the `nms:v*` modules declare theirs and every other module keeps the settings
+  ones.
+- **Wrong assumption fixed:** the plan expected `ClassPreloader` to survive the Java 25 class
+  (LinkageError). It does not: Paper 1.20.6's class loader reads every plugin class with ASM 9.7
+  first and throws `IllegalArgumentException`. The plugin failed to load on the first 1.20.6 run.
+  Now the preloader skips `fr/robie/machineengine/nms/v`, and `Nms` is installed before it runs.
+- **Server runs** (`forceload`, `/mekanized check-drop`, `check-hopper`, `check-comparator`, `test`),
+  all as expected (100 dropped, comparator 8/0, 10 in the chest, 2 dust and 10000 J):
+
+  | Server | Version module |
+  |---|---|
+  | Paper 1.20.6 | `v1_20_6` |
+  | Paper 26.3 | `v26_3` |
+  | Folia 26.2 | reflective |
+  | Folia 1.20.6 | `v1_20_6` |
+- **Check commands made re-runnable:** the `check-*` commands now clear their area first. CraftEngine
+  does not place a block over the same block, so leftovers from an earlier run made them fail.
+
+**What was planned:**
 1. `nms:common`: one interface per version difference, plus a `Nms` entry point that `plugin`
    fills at startup from the server version.
 2. `nms:v1_20_6` and `nms:v26_3` on userdev. Start with the existing reflection sites; only
