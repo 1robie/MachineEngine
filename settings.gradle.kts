@@ -34,7 +34,6 @@ include(
     "api",
     "common",
     "machineengine-test",
-    "machineengine-craftengine",
     "machineengine-zmenu",
     "machineengine-plugin",
     "machineengine-mekanized",

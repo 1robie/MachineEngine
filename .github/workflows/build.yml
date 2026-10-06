@@ -50,7 +50,7 @@ jobs:
 
       # API compatibility (§5): enable once the first API version is released.
       # - name: Check API binary compatibility
-      #   run: ./gradlew :machineengine-api:japicmp
+      #   run: ./gradlew :api:japicmp
 
       - name: Upload plugin jar
         if: matrix.craftengine == 'pinned'

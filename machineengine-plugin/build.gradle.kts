@@ -9,7 +9,7 @@ plugins {
     alias(libs.plugins.run.paper)
 }
 
-description = "The MachineEngine Paper plugin jar (api + core + paper + craftengine)."
+description = "The MachineEngine Paper plugin jar (api + common + zmenu)."
 
 /** Addon jars installed on dev servers next to MachineEngine (Mekanized). */
 val devAddons: Configuration by configurations.creating {
@@ -17,7 +17,7 @@ val devAddons: Configuration by configurations.creating {
 }
 
 dependencies {
-    implementation(project(":machineengine-craftengine"))
+    implementation(project(":common"))
     implementation(project(":machineengine-zmenu"))
     compileOnly(libs.zmenu.api)
     devAddons(project(":machineengine-mekanized"))

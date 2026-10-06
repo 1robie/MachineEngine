@@ -20,7 +20,8 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     // Bytecode floor: Java 21 (Minecraft 1.20.6, CraftEngine). nms:v26_* raise it to 25.
     options.release = 21
-    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial"))
+    // -classfile: warnings about attributes inside third-party jars (JOML via Paper), nothing to fix here.
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Xlint:-processing", "-Xlint:-serial", "-Xlint:-classfile"))
 }
 
 tasks.withType<Javadoc>().configureEach {
