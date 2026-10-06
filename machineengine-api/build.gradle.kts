@@ -1,13 +1,8 @@
 plugins {
-    id("machineengine.pure-java")
+    id("machineengine.platform")
 }
 
-description = "MachineEngine public API and SPI (server-free)."
-
-dependencies {
-    // D6: identity uses Adventure Key. Paper provides it at runtime.
-    api(libs.adventure.key)
-}
+description = "MachineEngine public API and SPI."
 
 tasks.processResources {
     val apiVersion = project.version.toString()

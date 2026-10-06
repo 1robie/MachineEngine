@@ -1,8 +1,8 @@
 plugins {
-    id("machineengine.pure-java")
+    id("machineengine.platform")
 }
 
-description = "MachineEngine implementation of the API (server-free)."
+description = "MachineEngine implementation of the API."
 
 dependencies {
     api(project(":machineengine-api"))

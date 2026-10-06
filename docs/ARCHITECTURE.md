@@ -42,6 +42,10 @@ This document is the single source of truth for MachineEngine's architecture.
 | D23 | **Player-facing text uses CraftEngine client-side translations** (`lang` entries in a `machineengine` CraftEngine pack, MiniMessage, `%s` arguments) instead of a messages file: each player sees their own language, server owners edit one YAML file, and every message has an English fallback for players without the resource pack. Admin command output stays English. | Project owner suggestion (2026-10-02). |
 | D22 | **Keep-contents is configured per block** (`keep_contents` on the CraftEngine behavior), not per `MachineType`: whether a block keeps its contents is a server/pack choice, and the same machine type can back both kinds of blocks. | Delegated (2026-10-02). |
 | D21 | **YAML definitions are a built-in pseudo-addon `definitions`**, registered after every addon. Static content (resource categories and types, recipe types, machines) is defined at startup and freezes with the rest; recipes are a reloadable provider. Machine behavior comes from registered `BehaviorType`s (built-in `machineengine:processing` and `machineengine:storage`; addons add their own). | Delegated (2026-10-02): server owners can add whole machines without Java, while D5 (freeze) still holds. |
+| D24 | **Module layout: `api` ← `common` ← `hooks:*` / `nms:*` ← `plugin` ← `test`.** `api` holds only public types. `common` implements it (today's `core`, `paper` and `craftengine` merged). `hooks:<name>` holds one optional third-party integration each (`hooks:zmenu` first). `nms:common` declares interfaces for server internals; `nms:v1_20_6` and `nms:v26_3` implement them with paperweight userdev, and `common` calls only `nms:common`. `plugin` assembles and shades everything and owns the run-paper dev servers. `test` depends on `plugin`. `machineengine-example` is removed. Supersedes the module list in §5. | Project owner decision (2026-10-06). |
+| D25 | **Compile against the latest Paper API (26.3), use only API that exists in 1.20.6.** Supersedes the compile clause of D19; the supported range (1.20.6 – 26.3) is unchanged. A `verifyPaperBaseline` check (part of `check`, every module except `nms:v*`) reads the compiled bytecode and fails the build when a reference into Paper, Bukkit, Adventure, Guava, Gson, JOML, SnakeYAML or Brigadier does not link against the 1.20.6 Paper API: a missing class or member, a class/interface mismatch (e.g. `Sound` is an enum in 1.20.6 and an interface in 26.x, so a call compiled against 26.x fails on 1.20.6), or a static mismatch. It also rejects class files newer than Java 21. Recompiling the sources against 1.20.6 would not catch the mismatches. Anything that differs between versions (newer API, or a type whose binary shape changed, such as `InventoryView` class → interface) goes behind an `nms:common` interface instead of reflection. **Bytecode is Java 21** everywhere (the plugin jar must load on 1.20.6), built with JDK 25 because Paper 26.x is Java 25; only `nms:v26_*` modules emit Java 25 bytecode, and their classes MUST NOT be loaded on a 1.20.6 server. | Project owner decision (2026-10-06). |
+| D26 | **Every module may use Paper and CraftEngine, including `api`.** Supersedes the last sentence of D7 and the "pure Java" rule of §5; `verifyPureJava` is removed. CraftEngine stays a hard runtime requirement (D7). Identity in the public API stays Adventure `Key` (D6) by default. Headless tests (`TestEngine`, `FakeWorld`) keep running without a server as long as they do not touch Bukkit statics. | Project owner decision (2026-10-06): CraftEngine is required anyway, so hiding it behind an adapter costs more than it saves. |
+| D27 | **Mekanized is a separate addon jar that compiles against `api` only** (plus Paper and CraftEngine) and is a dev addon of `plugin`. The internals it uses today (`CoreMachineEngine`, `MachineInstanceImpl`, `LoadedMachine`, `PaperItems`, `PaperWorlds`, `MachineLocator`, …) are promoted to `api` as needed; until then it MAY compile against `common`. | Delegated (2026-10-06): it proves third parties can build content on the public API, and replaces `example` as the reference addon. |
 
 ---
 
@@ -51,15 +55,15 @@ This document is the single source of truth for MachineEngine's architecture.
 |------|-------|
 | Server platform | Paper (and Folia from M4). Spigot unsupported. |
 | Minecraft version | **1.20.6 – 26.3** (D19). 26.3 matches CraftEngine `dev`'s `latest_supported_version`. |
-| Paper API (compile) | Compile against the **1.20.6** Paper API so no newer-only API is used by accident. Features needing newer APIs go behind a version check in `machineengine-paper`; none are allowed in `api`/`core`. |
+| Paper API (compile) | Compile against the **26.3** Paper API, restricted to API present in **1.20.6** and enforced by `verifyPaperBaseline` (D25). Version-specific code lives only in `nms:v*` modules (paperweight userdev, Mojang-mapped jars, no reobf). |
 | Runtime test matrix | Smoke tests on Paper 1.20.6 and on the latest supported 26.3 build (and Folia equivalents from M4). |
-| Java | Bytecode `--release 21` (required by 1.20.6 and the same floor as CraftEngine); build toolchain JDK 25. |
+| Java | Bytecode `--release 21` (required by 1.20.6 and the same floor as CraftEngine) for every module, including the plugin jar, `api` and `mekanized`; build toolchain JDK 25, which Paper 26.x requires (its API jar is class version 69). Exception: `nms:v26_*` emit `--release 25` and are only loaded on 26.x servers (D25). Tests run on JDK 25. |
 | Build | Gradle (Kotlin DSL), multi-module. `xyz.jpenilla.run-paper` for dev servers, `net.minecrell.plugin-yml.paper` for `paper-plugin.yml`, Shadow for the plugin jar. |
 | CraftEngine repository | `https://repo.momirealms.net/snapshots/` (dev builds) — releases at `https://repo.momirealms.net/releases/`. |
-| CraftEngine artifacts | `net.momirealms:craft-engine-core:26.10-SNAPSHOT` and `net.momirealms:craft-engine-bukkit:26.10-SNAPSHOT`, both `compileOnly`, used only in `machineengine-craftengine`. |
+| CraftEngine artifacts | `net.momirealms:craft-engine-core:26.10-SNAPSHOT` and `net.momirealms:craft-engine-bukkit:26.10-SNAPSHOT`, both `compileOnly`, available to every module (D26). |
 | CraftEngine version policy | Track the newest dev snapshot. The version is a single property in `gradle.properties` (`craftengine_version`). CI runs one job against the pinned snapshot and one against the newest snapshot so breakage is detected early. |
 | Annotations | `org.jetbrains:annotations` (`@ApiStatus.*`, `@Nullable`, `@NotNull`). |
-| API dependency footprint | `machineengine-api`: `net.kyori:adventure-key` + JetBrains annotations only. |
+| API dependency footprint | `api`: Paper API and CraftEngine (`compileOnly`, D26) + JetBrains annotations. |
 | License | GPL-3.0 (D17), same as CraftEngine. |
 
 ---
@@ -86,31 +90,37 @@ The core MUST NOT assume a resource is FE, EU, mana, fluid, item, gas, heat, ste
 
 # 5. Modules and API Boundaries
 
+Layout decided in D24–D27 (2026-10-06). Every module compiles against the Paper API 26.3 and CraftEngine (`compileOnly`), restricted to API present in 1.20.6 except in `nms:v*` (D25, D26). Gradle paths are short (`:api`, `:hooks:zmenu`); jars keep the `machineengine-` prefix.
+
 ```text
-machineengine-api          Public API + SPI. Pure Java. Depends on adventure-key only.
-machineengine-core         Implementation of the API. Pure Java. No Paper, no CraftEngine.
-machineengine-test         Headless test harness (fake worlds, fake regions, fake clock,
-                           in-memory DataView). Published so addon authors can test too.
-machineengine-paper        Paper integration: bootstrap, lifecycle, commands, scheduler bridge,
-                           PDC, item resource category, protection, vanilla interop.
-machineengine-craftengine  CraftEngine adapter: block behavior, block-entity controller,
-                           ticker, persistence bridge, Key conversion. The ONLY module
-                           that imports CraftEngine classes.
-machineengine-zmenu        Optional machine menus on zMenu (D20). Shaded into the plugin.
-machineengine-example      A small addon built only on the API (generator, consumer).
-machineengine-mekanized    Mekanism-style content plugin built on the API; its definitions are
-                           imported from Mekanism at build time (MEKANIZED_PLAN.md).
-machineengine-plugin       Shaded plugin jar = paper + craftengine + zmenu + core + api.
+api            Public API + SPI only. No implementation classes.
+common         Implementation of the API: engine, Paper integration (bootstrap, lifecycle,
+               commands, scheduler bridge, PDC, item resource category, vanilla interop) and
+               the CraftEngine integration (block behavior, block-entity controller, ticker,
+               persistence bridge). Calls server internals only through nms:common.
+hooks:zmenu    Optional machine menus on zMenu (D20). One hooks:<name> module per optional
+               third-party plugin.
+nms:common     Interfaces for server internals and for anything that differs between versions.
+nms:v1_20_6    paperweight userdev implementation for 1.20.6 (bytecode Java 21).
+nms:v26_3      paperweight userdev implementation for 26.3 (bytecode Java 25; never
+               loaded on 1.20.6). Every other module emits Java 21 bytecode.
+plugin         Shaded plugin jar = common + hooks + nms. Picks the nms implementation at
+               startup. Owns the run-paper / run-folia dev servers.
+test           Headless test harness (fake worlds, fake regions, fake clock, in-memory
+               DataView) and the engine's integration tests. Published for addon authors.
+mekanized      Mekanism-style content addon, separate jar, compiles against api only (D27);
+               definitions imported from Mekanism at build time (MEKANIZED_PLAN.md).
 ```
 
-Future modules: `machineengine-network`, `machineengine-data` (YAML), `machineengine-gui`, and official content plugins (Energy, Logistics, Chemistry, Industry, Utilities) as separate addons.
+Future modules: more `hooks:*`, and official content plugins (Energy, Logistics, Chemistry, Industry, Utilities) as separate addons.
 
 Dependency direction (MUST be enforced by Gradle, no cycles):
 
 ```text
-api ← core ← paper ← craftengine ← plugin
- ↑      ↑
- └──────┴── test
+api ← nms:common ← common ← hooks:*    ← plugin ← test ← mekanized (tests only)
+          ↑                              ↑
+          └──── nms:v1_20_6, nms:v26_3 ──┘
+api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
 ```
 
 ### API stability tiers

@@ -12,6 +12,7 @@ import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.machineengine.paper.InventoryViews;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
@@ -19,13 +20,11 @@ import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
-import java.lang.reflect.Method;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -251,33 +250,16 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         }
     }
 
-    /**
-     * The holder of the player's open top inventory. Called reflectively: {@code InventoryView} is a
-     * class on 1.20.6 and an interface on 1.21+, so a direct call compiled against one version fails
-     * on the other ({@code IncompatibleClassChangeError}).
-     */
+    /** The holder of the player's open top inventory ({@link InventoryViews}: it differs between versions). */
     private @Nullable Object topHolder(Player player) {
         try {
-            Object view = Player.class.getMethod("getOpenInventory").invoke(player);
-            // The method of InventoryView itself: the server's implementation class may not be public.
-            Object top = GET_TOP_INVENTORY.invoke(view);
-            return ((org.bukkit.inventory.Inventory) top).getHolder();
-        } catch (ReflectiveOperationException | ClassCastException e) {
+            return InventoryViews.topInventory(player).getHolder();
+        } catch (IllegalStateException e) {
             if (!this.topHolderFailed) {
                 this.topHolderFailed = true;
                 this.plugin.getLogger().log(Level.WARNING, "Could not read open menus; machine menus will not refresh", e);
             }
             return null;
-        }
-    }
-
-    private static final Method GET_TOP_INVENTORY;
-
-    static {
-        try {
-            GET_TOP_INVENTORY = InventoryView.class.getMethod("getTopInventory");
-        } catch (NoSuchMethodException e) {
-            throw new ExceptionInInitializerError(e);
         }
     }
 

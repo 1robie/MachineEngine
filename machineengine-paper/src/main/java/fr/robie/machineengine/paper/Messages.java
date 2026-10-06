@@ -55,7 +55,8 @@ public final class Messages {
     }
 
     public static @NotNull Component message(@NotNull String key, @NotNull String fallback, @NotNull ComponentLike... arguments) {
-        return Component.translatable().key(key).fallback(fallback).arguments(arguments).build();
+        // Not the builder: its build() has another erased return type in the Adventure of 1.20.6.
+        return Component.translatable(key, fallback, arguments);
     }
 
     /** Item lore is italic by default; ours is not. */

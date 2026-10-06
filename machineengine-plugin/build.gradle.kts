@@ -3,15 +3,13 @@ import net.minecrell.pluginyml.paper.PaperPluginDescription
 import xyz.jpenilla.runpaper.task.RunServer
 
 plugins {
-    id("machineengine.java-conventions")
+    id("machineengine.platform")
     alias(libs.plugins.shadow)
     alias(libs.plugins.plugin.yml.paper)
     alias(libs.plugins.run.paper)
 }
 
 description = "The MachineEngine Paper plugin jar (api + core + paper + craftengine)."
-
-val craftEngineVersion = providers.gradleProperty("craftengine_version").get()
 
 /** Addon jars installed on dev servers next to MachineEngine (the example addon). */
 val devAddons: Configuration by configurations.creating {
@@ -22,9 +20,6 @@ dependencies {
     implementation(project(":machineengine-craftengine"))
     implementation(project(":machineengine-zmenu"))
     compileOnly(libs.zmenu.api)
-    compileOnly(libs.paper.api)
-    compileOnly("net.momirealms:craft-engine-core:$craftEngineVersion") { isTransitive = false }
-    compileOnly("net.momirealms:craft-engine-bukkit:$craftEngineVersion") { isTransitive = false }
     devAddons(project(":machineengine-example"))
     devAddons(project(":machineengine-mekanized"))
 }
