@@ -183,6 +183,24 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
   assembled wiring live in `test`.
 
 ## Stage R7: Mekanized on `api` only (D27, confirmed by the owner 2026-10-06)
+**Result (done 2026-10-06):**
+- Mekanized's main compile classpath is `:api` only. Its tests use the `test` harness (D28).
+- New API:
+  - `MachineInstance.context()`;
+  - `api.platform`: `Nms`, `NmsAccess`, `PlayerInput`;
+  - `api.paper`: `MachineBlocks`, `MachineMenus`, `PaperItems`, `PositionArguments`,
+    `ClassPreloader`, `ResourceNames`.
+- `MachineBlocks` and `MachineMenus` are implemented by the existing `MachineLocator` and
+  `MachineMenuService`. Their `setCurrent` and resolver setters are `@ApiStatus.Internal`.
+- `ResourceNames` was a ninth internal, written as an inline fully qualified name, so the import
+  survey missed it.
+- `Nms.get()` now throws until MachineEngine has loaded. There is no default any more:
+  `ReflectiveNms` stays in `nms:common`, which depends on `api`.
+- Verified on Paper 1.20.6, Paper 26.3 and Folia 26.2: the checks and `mekanized test` all give the
+  expected values. 280 of 280 tests pass.
+- Not covered by the server runs: listener paths that need a player client (configurator, tools,
+  chargepad, menus).
+
 **Survey (2026-10-06):** Mekanized's main code uses 8 internal types. `CoreMachineEngine`,
 `MachineInstanceImpl` and `DefinitionCompiler` appear only in its tests, through the harness; those
 stay as they are (D28).
