@@ -11,6 +11,7 @@ public final class DiagnosticCodes {
     public static final Key WRONG_REGISTRY_KIND = MachineEngineKeys.key("wrong_registry_kind");
     public static final Key WRONG_VALUE_TYPE = MachineEngineKeys.key("wrong_value_type");
     public static final Key RESERVED_NAMESPACE = MachineEngineKeys.key("reserved_namespace");
+    public static final Key INVALID_ALIAS = MachineEngineKeys.key("invalid_alias");
     public static final Key REGISTRATION_FAILED = MachineEngineKeys.key("registration_failed");
     public static final Key DUPLICATE_ADDON = MachineEngineKeys.key("duplicate_addon");
     public static final Key MISSING_DEPENDENCY = MachineEngineKeys.key("missing_dependency");

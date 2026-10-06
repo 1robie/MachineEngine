@@ -24,4 +24,17 @@ public interface WritableRegistry<T extends Keyed> {
     <V extends T> @NotNull V register(@NotNull V value);
 
     boolean contains(@NotNull Key id);
+
+    /**
+     * Makes the old key {@code from} mean the entry {@code to}, for an entry that was renamed or moved
+     * to another addon. Everything that looks entries up by key follows it: saved machine data,
+     * YAML definitions, recipes and tags. Data is saved again under {@code to}.
+     *
+     * <p>Startup validation fails the alias's addon if {@code to} is not an entry of this registry
+     * (aliases do not chain) or if {@code from} is in a namespace reserved for MachineEngine.</p>
+     *
+     * @throws RegistrationException if {@code from} already is an entry or an alias, or the registry is frozen
+     * @throws IllegalArgumentException if {@code from} equals {@code to}
+     */
+    void alias(@NotNull Key from, @NotNull Key to);
 }

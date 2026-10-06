@@ -157,7 +157,34 @@ up in review.
 4. `/machineengine reload config` (and in `reload all`) calls `reload()`, refreshes zMenu menus,
    and prints the result: changed keys, restart-only keys, invalid values.
 
-## Stage 3: resource key aliases (needed before any key changes)
+## Stage 3: registry aliases (done 2026-10-06)
+**Result:**
+- **Aliases are general:** `WritableRegistry.alias(from, to)` works on every static registry, not
+  only resource types, so a renamed machine type can use it later. `Registry.aliases()` lists them.
+  `get` and `contains` follow them; `keys()` and iteration do not include them.
+  `owner(from)` gives the addon that added the alias.
+- **Checks:**
+  - when registering: an alias over an entry, an entry over an alias, and a duplicate alias throw
+    `DUPLICATE_KEY`; an alias pointing to itself is an `IllegalArgumentException`;
+  - at startup: an alias to a missing entry or to another alias is `INVALID_ALIAS`, and an alias in
+    the `machineengine` or `minecraft` namespace is `RESERVED_NAMESPACE`. Either one disables the
+    alias's addon and removes its aliases.
+- **Saved data and definitions follow it with no other change.** `ResourceCodecs`,
+  `DefinitionCompiler` and tags look keys up through the registry, which follows aliases, and data
+  is saved under the entry's own key. Every other key stored by the engine is a machine type,
+  upgrade, recipe or world, and goes through the registry too.
+- `/machineengine registry <name>` lists aliases after the entries.
+- `AliasTest` (6 tests):
+  - a tank saved holding `oldmod:juice` loads as `newmod:juice` and saves back as `newmod:juice`;
+  - a definition filter that names the old key accepts the new type;
+  - the error cases above.
+
+  `./gradlew check` passes (300 tests).
+- **Found in the audit, for stage 5:** two Mekanized lookups read a stored key as text instead of
+  going through the registry, so they would miss aliases: `PaperEntangloporters.type(Key)` (its
+  save file) and `PaperTools.dropperType` (the gauge dropper's PDC).
+
+**What was planned:**
 1. `api`: `RegistrationContext.resourceTypeAliases().register(Key oldKey, Key newKey)`. Aliases
    freeze with the static registries. Validation rejects an alias whose old key is also a real
    type, chains of aliases, and aliases to missing types.
@@ -273,7 +300,10 @@ not `machineengine:fluid`. Pipes would ignore it, which is almost always a mista
 6. Mekanized's own `ENERGY_CATEGORY` unit (`J`) disappears; its config.yml comments that say
    "Joules" and "mB" stay true while the engine defaults are `J` and `mB`.
 7. Heat and chemicals stay Mekanized's (not fluids, no change).
-8. Tests that name `"fluid/water"` as a string (`ChemistryChainTest`, `GaugeDropperTest`, …) use
+8. `PaperEntangloporters.type(Key)` and `PaperTools.dropperType` look the stored key up in the
+   resource type registry (`MachineEngine.get().registries()`), so saved `mekanized:fluid/water`
+   and `mekanized:energy` follow the aliases (found in stage 3).
+9. Tests that name `"fluid/water"` as a string (`ChemistryChainTest`, `GaugeDropperTest`, …) use
    `Fluids.water()` instead.
 
 ## Stage 6: docs and verification

@@ -17,7 +17,9 @@ import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 /** Validators for MachineEngine's own registries (§24). */
@@ -32,6 +34,7 @@ public final class BuiltInValidators {
     public static List<Validator> staticValidators() {
         return List.of(
                 BuiltInValidators::reservedNamespaces,
+                BuiltInValidators::aliases,
                 BuiltInValidators::resourceTypes,
                 BuiltInValidators::converters,
                 BuiltInValidators::codecs,
@@ -47,11 +50,36 @@ public final class BuiltInValidators {
         return List.of();
     }
 
+    /** An alias points to an entry of its registry, not to another alias. */
+    private static void aliases(ValidationContext context) {
+        for (RegistryType<?> type : context.registries().types()) {
+            if (type.isReloadable()) continue;
+            Registry<?> registry = context.registries().registry(type);
+            for (Map.Entry<Key, Key> alias : registry.aliases().entrySet()) {
+                Key from = alias.getKey();
+                Key to = alias.getValue();
+                String problem = null;
+                if (registry.aliases().containsKey(to)) {
+                    problem = "The alias " + from.asString() + " points to another alias, " + to.asString() + "; point it to the entry";
+                } else if (!registry.keys().contains(to)) {
+                    problem = "The alias " + from.asString() + " points to " + to.asString() + ", which is not in " + type;
+                }
+                if (problem != null) {
+                    context.report(Diagnostic.error(DiagnosticCodes.INVALID_ALIAS, problem)
+                            .source(registry.owner(from).orElse(AddonId.MACHINE_ENGINE)).subject(from)
+                            .with("registry", type.toString()).with("target", to.asString()).build());
+                }
+            }
+        }
+    }
+
     private static void reservedNamespaces(ValidationContext context) {
         for (RegistryType<?> type : context.registries().types()) {
             if (type.isReloadable()) continue;
             Registry<?> registry = context.registries().registry(type);
-            for (Key key : registry.keys()) {
+            List<Key> keys = new ArrayList<>(registry.keys());
+            keys.addAll(registry.aliases().keySet());
+            for (Key key : keys) {
                 AddonId owner = registry.owner(key).orElse(null);
                 if (owner != null && !owner.equals(AddonId.MACHINE_ENGINE) && RESERVED_NAMESPACES.contains(key.namespace())) {
                     context.report(Diagnostic.error(DiagnosticCodes.RESERVED_NAMESPACE,

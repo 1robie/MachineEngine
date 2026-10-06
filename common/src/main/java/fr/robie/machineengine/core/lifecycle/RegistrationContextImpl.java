@@ -132,5 +132,11 @@ final class RegistrationContextImpl implements RegistrationContext {
         public boolean contains(@NotNull Key id) {
             return this.registry.contains(id);
         }
+
+        @Override
+        public void alias(@NotNull Key from, @NotNull Key to) {
+            checkOpen();
+            this.registry.alias(addon(), from, to);
+        }
     }
 }

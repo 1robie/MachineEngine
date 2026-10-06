@@ -294,6 +294,8 @@ public final class MachineEngineCommands {
         for (Key entry : registry.keys()) {
             sender.sendMessage(line(entry.asString(), registry.owner(entry).map(Object::toString).orElse("?")));
         }
+        registry.aliases().forEach((from, to) -> sender.sendMessage(line(from.asString() + " → " + to.asString(),
+                "alias by " + registry.owner(from).map(Object::toString).orElse("?"))));
         return Command.SINGLE_SUCCESS;
     }
 
