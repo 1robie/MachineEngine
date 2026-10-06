@@ -96,7 +96,11 @@ machineengine-paper        Paper integration: bootstrap, lifecycle, commands, sc
 machineengine-craftengine  CraftEngine adapter: block behavior, block-entity controller,
                            ticker, persistence bridge, Key conversion. The ONLY module
                            that imports CraftEngine classes.
-machineengine-plugin       Shaded plugin jar = paper + craftengine + core + api.
+machineengine-zmenu        Optional machine menus on zMenu (D20). Shaded into the plugin.
+machineengine-example      A small addon built only on the API (generator, consumer).
+machineengine-mekanized    Mekanism-style content plugin built on the API; its definitions are
+                           imported from Mekanism at build time (MEKANIZED_PLAN.md).
+machineengine-plugin       Shaded plugin jar = paper + craftengine + zmenu + core + api.
 ```
 
 Future modules: `machineengine-network`, `machineengine-data` (YAML), `machineengine-gui`, and official content plugins (Energy, Logistics, Chemistry, Industry, Utilities) as separate addons.
@@ -416,7 +420,7 @@ MachineController  framework-owned glue between a world host (CE block entity) a
 
 - Definitions are immutable after freeze; runtime state is mutable and persistent.
 - The same principle applies throughout: `RecipeType/Recipe`, `ProcessType/ProcessInstance`, `NetworkType/Network`, `TransportType/Transport`, `UpgradeType/UpgradeInstance`.
-- `MachineBehavior` MUST NOT access the Bukkit/CraftEngine world directly in core logic. World effects (particles, block state changes, sounds) go through `MachineContext.world()` effects, which are queued and applied by the host on the owning thread (§17).
+- `MachineBehavior` MUST NOT access the Bukkit/CraftEngine world directly in core logic. World access (reading blocks and fluids, placing and breaking blocks, redstone, particles, sounds, block properties) goes through `MachineContext.world()` (`MachineWorld`). Its calls happen at once, on the owner thread, and never touch blocks of another region (§17). Other machines are reached through `MachineContext.machines()` (`OtherMachines`).
 - Machines are not required to use recipes, processes or networks.
 
 ---
@@ -476,7 +480,7 @@ Debug mode asserts owner-thread rules (`Bukkit.isOwnedByCurrentRegion` on Folia,
 
 ```text
 simulation (pure, owner thread or test harness)
-    ↓ result + queued WorldEffects
+    ↓ result + the world calls it made
 application (owner thread): block state updates, particles, sounds, drops
 ```
 
@@ -829,10 +833,10 @@ YAML → Parser → Reference resolution → Templates/Inheritance → Validatio
 | Machine state & storages | the machine instance (owner thread) | access only via capabilities/transactions on the owner thread |
 | Escrow of a handoff | source machine until ack | read via inspection |
 | Network state | `NetworkManager` (per world, per region on Folia) | attach/detach through ports |
-| Scheduled tasks / timers | the scheduler | request via `MachineContext.scheduler()` |
+| Scheduled tasks / timers | the scheduler | request via `MachineContext.sleep()`, `waitForInput()`, `block(...)`, `wakeIn(...)` |
 | Persistence | the controller/adapter | provide codecs; never write CE tags directly |
 | Registrations | the registering addon | read after freeze |
-| World mutation | the host (owner thread) | queue `WorldEffect`s |
+| World mutation | the host (owner thread) | machines call `MachineContext.world()` on the owner thread |
 
 A machine owns its internal state but not external network state. Addons cannot mutate infrastructure they do not own except through the API.
 

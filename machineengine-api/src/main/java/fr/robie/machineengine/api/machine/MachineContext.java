@@ -10,9 +10,7 @@ import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.api.upgrade.ModifierType;
-import fr.robie.machineengine.api.world.BlockPosition;
 import fr.robie.machineengine.api.world.RelativeSide;
-import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -31,8 +29,10 @@ import java.util.random.RandomGenerator;
 @ApiStatus.NonExtendable
 public interface MachineContext {
 
+    /** This machine. */
     @NotNull MachineInstance machine();
 
+    /** This machine's type. */
     default @NotNull MachineType type() {
         return machine().type();
     }
@@ -40,6 +40,7 @@ public interface MachineContext {
     /** Full access to one of this machine's own storages, bypassing port rules. */
     @NotNull ResourceHandler storage(@NotNull String id);
 
+    /** The current value of one of the data keys the machine's type declares. */
     <T> @NotNull T get(@NotNull MachineDataKey<T> key);
 
     /** Stores a new (immutable) value; persisted with the machine. */
@@ -54,14 +55,19 @@ public interface MachineContext {
      */
     long elapsedTicks();
 
+    /** Opens transactions (§9). */
     @NotNull TransactionManager transactions();
 
+    /** Resource tags: named sets of resource types. */
     @NotNull ResourceTags tags();
 
+    /** Read access to the engine's registries. */
     @NotNull RegistryAccess registries();
 
+    /** Looks recipes up by type and by what a machine holds. */
     @NotNull RecipeLookup recipes();
 
+    /** The machine's timed process: start, advance, cancel (D15). */
     @NotNull ProcessControl process();
 
     /** @return {@code base} with this machine's upgrade modifiers of {@code type} applied (D16) */
@@ -110,19 +116,6 @@ public interface MachineContext {
     @NotNull MachineEnvironment environment();
 
     /**
-     * The fluid in the world block at {@code position}, or {@code null} if there is none, or the block
-     * is not loaded or not owned by this thread (Folia: another region), E5.
-     */
-    default @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull BlockPosition position) {
-        return null;
-    }
-
-    /** Removes the world's fluid source block at {@code position}; same rules as {@link #worldFluidAt}. */
-    default boolean takeWorldFluid(@NotNull BlockPosition position) {
-        return false;
-    }
-
-    /**
      * Changes how one of this machine's ports works, e.g. a machine whose mode turns an input into an
      * output. Not saved: a behavior sets it again from its own data in {@link MachineBehavior#onLoad}.
      *
@@ -142,15 +135,7 @@ public interface MachineContext {
     /** The port's current sides ({@link #setPortSides}, or the type's). */
     @NotNull java.util.Set<RelativeSide> portSides(@NotNull String port);
 
-    // -- multiblocks (E12) ---------------------------------------------------------------------
-
-    /**
-     * The block at {@code position}: a CraftEngine block's id, or a vanilla block's (e.g.
-     * {@code minecraft:air}); {@code null} if not loaded or not owned by this thread.
-     */
-    default @Nullable Key blockAt(@NotNull BlockPosition position) {
-        return null;
-    }
+    // -- storages and ports --------------------------------------------------------------------
 
     /**
      * Sizes one of this machine's storages at runtime, per slot (e.g. a multiblock's tank, sized by its
@@ -166,61 +151,13 @@ public interface MachineContext {
      */
     void exposeHandler(@Nullable ResourceHandler handler);
 
-    /**
-     * Full access to a storage of another machine, if it is loaded and owned by this thread (e.g. a
-     * multiblock member reaching the structure's storage, kept by another member).
-     */
-    @NotNull Optional<ResourceHandler> storageAt(@NotNull fr.robie.machineengine.api.world.WorldPosition machine, @NotNull String storage);
+    // -- the world and other machines ----------------------------------------------------------
 
-    // -- the world around (owner thread; nothing happens on blocks of other regions) -----------
+    /** The blocks, fluids, redstone and effects around this machine. */
+    @NotNull MachineWorld world();
 
-    /** Places a source block of the platform's {@code fluid} (e.g. {@code minecraft:water}) where there is air or flowing fluid. */
-    default boolean placeWorldFluid(@NotNull BlockPosition position, @NotNull Key fluid) {
-        return false;
-    }
-
-    /** Places the vanilla block {@code block} (e.g. {@code minecraft:stone}) where there is air or a fluid. */
-    default boolean placeWorldBlock(@NotNull BlockPosition position, @NotNull Key block) {
-        return false;
-    }
-
-    /** How hard the block at {@code position} is to break (vanilla hardness); -1 if unbreakable or unknown. */
-    default float worldBlockHardness(@NotNull BlockPosition position) {
-        return -1;
-    }
-
-    /** Breaks the block at {@code position}, its drops falling as items; false if it could not. */
-    default boolean breakWorldBlock(@NotNull BlockPosition position) {
-        return false;
-    }
-
-    /** Takes the dropped items lying in the block at {@code position} (e.g. a tractor beam), as resources. */
-    default @NotNull java.util.List<fr.robie.machineengine.api.resource.ResourceStack> collectWorldItems(@NotNull BlockPosition position) {
-        return java.util.List.of();
-    }
-
-    /**
-     * Shows a state of the machine on its block: sets the block property {@code property} (e.g. a
-     * valve's {@code mode}) to {@code value}, if the block has it and allows that value.
-     */
-    default void setBlockProperty(@NotNull String property, @NotNull String value) {
-    }
-
-    /** The redstone signal this machine's block receives (0 to 15). */
-    default int redstonePower() {
-        return 0;
-    }
-
-    /** Plays the platform's {@code sound} at the machine. */
-    default void playSound(@NotNull Key sound, float volume, float pitch) {
-    }
-
-    /** Draws particles from the machine to {@code to} (a beam), e.g. {@code minecraft:dust} in {@code color} (RGB). */
-    default void particleLine(@NotNull BlockPosition to, int color) {
-    }
-
-    /** Wakes another machine, if it is loaded and owned by this thread (e.g. a multiblock's anchor when its structure formed). */
-    void wakeMachine(@NotNull fr.robie.machineengine.api.world.WorldPosition machine);
+    /** Other machines by position. */
+    @NotNull OtherMachines machines();
 
     // -- neighbors -----------------------------------------------------------------------------
 

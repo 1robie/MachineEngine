@@ -160,7 +160,49 @@ public final class FakeWorld implements MachineHost {
 
     @Override
     public int redstonePower(@NotNull WorldPosition position) {
-        return this.redstone.getOrDefault(position, 0);
+        return isOwnedByCurrentThread(position) ? this.redstone.getOrDefault(position, 0) : 0;
+    }
+
+    /** A sound a machine played. */
+    public record Sound(@NotNull WorldPosition at, @NotNull Key sound, float volume, float pitch) {
+    }
+
+    /** A particle beam a machine drew. */
+    public record Beam(@NotNull WorldPosition from, @NotNull WorldPosition to, int color) {
+    }
+
+    private final List<Sound> sounds = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final List<Beam> beams = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private final Map<WorldPosition, Map<String, String>> blockProperties = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Override
+    public void playSound(@NotNull WorldPosition position, @NotNull Key sound, float volume, float pitch) {
+        this.sounds.add(new Sound(position, sound, volume, pitch));
+    }
+
+    @Override
+    public void particleLine(@NotNull WorldPosition from, @NotNull WorldPosition to, int color) {
+        this.beams.add(new Beam(from, to, color));
+    }
+
+    @Override
+    public void setBlockProperty(@NotNull WorldPosition position, @NotNull String property, @NotNull String value) {
+        this.blockProperties.computeIfAbsent(position, key -> new java.util.concurrent.ConcurrentHashMap<>()).put(property, value);
+    }
+
+    /** The sounds machines played, in order. */
+    public @NotNull List<Sound> sounds() {
+        return List.copyOf(this.sounds);
+    }
+
+    /** The particle beams machines drew, in order. */
+    public @NotNull List<Beam> beams() {
+        return List.copyOf(this.beams);
+    }
+
+    /** The block properties machines set at {@code position}. */
+    public @NotNull Map<String, String> blockProperties(@NotNull WorldPosition position) {
+        return Map.copyOf(this.blockProperties.getOrDefault(position, Map.of()));
     }
 
     /** A machine's block is its type's key; elsewhere the block set with {@link #setBlock}, or air. */

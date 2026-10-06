@@ -11,6 +11,8 @@ import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.machine.CapabilityBinding;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
+import fr.robie.machineengine.api.machine.MachineWorld;
+import fr.robie.machineengine.api.machine.OtherMachines;
 import fr.robie.machineengine.api.machine.MachineDataKey;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineInspection;
@@ -815,16 +817,6 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         }
 
         @Override
-        public @Nullable fr.robie.machineengine.api.world.WorldFluid worldFluidAt(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.worldFluidAt(new WorldPosition(position.world(), at));
-        }
-
-        @Override
-        public boolean takeWorldFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.takeWorldFluid(new WorldPosition(position.world(), at));
-        }
-
-        @Override
         public void setPortDirection(@NotNull String id, @NotNull fr.robie.machineengine.api.machine.PortDirection direction) {
             PortHandler port = port(id);
             if (port.direction() == direction) return;
@@ -838,11 +830,6 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         @Override
         public @NotNull fr.robie.machineengine.api.machine.PortDirection portDirection(@NotNull String id) {
             return port(id).direction();
-        }
-
-        @Override
-        public @Nullable net.kyori.adventure.key.Key blockAt(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.blockAt(new WorldPosition(position.world(), at));
         }
 
         @Override
@@ -860,66 +847,6 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             if (exposed == handler) return;
             exposed = handler;
             services.networks().machineChanged(position);
-        }
-
-        @Override
-        public @NotNull Optional<ResourceHandler> storageAt(@NotNull WorldPosition machine, @NotNull String storage) {
-            if (!host.isOwnedByCurrentThread(machine)) return Optional.empty();
-            MachineInstanceImpl other = host.machineAt(machine);
-            if (other == null || !other.storages.containsKey(storage)) return Optional.empty();
-            return Optional.of(other.storages.get(storage));
-        }
-
-        @Override
-        public boolean placeWorldFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition at, @NotNull net.kyori.adventure.key.Key fluid) {
-            return host.placeWorldFluid(new WorldPosition(position.world(), at), fluid);
-        }
-
-        @Override
-        public boolean placeWorldBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition at, @NotNull net.kyori.adventure.key.Key block) {
-            return host.placeWorldBlock(new WorldPosition(position.world(), at), block);
-        }
-
-        @Override
-        public float worldBlockHardness(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.worldBlockHardness(new WorldPosition(position.world(), at));
-        }
-
-        @Override
-        public boolean breakWorldBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.breakWorldBlock(new WorldPosition(position.world(), at));
-        }
-
-        @Override
-        public @NotNull List<ResourceStack> collectWorldItems(@NotNull fr.robie.machineengine.api.world.BlockPosition at) {
-            return host.collectWorldItems(new WorldPosition(position.world(), at));
-        }
-
-        @Override
-        public void setBlockProperty(@NotNull String property, @NotNull String value) {
-            host.setBlockProperty(position, property, value);
-        }
-
-        @Override
-        public int redstonePower() {
-            return host.redstonePower(position);
-        }
-
-        @Override
-        public void playSound(@NotNull net.kyori.adventure.key.Key sound, float volume, float pitch) {
-            host.playSound(position, sound, volume, pitch);
-        }
-
-        @Override
-        public void particleLine(@NotNull fr.robie.machineengine.api.world.BlockPosition to, int color) {
-            host.particleLine(position, new WorldPosition(position.world(), to), color);
-        }
-
-        @Override
-        public void wakeMachine(@NotNull WorldPosition machine) {
-            if (!host.isOwnedByCurrentThread(machine)) return;
-            MachineInstanceImpl other = host.machineAt(machine);
-            if (other != null) other.wake(WakeReason.NEIGHBOR_CHANGED);
         }
 
         @Override
@@ -995,6 +922,104 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
                 }
             }
             return services.handoff().send(MachineInstanceImpl.this, route, storageId, filter, maxAmount);
+        }
+
+        // -- the world and other machines ------------------------------------------------------
+
+        private final World world = new World();
+        private final Others others = new Others();
+
+        @Override
+        public @NotNull MachineWorld world() {
+            return world;
+        }
+
+        @Override
+        public @NotNull OtherMachines machines() {
+            return others;
+        }
+
+        private WorldPosition at(fr.robie.machineengine.api.world.BlockPosition block) {
+            return new WorldPosition(position.world(), block);
+        }
+
+        private final class World implements MachineWorld {
+            @Override
+            public @Nullable net.kyori.adventure.key.Key blockAt(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.blockAt(at(block));
+            }
+
+            @Override
+            public @Nullable fr.robie.machineengine.api.world.WorldFluid fluidAt(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.worldFluidAt(at(block));
+            }
+
+            @Override
+            public float blockHardness(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.worldBlockHardness(at(block));
+            }
+
+            @Override
+            public int redstonePower() {
+                return host.redstonePower(position);
+            }
+
+            @Override
+            public boolean placeFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition block, @NotNull net.kyori.adventure.key.Key fluid) {
+                return host.placeWorldFluid(at(block), fluid);
+            }
+
+            @Override
+            public boolean takeFluid(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.takeWorldFluid(at(block));
+            }
+
+            @Override
+            public boolean placeBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition block, @NotNull net.kyori.adventure.key.Key key) {
+                return host.placeWorldBlock(at(block), key);
+            }
+
+            @Override
+            public boolean breakBlock(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.breakWorldBlock(at(block));
+            }
+
+            @Override
+            public @NotNull List<ResourceStack> collectItems(@NotNull fr.robie.machineengine.api.world.BlockPosition block) {
+                return host.collectWorldItems(at(block));
+            }
+
+            @Override
+            public void setBlockProperty(@NotNull String property, @NotNull String value) {
+                host.setBlockProperty(position, property, value);
+            }
+
+            @Override
+            public void playSound(@NotNull net.kyori.adventure.key.Key sound, float volume, float pitch) {
+                host.playSound(position, sound, volume, pitch);
+            }
+
+            @Override
+            public void particleLine(@NotNull fr.robie.machineengine.api.world.BlockPosition to, int color) {
+                host.particleLine(position, at(to), color);
+            }
+        }
+
+        private final class Others implements OtherMachines {
+            @Override
+            public @NotNull Optional<ResourceHandler> storage(@NotNull WorldPosition machine, @NotNull String storage) {
+                if (!host.isOwnedByCurrentThread(machine)) return Optional.empty();
+                MachineInstanceImpl other = host.machineAt(machine);
+                if (other == null || !other.storages.containsKey(storage)) return Optional.empty();
+                return Optional.of(other.storages.get(storage));
+            }
+
+            @Override
+            public void wake(@NotNull WorldPosition machine) {
+                if (!host.isOwnedByCurrentThread(machine)) return;
+                MachineInstanceImpl other = host.machineAt(machine);
+                if (other != null) other.wake(WakeReason.NEIGHBOR_CHANGED);
+            }
         }
     }
 
