@@ -183,6 +183,21 @@ api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
   assembled wiring live in `test`.
 
 ## Stage R7: Mekanized on `api` only (D27, confirmed by the owner 2026-10-06)
+**Survey (2026-10-06):** Mekanized's main code uses 8 internal types. `CoreMachineEngine`,
+`MachineInstanceImpl` and `DefinitionCompiler` appear only in its tests, through the harness; those
+stay as they are (D28).
+
+| Internal | Used for | Replacement |
+|---|---|---|
+| `LoadedMachine`, `.instance().context()` | machine data and storages from listeners and commands | `MachineEngine.machineAt` + new `MachineInstance.context()` |
+| `MachineLocator.machine`, `isOwnedByCurrentThread` | lookups, Folia ownership | `machineAt`, `Bukkit.isOwnedByCurrentRegion` |
+| `MachineLocator.replaceBlock`, `cycleTransportSide` | tier upgrades, configurator on cables | API service |
+| `PaperItems` | ItemStack <-> resource, CraftEngine item ids | moves to `api` |
+| `PaperWorlds.world` | Key -> World | `Bukkit.getWorld` |
+| `MachineMenuService.open` | opening a machine's menu | API service |
+| `PositionArguments`, `ClassPreloader` | command arguments, jar-swap protection | move to `api` |
+| `Nms`, `PlayerInput` | jetpack input, elytra unit | move to `api` (D28) |
+
 The end state is `compileOnly(project(":api"))` only, with Java 21 bytecode. The `common`
 dependency in step 1 is a temporary migration step and must be gone when this stage ends.
 1. Rename `machineengine-mekanized` → `mekanized`; temporarily `compileOnly(project(":common"))`.
