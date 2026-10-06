@@ -314,7 +314,45 @@ not `machineengine:fluid`. Pipes would ignore it, which is almost always a mista
   `Fluids.create`.
 - `worldFluid` / `fromWorld` round-trip.
 
-## Stage 5: Mekanized uses the built-ins
+## Stage 5: Mekanized uses the built-ins (done 2026-10-06)
+**Result:**
+- `MekanizedContent`:
+  - `ENERGY`/`ENERGY_CATEGORY` are `Energy.type()`/`category()`, so the call sites are unchanged;
+  - `fluid("water"|"lava")` gives the engine's;
+  - its own fluids are made with `Fluids.create(mekanized:fluid/<name>)`;
+  - it no longer registers an energy category or type.
+- **Aliases:** `mekanized:energy`, `mekanized:fluid/water` and `mekanized:fluid/lava` (resource
+  types), and `mekanized:process_cost/energy` (modifier type).
+- **Not in the plan:** the energy upgrade's cost modifier is keyed by the energy category, so it is
+  now `machineengine:process_cost/energy`. That key is in a reserved namespace, so
+  `CoreMachineEngine` registers `processCost(Energy.category())` and Mekanized no longer does.
+- **Pump and plenisher** use `Fluids.fromWorld` / `worldFluid` and `Fluids.bucket()`.
+  `PaperResourceNames` gives Mekanism lang keys only to Mekanized's own fluids; water and lava use
+  Minecraft's.
+- `PaperEntangloporters` and the gauge dropper (`PaperTools`) look stored keys up in the registry,
+  so old saves follow the aliases.
+- **Generator (`buildSrc`):** writes `machineengine:energy` and `machineengine:fluid/water|lava`, and
+  `fluids.txt` no longer lists water and lava. The generated output differs only in those keys:
+  1 339 energy, 26 water and 2 lava lines, plus the two `fluids.txt` lines. Bucket recipes stay at
+  1000 mB: they are generated YAML, not tied to `resources.fluid.bucket`.
+- **Tests:**
+  - `ChemistryChainTest` and `GaugeDropperTest` use `Fluids.water()` instead of the string
+    `"fluid/water"`;
+  - new `EngineResourcesTest` (3): Mekanized uses the engine's resources, the old keys are aliases,
+    and data saved as `mekanized:energy` loads and saves back as `machineengine:energy`.
+
+  `./gradlew check` passes (309 tests).
+- **Paper 1.20.6 dev server**, on the existing world (saved with the old keys):
+  - all 12 Mekanized machines loaded, none as a placeholder;
+  - the 5 placeholders are the removed `example` addon's, as before;
+  - 0 startup errors and 0 warnings;
+  - the unedited definition files were replaced with the new keys;
+  - `mekanized test`: "2 osmium dust (expected 2), 10000 J left (expected 10000)".
+
+  The jansi crash at shutdown happens after "All chunks are saved" and is an old, known console
+  crash (`hs_err` files from Oct 1–2).
+
+**What was planned:**
 1. `MekanizedContent`:
    - `ENERGY` and `ENERGY_CATEGORY` become `Energy.type()` and `Energy.category()`. Keeping the
      field names avoids touching the ~114 call sites; replacing them is a separate mechanical

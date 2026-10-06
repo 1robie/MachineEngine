@@ -139,7 +139,7 @@ public final class CoreMachineEngine implements MachineEngine {
         this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, resources.water());
         this.registries.staticRegistry(Registries.RESOURCE_TYPE).register(AddonId.MACHINE_ENGINE, resources.lava());
         for (ModifierType modifier : List.of(StandardModifiers.PROCESS_DURATION, StandardModifiers.PROCESS_COST,
-                StandardModifiers.TRANSFER_RATE, StandardModifiers.PROCESSES_PER_TICK)) {
+                StandardModifiers.TRANSFER_RATE, StandardModifiers.PROCESSES_PER_TICK, StandardModifiers.processCost(resources.energyCategory()))) {
             this.registries.staticRegistry(Registries.MODIFIER_TYPE).register(AddonId.MACHINE_ENGINE, modifier);
         }
         for (EventType<?> event : List.of(MachineEvents.MACHINE_CREATE, MachineEvents.MACHINE_LOAD, MachineEvents.MACHINE_UNLOAD,

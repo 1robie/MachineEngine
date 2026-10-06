@@ -22,18 +22,21 @@ internal class Recipes(
     private val itemTags: Map<String, List<String>>,
 ) {
     /**
-     * Mekanism's fluids (its `c:` fluid tags, one per fluid), plus water and lava: resources
-     * `mekanized:fluid/<name>`, apart from the chemicals of the same name.
+     * Mekanism's fluids (its `c:` fluid tags, one per fluid), plus water and lava, apart from the
+     * chemicals of the same name. See [fluidResource] for their resource types.
      */
     val fluids: List<String> get() = source.fluids
+
+    /** The fluids Mekanized registers itself (`fluids.txt`): water and lava are MachineEngine's. */
+    val ownFluids: List<String> get() = fluids.filter { it !in ENGINE_FLUIDS }
 
     /** A fluid id or `c:`/`minecraft:` fluid tag as a fluid resource type. */
     private fun fluidType(ref: String): String {
         val id = Ids.rename(ref.removePrefix("#"))
         return when {
-            id == "minecraft:water" || id == "minecraft:lava" -> "mekanized:fluid/" + id.removePrefix("minecraft:")
-            id.startsWith("c:") && id.removePrefix("c:") in fluids -> "mekanized:fluid/" + id.removePrefix("c:")
-            id.startsWith("mekanized:") && id.removePrefix("mekanized:") in fluids -> "mekanized:fluid/" + id.removePrefix("mekanized:")
+            id == "minecraft:water" || id == "minecraft:lava" -> fluidResource(id.removePrefix("minecraft:"))
+            id.startsWith("c:") && id.removePrefix("c:") in fluids -> fluidResource(id.removePrefix("c:"))
+            id.startsWith("mekanized:") && id.removePrefix("mekanized:") in fluids -> fluidResource(id.removePrefix("mekanized:"))
             else -> throw Unsupported("unknown fluid $ref")
         }
     }
@@ -216,7 +219,7 @@ internal class Recipes(
                 "fluid_input" -> inputs += fluidInput(value.asJsonObject)
                 "output", "main_output", "item_output", "chemical_output", "fluid_output",
                 "left_chemical_output", "right_chemical_output" ->
-                    if (value.isJsonPrimitive) outputs += mapOf("type" to "mekanized:energy", "amount" to value.asLong)
+                    if (value.isJsonPrimitive) outputs += mapOf("type" to ENERGY, "amount" to value.asLong)
                     else outputs += output(field, value.asJsonObject)
                 "secondary_output" -> chanceOutputs += output(field, value.asJsonObject).toMutableMap().apply {
                     put("chance", json.get("secondary_chance")?.asDouble ?: 1.0)
@@ -233,7 +236,7 @@ internal class Recipes(
         val energy = if (kind == "reaction") machine.energyPerTick + (json.get("energy_required")?.asLong ?: 0)
         else json.get("energy_required")?.asLong
             ?: (machine.energyPerTick * (json.get("energy_multiplier")?.asDouble ?: 1.0)).toLong()
-        if (energy > 0) perTick.add(0, mapOf("type" to "mekanized:energy", "amount" to energy))
+        if (energy > 0) perTick.add(0, mapOf("type" to ENERGY, "amount" to energy))
         if (perTick.isNotEmpty()) recipe["cost-per-tick"] = perTick
         return recipe
     }
@@ -419,15 +422,15 @@ internal class Recipes(
     // -- output
 
     private fun writeOutputs() {
-        out.resolve("fluids.txt").writeText(fluids.joinToString("\n", postfix = "\n"))
+        out.resolve("fluids.txt").writeText(ownFluids.joinToString("\n", postfix = "\n"))
         // Bucket slots of fluid machines and tanks (E5): only vanilla buckets, Mekanism's need a mod-side model.
         val buckets = linkedMapOf<String, Any?>()
-        for (fluid in listOf("water", "lava")) {
+        for (fluid in ENGINE_FLUIDS) {
             buckets["mekanized:bucket_filling/$fluid"] = linkedMapOf("type" to "mekanized:bucket_filling",
                 "inputs" to listOf(mapOf("item" to "minecraft:${fluid}_bucket", "amount" to 1)),
-                "outputs" to listOf(mapOf("type" to "mekanized:fluid/$fluid", "amount" to 1000), mapOf("item" to "minecraft:bucket", "amount" to 1)))
+                "outputs" to listOf(mapOf("type" to fluidResource(fluid), "amount" to 1000), mapOf("item" to "minecraft:bucket", "amount" to 1)))
             buckets["mekanized:bucket_draining/$fluid"] = linkedMapOf("type" to "mekanized:bucket_draining",
-                "inputs" to listOf(mapOf("item" to "minecraft:bucket", "amount" to 1), mapOf("type" to "mekanized:fluid/$fluid", "amount" to 1000)),
+                "inputs" to listOf(mapOf("item" to "minecraft:bucket", "amount" to 1), mapOf("type" to fluidResource(fluid), "amount" to 1000)),
                 "outputs" to listOf(mapOf("item" to "minecraft:${fluid}_bucket", "amount" to 1)))
         }
         writeYaml(out.resolve("definitions/recipes_buckets.yml"),
@@ -447,3 +450,13 @@ internal class Recipes(
         }
     }
 }
+
+/** MachineEngine's energy (D29): recipes pay and make it, Mekanized has no energy of its own. */
+private const val ENERGY = "machineengine:energy"
+
+/** The fluids MachineEngine provides (D29); Mekanized registers every other fluid itself. */
+private val ENGINE_FLUIDS = listOf("water", "lava")
+
+/** The resource type of a fluid: `machineengine:fluid/water`, `mekanized:fluid/brine`. */
+private fun fluidResource(name: String): String =
+    (if (name in ENGINE_FLUIDS) "machineengine" else "mekanized") + ":fluid/" + name
