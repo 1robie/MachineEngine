@@ -231,6 +231,41 @@ class ConfigFileTest {
     }
 
     @Test
+    void clampedNumbersUseTheNearestBound() throws IOException {
+        ConfigKey<Integer> radius = ConfigKey.integer("radius", 2, 0, 8).clamped();
+        ConfigKey<Double> speed = ConfigKey.decimal("speed", 0.5, 0, 2).clamped();
+        ConfigKey<Long> energy = ConfigKey.whole("energy", 100, 0, 1_000).clamped();
+        ConfigSpec spec = ConfigSpec.builder().key(radius).key(speed).key(energy).build();
+        write("radius: 40", "speed: -3", "energy: lots");
+
+        ConfigFile config = ConfigFile.load(this.file, spec, this.logger);
+
+        assertEquals(8, config.get(radius));
+        assertEquals(0.0, config.get(speed));
+        assertEquals(100, config.get(energy), "not a number: the default, even when clamped");
+        assertEquals(3, warnings());
+        assertTrue(this.logs.stream().anyMatch(record -> record.getMessage().contains("radius must be a whole number from 0 to 8 but is '40'; using 8")));
+        assertThrows(IllegalStateException.class, () -> ConfigKey.string("text", "a").clamped());
+    }
+
+    @Test
+    void wholeListsHaveTheirSizeAndRange() throws IOException {
+        ConfigKey<List<Long>> tiers = ConfigKey.wholes("tiers", List.of(1L, 2L, 3L, 4L), 4, 1, 100);
+        ConfigKey<List<Long>> any = ConfigKey.wholes("any", List.of(), 0, 0, 10);
+        ConfigSpec spec = ConfigSpec.builder().key(tiers).key(any).build();
+        write("tiers: [5, 6, 7, 8]", "any: [1, 2, 3]");
+        ConfigFile config = ConfigFile.load(this.file, spec, this.logger);
+        assertEquals(List.of(5L, 6L, 7L, 8L), config.get(tiers));
+        assertEquals(List.of(1L, 2L, 3L), config.get(any));
+
+        write("tiers: [5, 6, 7]", "any: [1, 20]");
+        config = ConfigFile.load(this.file, spec, this.logger);
+        assertEquals(List.of(1L, 2L, 3L, 4L), config.get(tiers), "three numbers: the default");
+        assertEquals(List.of(), config.get(any), "out of range: the default");
+        assertTrue(this.logs.stream().anyMatch(record -> record.getMessage().contains("tiers must be 4 whole numbers, each from 1 to 100")));
+    }
+
+    @Test
     void defaultsNeedNoFile() {
         ConfigValues defaults = SPEC.defaults();
         assertEquals(256, defaults.get(LIMIT));

@@ -410,7 +410,37 @@ not `machineengine:fluid`. Pipes would ignore it, which is almost always a mista
   more and confirm the saved data now names `machineengine:*`. Delete a key from config.yml, start
   again, and check it comes back with its comment.
 
-## Optional stage 7: Mekanized config on the same loader
+## Stage 7: Mekanized config on the same loader (done 2026-10-06)
+**Result:**
+- **API:**
+  - `ConfigKey.clamped()`: an out-of-range number is limited to the nearest bound with a warning,
+    as Mekanized always did. Only for integer, whole and decimal keys;
+  - `ConfigKey.wholes(path, default, size, min, max)`: a list of whole numbers of a given size, for
+    the tier lists.
+- **`MekanizedConfig`** declares all 79 settings, with the paths, defaults, ranges and comments of
+  the old file. Every number is clamped, as before, except the transport tiers and the
+  dynamic-tank/evaporation numbers, which used the default before and still do.
+  `MekanizedSettings.load(plugin)` reads it through `ConfigFile`, and `apply(values)` copies it into
+  the settings classes.
+- `GearSettingsLoader`, the hand-written parsing in `MekanizedSettings`, and the bundled
+  `mekanized/src/main/resources/config.yml` are deleted. The file is generated; the reference copy
+  is `mekanized/src/test/resources/config/mekanized-config.yml`.
+- **One behaviour change:** an invalid list (QIO drives, transport tiers) now gives the default, not
+  the value from a previous load. Settings load once per server start, so the result is the same on
+  a server.
+- **Tests:**
+  - `SettingsTest` loads through `ConfigFile`. New checks: the generated file matches the reference
+    copy, the old shipped file loads without being rewritten and with no warnings, and a missing key
+    is written into the file. All the old checks pass, warning counts included;
+  - `ConfigFileTest` covers `clamped()` and `wholes()`.
+
+  `./gradlew check` passes (314 tests).
+- **Paper 1.20.6:** the server's existing `plugins/Mekanized/config.yml` is byte-identical before and
+  after (nothing was missing). No warnings; `mekanized test` gives 2 dust and 10000 J, as expected.
+- `MEKANIZED_GUIDE.md`: new settings are now added to the file automatically; there is no copying by
+  hand.
+
+**What was planned:**
 `MekanizedSettings` and `GearSettingsLoader` become a list of `ConfigKey`s on
 `ConfigFile.of(plugin, "config.yml", keys)`. Its config file then also gains missing keys, and can
 reload later. Separate commits, no behaviour change.

@@ -25,7 +25,8 @@ import java.util.logging.Logger;
  * <ul>
  *   <li>a missing file is created from the {@link ConfigSpec}, with its header and comments;</li>
  *   <li>a missing key is added with its default and comment, and the file is saved;</li>
- *   <li>an invalid value logs a warning and uses the default; the file keeps the owner's text;</li>
+ *   <li>an invalid value logs a warning and uses the default (a {@link ConfigKey#clamped() clamped} number out of
+ *       range uses the nearest bound); the file keeps the owner's text;</li>
  *   <li>keys the spec does not know are kept;</li>
  *   <li>a file that cannot be parsed is not touched: defaults are used (or, on a reload, the old values).</li>
  * </ul>
@@ -143,6 +144,12 @@ public final class ConfigFile implements ConfigValues {
         }
         Object raw = yaml.get(path);
         T value = key.parse(raw);
+        T clamped = value == null ? key.clamp(raw) : null;
+        if (clamped != null) {
+            this.logger.warning(name + ": " + path + " must be " + key.expected() + " but is " + describe(raw) + "; using " + clamped);
+            invalid.add(path);
+            return clamped;
+        }
         if (value == null) {
             this.logger.warning(name + ": " + path + " must be " + key.expected() + " but is " + describe(raw)
                     + "; using the default " + key.defaultValue());
