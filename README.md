@@ -99,9 +99,42 @@ category, so any fluid pipe or port takes them.
 Server owners can define resources, recipes and whole machines without Java in
 `plugins/MachineEngine/definitions/*.yml`. A commented `example.yml` (disabled) is installed on
 first start. Machines take a `behavior` type: `machineengine:processing` (runs recipes),
-`machineengine:storage`, or one an addon registers. Recipes reload with
+`machineengine:storage`, `machineengine:multiblock_member`, or one an addon registers. Recipes reload with
 `/machineengine reload recipes`; machines and resources need a restart. Invalid entries are skipped
 and listed in `/machineengine report` with their file and path.
+
+## Multiblocks
+
+A `multiblocks:` section in a definitions file declares structures, and machines with the
+`machineengine:multiblock_member` behavior are their blocks. Two shapes:
+- `box`: a hollow box of 3 to 18 blocks a side, with casings on the edges (Mekanism's tanks and
+  reactors are boxes).
+- `pattern`: any fixed shape, written as layers of rows with a character key, like a crafting
+  recipe in 3D. It is found in any of the four horizontal rotations.
+
+A structure forms as soon as its last block is placed and unforms when one is broken. Its anchor
+block holds its storages, sized by `capacities`.
+
+```yaml
+multiblocks:
+  mypack:altar:
+    pattern:
+      layers:                     # bottom up; rows north to south; characters west to east
+        - ["CCC", "C#C", "CCC"]
+        - ["   ", " G ", "   "]   # a space is any block
+      key: {C: mypack:altar_casing, "#": mypack:altar_core, G: [minecraft:glass, minecraft:tinted_glass]}
+      anchor: "#"
+    capacities: {mana: 64000}
+machines:
+  mypack:altar_core:
+    storages: {mana: {capacity: 1}}
+    behavior: {type: machineengine:multiblock_member, multiblocks: [mypack:altar]}
+  mypack:altar_casing:
+    behavior: {type: machineengine:multiblock_member, multiblocks: [mypack:altar]}
+```
+
+Members can also be `role: valve` or `role: port`, passing the anchor's `storages` through.
+Addons use the same types from Java: `api.multiblock`, `MultiblockMember.of(types)`.
 
 ## Hoppers
 
@@ -123,7 +156,8 @@ behavior turns this off).
 
 ## Keeping contents in the item
 
-Add `keep_contents: true` to a block's `machineengine:machine` behavior, and a player breaking it
+Add `keep_contents: true` to a block's `machineengine:machine` behavior and
+`loot: {template: machineengine:loot_table/keep_contents}` to the block, and a player breaking it
 gets one item holding the machine's contents, process and upgrades; placing it resumes the machine.
 Explosions and other non-player breaks drop the contents as usual. Empty machines drop plain items.
 

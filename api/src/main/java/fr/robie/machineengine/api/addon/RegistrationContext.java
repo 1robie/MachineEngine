@@ -8,6 +8,7 @@ import fr.robie.machineengine.api.event.EngineEvents;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.item.ItemTagContribution;
 import fr.robie.machineengine.api.machine.MachineType;
+import fr.robie.machineengine.api.multiblock.MultiblockType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
 import fr.robie.machineengine.api.recipe.Recipe;
@@ -122,6 +123,10 @@ public interface RegistrationContext {
 
     default @NotNull WritableRegistry<TransportType> transportTypes() {
         return registry(Registries.TRANSPORT_TYPE);
+    }
+
+    default @NotNull WritableRegistry<MultiblockType> multiblockTypes() {
+        return registry(Registries.MULTIBLOCK_TYPE);
     }
 
     default @NotNull WritableRegistry<BehaviorType> behaviorTypes() {

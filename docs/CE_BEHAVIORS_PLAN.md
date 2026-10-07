@@ -66,6 +66,21 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
     - a non-owner breaking personal storage (`CustomBlockBreakEvent`), because block behaviors cannot cancel a break.
   - **Small change:** a teleporter now only fires when the player stands directly on it, no longer from two blocks above.
 
+- **2026-10-07, Stage 4b: multiblocks in the engine (D33, done).**
+  - `api.multiblock`: `MultiblockShape` (`Box`, `Pattern` with four rotations), `MultiblockType`, `MultiblockStructure` (members, rotation, counts), `Multiblocks` (detection and formed structures), `MultiblockMember` (moved from Mekanized's `MemberBehavior`, with a builder and a configurable port-mode key), and `MultiblockDefinitions` (YAML).
+  - `Registries.MULTIBLOCK_TYPE`, `RegistrationContext.multiblockTypes()`, a `multiblocks:` definitions section, and the behavior type `machineengine:multiblock_member`.
+  - Mekanized's eight box structures are engine `Box` types, registered in the registry. They keep `mekanized:port_mode`, so saved port modes stay.
+  - `MultiblockTest` (engine):
+    - a non-symmetric L-shaped pattern is found in all four rotations from every one of its blocks;
+    - a missing or wrong block is no structure;
+    - a fixed pattern does not match turned;
+    - only its blocks are contained;
+    - boxes still work;
+    - a YAML pattern multiblock forms and sizes its anchor;
+    - bad definitions are rejected.
+
+    Mekanized's multiblock and structure tests pass unchanged.
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.

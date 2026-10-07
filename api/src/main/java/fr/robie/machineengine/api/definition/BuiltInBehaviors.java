@@ -3,13 +3,14 @@ package fr.robie.machineengine.api.definition;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.data.Codecs;
 import fr.robie.machineengine.api.data.DataMap;
-import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.data.DataValue.DataList;
+import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.error.MachineError.InvalidConfiguration;
 import fr.robie.machineengine.api.error.Result;
-import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineBehavior;
+import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.ProcessingBehavior;
+import fr.robie.machineengine.api.multiblock.MultiblockDefinitions;
 import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
@@ -42,6 +43,10 @@ public final class BuiltInBehaviors {
     /** A machine that only stores (chests, tanks, batteries): {@code type: machineengine:storage}. */
     public static final BehaviorType STORAGE = BehaviorType.of(MachineEngineKeys.key("storage"),
             (config, context) -> Result.ok(type -> MachineContext::sleep));
+
+    /** A block of a multiblock (D33): {@code type: machineengine:multiblock_member}, see {@link MultiblockDefinitions}. */
+    public static final BehaviorType MULTIBLOCK_MEMBER = BehaviorType.of(MachineEngineKeys.key("multiblock_member"),
+            MultiblockDefinitions::member);
 
     private BuiltInBehaviors() {
     }

@@ -1,4 +1,4 @@
-package fr.robie.machineengine.mekanized.multiblock;
+package fr.robie.machineengine.api.multiblock;
 
 import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.machine.MachineBehavior;
@@ -13,7 +13,9 @@ import fr.robie.machineengine.api.transfer.TransactionContext;
 import fr.robie.machineengine.api.transfer.Transfers;
 import fr.robie.machineengine.api.world.RelativeSide;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.mekanized.machine.DataKeys;
+import fr.robie.machineengine.api.data.Codecs;
+import fr.robie.machineengine.api.data.VersionedCodec;
+import fr.robie.machineengine.api.MachineEngineKeys;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -24,34 +26,40 @@ import java.util.Map;
 import java.util.function.ToLongFunction;
 
 /**
- * A multiblock's frame block (casing, valve, port, glass). Each finds its structure when it loads
- * (or is placed), and unforms it when removed. The anchor (lowest corner) sizes its storages for the
- * structure and checks it again every few seconds (blocks placed inside, cells added...). A member
- * that passes through ({@code storages} not empty) shows the anchor's storages on all its sides.
+ * A block of a multiblock (D33): a frame block, valve or port, as a machine behavior. Each finds its
+ * structure when it loads (or is placed), and unforms it when removed. The anchor sizes its storages for
+ * the structure and checks it again every few seconds (blocks placed inside, cells added...). A member
+ * that passes through (storages given) shows the anchor's storages on all its sides.
+ *
+ * <p>Built with {@link #of(List)}; data-driven machines use the behavior type
+ * {@code machineengine:multiblock_member}.</p>
  */
-public final class MemberBehavior implements MachineBehavior {
-    /** An induction port's mode: {@code input} (default) or {@code output}, pushing to its neighbors. */
-    public static final MachineDataKey<String> PORT_MODE = DataKeys.string("port_mode", "input");
+public final class MultiblockMember implements MachineBehavior {
+    /** A port's mode: {@code input} (default) or {@code output}, pushing to its neighbors. Builders may use another key. */
+    public static final MachineDataKey<String> PORT_MODE = MachineDataKey.of("port_mode",
+            VersionedCodec.builder(MachineEngineKeys.key("port_mode"), Codecs.STRING).build(), "input");
     private static final long RECHECK_TICKS = 100;
 
     /** Work an anchor does while its structure is formed (e.g. evaporating), every {@code everyTicks}. */
     public interface AnchorTask {
-        void run(@NotNull MachineContext anchor, @NotNull Multiblocks.Structure structure);
+        void run(@NotNull MachineContext anchor, @NotNull MultiblockStructure structure);
     }
 
-    private final List<Multiblocks.Type> types;
+    private final List<MultiblockType> types;
     private final List<String> storages;
     private final List<String> insertInto;
     private final List<String> extractFrom;
     private final boolean exclusive;
-    private final @Nullable ToLongFunction<Multiblocks.Structure> outputRate;
+    private final @Nullable ToLongFunction<MultiblockStructure> outputRate;
     private final @Nullable AnchorTask task;
     private final long taskTicks;
+    private final MachineDataKey<String> portMode;
     /** Modal valves and ports: by mode ({@link #PORT_MODE}), the anchor's storages given out; null for others. */
     private @Nullable Map<String, List<String>> pushes;
 
-    private MemberBehavior(List<Multiblocks.Type> types, List<String> insertInto, List<String> extractFrom, boolean exclusive,
-                           @Nullable ToLongFunction<Multiblocks.Structure> outputRate, @Nullable AnchorTask task, long taskTicks) {
+    private MultiblockMember(List<MultiblockType> types, List<String> insertInto, List<String> extractFrom, boolean exclusive,
+                             @Nullable ToLongFunction<MultiblockStructure> outputRate, @Nullable AnchorTask task, long taskTicks,
+                             MachineDataKey<String> portMode) {
         this.types = List.copyOf(types);
         this.insertInto = List.copyOf(insertInto);
         this.extractFrom = List.copyOf(extractFrom);
@@ -62,53 +70,73 @@ public final class MemberBehavior implements MachineBehavior {
         this.outputRate = outputRate;
         this.task = task;
         this.taskTicks = taskTicks;
+        this.portMode = portMode;
     }
 
-    /** A casing or glass: finds the structure; anchors it when it is the lowest corner. */
-    public static @NotNull MachineBehavior.Factory frame(@NotNull List<Multiblocks.Type> types) {
-        return type -> new MemberBehavior(types, List.of(), List.of(), false, null, null, RECHECK_TICKS);
+    /** Members of a structure of one of {@code types} (tried in order). */
+    public static @NotNull Builder of(@NotNull List<MultiblockType> types) {
+        return new Builder(List.copyOf(types));
     }
 
-    /** A casing whose anchor also runs {@code task} every {@code everyTicks} while the structure is formed. */
-    public static @NotNull MachineBehavior.Factory frame(@NotNull List<Multiblocks.Type> types, @NotNull AnchorTask task, long everyTicks) {
-        return type -> new MemberBehavior(types, List.of(), List.of(), false, null, task, everyTicks);
-    }
+    /** Makes the behavior factories of members. */
+    public static final class Builder {
+        private final List<MultiblockType> types;
+        private MachineDataKey<String> portMode = PORT_MODE;
 
-    /**
-     * A valve: passes through to the anchor's {@code storages}. With {@code exclusive}, the structure
-     * holds one of them at a time (a dynamic tank holds a fluid or a chemical).
-     */
-    public static @NotNull MachineBehavior.Factory valve(@NotNull List<Multiblocks.Type> types, @NotNull List<String> storages, boolean exclusive) {
-        return type -> new MemberBehavior(types, storages, storages, exclusive, null, null, RECHECK_TICKS);
-    }
+        private Builder(List<MultiblockType> types) {
+            this.types = types;
+        }
 
-    /** A valve filling the anchor's {@code insertInto} storages and emptying its {@code extractFrom} ones. */
-    public static @NotNull MachineBehavior.Factory valve(@NotNull List<Multiblocks.Type> types, @NotNull List<String> insertInto,
-                                                         @NotNull List<String> extractFrom) {
-        return type -> new MemberBehavior(types, insertInto, extractFrom, false, null, null, RECHECK_TICKS);
-    }
+        /** The machine data key ports keep their mode in (an addon keeping its own saved key). */
+        public @NotNull Builder portMode(@NotNull MachineDataKey<String> key) {
+            this.portMode = key;
+            return this;
+        }
 
-    /**
-     * A valve or port with modes (Mekanism's configurator cycles them): it fills the anchor's
-     * {@code insertInto} storages, and in each mode gives out the storages {@code pushes} lists for it
-     * (pushed to its neighbors, and taken by pipes). The block shows the mode ({@code mode} property,
-     * or {@code active} when not in {@code input}).
-     */
-    public static @NotNull MachineBehavior.Factory modal(@NotNull List<Multiblocks.Type> types, @NotNull List<String> insertInto,
-                                                         @NotNull Map<String, List<String>> pushes) {
-        return type -> {
-            List<String> all = new ArrayList<>();
-            pushes.values().forEach(all::addAll);
-            MemberBehavior behavior = new MemberBehavior(types, insertInto, all, false, null, null, RECHECK_TICKS);
-            behavior.pushes = Map.copyOf(pushes);
-            return behavior;
-        };
-    }
+        /** A casing or glass: finds the structure; anchors it when it is the anchor block. */
+        public @NotNull MachineBehavior.Factory frame() {
+            return type -> new MultiblockMember(this.types, List.of(), List.of(), false, null, null, RECHECK_TICKS, this.portMode);
+        }
 
-    /** An induction port: passes energy in, or (in output mode) pushes it out at {@code outputRate} per tick. */
-    public static @NotNull MachineBehavior.Factory port(@NotNull List<Multiblocks.Type> types, @NotNull String storage,
-                                                        @NotNull ToLongFunction<Multiblocks.Structure> outputRate) {
-        return type -> new MemberBehavior(types, List.of(storage), List.of(storage), false, outputRate, null, RECHECK_TICKS);
+        /** A frame block whose anchor also runs {@code task} every {@code everyTicks} while the structure is formed. */
+        public @NotNull MachineBehavior.Factory frame(@NotNull AnchorTask task, long everyTicks) {
+            return type -> new MultiblockMember(this.types, List.of(), List.of(), false, null, task, everyTicks, this.portMode);
+        }
+
+        /**
+         * A valve: passes through to the anchor's {@code storages}. With {@code exclusive}, the structure
+         * holds one of them at a time (a tank holds a fluid or a chemical).
+         */
+        public @NotNull MachineBehavior.Factory valve(@NotNull List<String> storages, boolean exclusive) {
+            return type -> new MultiblockMember(this.types, storages, storages, exclusive, null, null, RECHECK_TICKS, this.portMode);
+        }
+
+        /** A valve filling the anchor's {@code insertInto} storages and emptying its {@code extractFrom} ones. */
+        public @NotNull MachineBehavior.Factory valve(@NotNull List<String> insertInto, @NotNull List<String> extractFrom) {
+            return type -> new MultiblockMember(this.types, insertInto, extractFrom, false, null, null, RECHECK_TICKS, this.portMode);
+        }
+
+        /**
+         * A valve or port with modes (a configurator cycles them): it fills the anchor's {@code insertInto}
+         * storages, and in each mode gives out the storages {@code pushes} lists for it (pushed to its
+         * neighbors, and taken by pipes). The block shows the mode ({@code mode} property, or
+         * {@code active} when not in {@code input}).
+         */
+        public @NotNull MachineBehavior.Factory modal(@NotNull List<String> insertInto, @NotNull Map<String, List<String>> pushes) {
+            return type -> {
+                List<String> all = new ArrayList<>();
+                pushes.values().forEach(all::addAll);
+                MultiblockMember behavior = new MultiblockMember(this.types, insertInto, all, false, null, null, RECHECK_TICKS, this.portMode);
+                behavior.pushes = Map.copyOf(pushes);
+                return behavior;
+            };
+        }
+
+        /** A port: passes {@code storage} in, or (in {@code output} mode) pushes it out at {@code outputRate} per tick. */
+        public @NotNull MachineBehavior.Factory port(@NotNull String storage, @NotNull ToLongFunction<MultiblockStructure> outputRate) {
+            return type -> new MultiblockMember(this.types, List.of(storage), List.of(storage), false, outputRate, null, RECHECK_TICKS,
+                    this.portMode);
+        }
     }
 
     @Override
@@ -120,11 +148,11 @@ public final class MemberBehavior implements MachineBehavior {
     @Override
     public void tick(@NotNull MachineContext context) {
         WorldPosition here = context.machine().position();
-        Multiblocks.Structure structure = Multiblocks.containing(here);
+        MultiblockStructure structure = Multiblocks.containing(here);
         if (structure == null) structure = detect(context, here);
         if (structure != null && structure.anchor().equals(here)) {
             // The anchor: still valid? Then size the storages for it.
-            Multiblocks.Structure again = detect(context, here);
+            MultiblockStructure again = detect(context, here);
             if (again == null) {
                 Multiblocks.unform(structure);
                 structure = null;
@@ -137,7 +165,7 @@ public final class MemberBehavior implements MachineBehavior {
             context.wakeIn(this.taskTicks);
         }
         if (this.pushes != null) {
-            String mode = context.get(PORT_MODE);
+            String mode = context.get(this.portMode);
             context.world().setBlockProperty("mode", mode);
             context.setActive(!"input".equals(mode));
             List<String> given = this.pushes.getOrDefault(mode, List.of());
@@ -149,7 +177,7 @@ public final class MemberBehavior implements MachineBehavior {
             }
             return;
         }
-        boolean output = this.outputRate != null && "output".equals(context.get(PORT_MODE));
+        boolean output = this.outputRate != null && "output".equals(context.get(this.portMode));
         context.setActive(structure != null && (this.outputRate == null || output));
         if (output && structure != null) {
             push(context, structure);
@@ -159,9 +187,9 @@ public final class MemberBehavior implements MachineBehavior {
         }
     }
 
-    private @Nullable Multiblocks.Structure detect(MachineContext context, WorldPosition here) {
-        Multiblocks.Structure found = null;
-        for (Multiblocks.Type type : this.types) {
+    private @Nullable MultiblockStructure detect(MachineContext context, WorldPosition here) {
+        MultiblockStructure found = null;
+        for (MultiblockType type : this.types) {
             found = Multiblocks.detect(context, here, type);
             if (found != null) break;
         }
@@ -172,12 +200,12 @@ public final class MemberBehavior implements MachineBehavior {
     }
 
     /** Output port: the structure's energy into every neighbor, up to the providers' rate. */
-    private void push(MachineContext context, Multiblocks.Structure structure) {
+    private void push(MachineContext context, MultiblockStructure structure) {
         pushOut(context, structure, this.storages.getFirst(), this.outputRate.applyAsLong(structure));
     }
 
     /** The anchor's {@code storage} into every neighbor outside the structure, up to {@code budget}. */
-    private static void pushOut(MachineContext context, Multiblocks.Structure structure, String storage, long budget) {
+    private static void pushOut(MachineContext context, MultiblockStructure structure, String storage, long budget) {
         ResourceHandler source = context.machines().storage(structure.anchor(), storage).orElse(null);
         if (source == null) return;
         for (RelativeSide side : RelativeSide.values()) {
@@ -197,7 +225,7 @@ public final class MemberBehavior implements MachineBehavior {
 
     @Override
     public void onRemove(@NotNull MachineContext context) {
-        Multiblocks.Structure structure = Multiblocks.containing(context.machine().position());
+        MultiblockStructure structure = Multiblocks.containing(context.machine().position());
         if (structure == null) return;
         Multiblocks.unform(structure);
         context.machines().wake(structure.anchor()); // keeps its contents, unformed
@@ -216,11 +244,11 @@ public final class MemberBehavior implements MachineBehavior {
         }
 
         private List<ResourceHandler> targets() {
-            return targets(MemberBehavior.this.storages);
+            return targets(MultiblockMember.this.storages);
         }
 
         private List<ResourceHandler> targets(List<String> storages) {
-            Multiblocks.Structure structure = Multiblocks.containing(this.context.machine().position());
+            MultiblockStructure structure = Multiblocks.containing(this.context.machine().position());
             if (structure == null) return List.of();
             List<ResourceHandler> targets = new ArrayList<>();
             for (String storage : storages) {
@@ -230,15 +258,15 @@ public final class MemberBehavior implements MachineBehavior {
         }
 
         private boolean output() {
-            return MemberBehavior.this.outputRate != null && "output".equals(this.context.get(PORT_MODE));
+            return MultiblockMember.this.outputRate != null && "output".equals(this.context.get(MultiblockMember.this.portMode));
         }
 
         @Override
         public long insert(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
             if (output()) return 0;
-            List<ResourceHandler> targets = targets(MemberBehavior.this.insertInto);
+            List<ResourceHandler> targets = targets(MultiblockMember.this.insertInto);
             for (ResourceHandler target : targets) {
-                if (MemberBehavior.this.exclusive && othersHold(targets, target)) continue;
+                if (MultiblockMember.this.exclusive && othersHold(targets, target)) continue;
                 long inserted = target.insert(variant, maxAmount, transaction);
                 if (inserted > 0) return inserted;
             }
@@ -255,9 +283,9 @@ public final class MemberBehavior implements MachineBehavior {
 
         @Override
         public long extract(@NotNull ResourceVariant variant, long maxAmount, @NotNull TransactionContext transaction) {
-            if (MemberBehavior.this.outputRate != null && !output()) return 0; // an input port gives nothing
-            List<String> from = MemberBehavior.this.pushes == null ? MemberBehavior.this.extractFrom
-                    : MemberBehavior.this.pushes.getOrDefault(this.context.get(PORT_MODE), List.of());
+            if (MultiblockMember.this.outputRate != null && !output()) return 0; // an input port gives nothing
+            List<String> from = MultiblockMember.this.pushes == null ? MultiblockMember.this.extractFrom
+                    : MultiblockMember.this.pushes.getOrDefault(this.context.get(MultiblockMember.this.portMode), List.of());
             long extracted = 0;
             for (ResourceHandler target : targets(from)) {
                 extracted += target.extract(variant, maxAmount - extracted, transaction);

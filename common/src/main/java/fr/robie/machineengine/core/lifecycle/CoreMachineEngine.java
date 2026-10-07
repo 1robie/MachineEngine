@@ -117,7 +117,7 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.RESOURCE_COMPONENT_TYPE, Registries.RESOURCE_CONVERTER, Registries.STORAGE_CODEC,
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
                 Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
-                Registries.BEHAVIOR_TYPE,
+                Registries.MULTIBLOCK_TYPE, Registries.BEHAVIOR_TYPE,
                 Registries.RECIPE, Registries.RESOURCE_TAG, Registries.ITEM_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
@@ -127,6 +127,8 @@ public final class CoreMachineEngine implements MachineEngine {
                 BuiltInBehaviors.PROCESSING);
         this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
                 BuiltInBehaviors.STORAGE);
+        this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,
+                BuiltInBehaviors.MULTIBLOCK_MEMBER);
         // Minecraft items (one resource type; the concrete item is a component, §23.4).
         this.registries.staticRegistry(Registries.RESOURCE_CATEGORY).register(AddonId.MACHINE_ENGINE, Items.CATEGORY);
         this.registries.staticRegistry(Registries.RESOURCE_COMPONENT_TYPE).register(AddonId.MACHINE_ENGINE, Items.DATA);

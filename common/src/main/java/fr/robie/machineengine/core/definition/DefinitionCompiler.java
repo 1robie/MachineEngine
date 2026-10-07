@@ -23,6 +23,8 @@ import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.PortDefinition;
 import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.StorageDefinition;
+import fr.robie.machineengine.api.multiblock.MultiblockDefinitions;
+import fr.robie.machineengine.api.multiblock.MultiblockType;
 import fr.robie.machineengine.api.recipe.ProcessingRecipe;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
@@ -165,6 +167,19 @@ public final class DefinitionCompiler {
             for (Key key : keys(file, "recipe-types", report)) {
                 context.recipeTypes().register(RecipeType.of(key, ProcessingRecipe.class));
             }
+        }
+        // Before the machines: their multiblock members name these (D33).
+        for (DefinitionFile file : files) {
+            entries(file, "multiblocks", report, (key, spec, where) -> {
+                DataMap map = asMap(spec, where, report);
+                if (map == null) return;
+                Result<MultiblockType> type = MultiblockDefinitions.type(key, map);
+                if (type.isErr()) {
+                    skip(report, where, type.error().message());
+                    return;
+                }
+                context.multiblockTypes().register(type.value());
+            });
         }
         for (DefinitionFile file : files) {
             entries(file, "machines", report, (key, spec, where) -> {
