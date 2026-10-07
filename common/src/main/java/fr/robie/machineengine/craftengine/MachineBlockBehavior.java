@@ -1,5 +1,6 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.item.MachineTool;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.api.registry.Registries;
@@ -20,6 +21,7 @@ import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
 import net.momirealms.craftengine.core.block.property.Property;
 import net.momirealms.craftengine.core.entity.player.InteractionResult;
+import net.momirealms.craftengine.core.item.Item;
 import net.momirealms.craftengine.core.plugin.config.ConfigSection;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.core.world.context.UseOnContext;
@@ -212,6 +214,24 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
         BlockPos pos = LocationUtils.fromBlockPos(args[2]);
         MachineInstanceImpl machine = host.machineAt(WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
         if (machine != null) machine.wake(WakeReason.NEIGHBOR_CHANGED);
+    }
+
+    /**
+     * Right-click holding an item. CraftEngine asks the block before the held item, so a machine tool
+     * (D32) only gets the click when the machine passes it on; anything else falls through to
+     * {@link #useWithoutItem} and opens the menu.
+     */
+    @Override
+    public InteractionResult useOnBlock(UseOnContext context, ImmutableBlockState state) {
+        return isMachineTool(context.getItem()) ? InteractionResult.PASS : InteractionResult.TRY_EMPTY_HAND;
+    }
+
+    /** @return whether {@code item} has a behavior that acts on machines ({@link MachineTool}) */
+    static boolean isMachineTool(@Nullable Item item) {
+        if (item == null || item.isEmpty()) return false;
+        boolean[] tool = {false};
+        item.getBehavior().ifPresent(behavior -> behavior.let(MachineTool.class, candidate -> tool[0] |= candidate.actsOnMachines()));
+        return tool[0];
     }
 
     /** Right-click: open the machine's menu (§23.3). */

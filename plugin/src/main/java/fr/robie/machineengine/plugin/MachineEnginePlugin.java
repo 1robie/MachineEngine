@@ -13,6 +13,8 @@ import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.PlaceholderMachine;
 import fr.robie.machineengine.craftengine.CraftEngineIntegration;
+import fr.robie.machineengine.api.item.ItemResources;
+import fr.robie.machineengine.api.paper.PaperItemResources;
 import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
 import fr.robie.machineengine.api.platform.Nms;
@@ -74,7 +76,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         Nms.install(NmsLoader.load(getLogger()));
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
         ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/", "fr/robie/machineengine/nms/v");
-        CraftEngineIntegration.registerBlockBehavior();
+        CraftEngineIntegration.registerBehaviors();
         installCraftEnginePack();
     }
 
@@ -121,6 +123,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         CoreMachineEngine started = builder.start();
         this.engine = started;
         items.attach(() -> this.engine);
+        // Items holding energy or other resources: CraftEngine item behaviors and item data (D32).
+        ItemResources.setAccess(PaperItemResources.ACCESS);
         getServer().getPluginManager().registerEvents(items, this);
         MachineEngineAccess.install(started);
         if (this.config.get(EngineConfig.BUKKIT_EVENT_BRIDGE)) {
@@ -130,7 +134,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         started.setMachineLookup(this.host::machineAt);
         getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()
                 + (started.disabledAddons().isEmpty() ? "" : "; disabled: " + started.disabledAddons()));
-        checkBlockBindings();
+        checkContentBindings();
         enableMenus();
 
         getServer().getPluginManager().registerEvents(this, this);
@@ -186,7 +190,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     @EventHandler
     public void onCraftEngineReload(CraftEngineReloadEvent event) {
         // Block configs were parsed again; machine keys are resolved lazily (D14), so only report.
-        checkBlockBindings();
+        checkContentBindings();
     }
 
     /**
@@ -220,8 +224,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         }
     }
 
-    private void checkBlockBindings() {
+    private void checkContentBindings() {
         if (this.engine == null) return;
-        for (String problem : CraftEngineIntegration.unboundBlocks(this.engine.registries())) getLogger().warning(problem);
+        for (String problem : CraftEngineIntegration.unboundContent(this.engine.registries())) getLogger().warning(problem);
     }
 }
