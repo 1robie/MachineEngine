@@ -81,6 +81,22 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
 
     Mekanized's multiblock and structure tests pass unchanged.
 
+- **2026-10-07, Stages 5 and 6 (done; still to try in game).**
+  - Every gear number moved from `config.yml` into the items (decision 2), with the same values (`SettingsTest` reads them from the shipped YAML). `GearSettings` and the `gear:` section are removed; `radiation.shielding-per-piece` became the item option `protection`.
+  - New option behaviors (`GearBehaviors`): `mining_tool`, `electric_bow`, `jetpack`, `scuba_tank`, `fall_absorber`, `radiation_shielding`.
+  - Options added to `meka_tool` (`teleport-range`, `shear-energy`), `flamethrower` (`hydrogen-per-use`, `damage`) and `module`:
+    - `energy`, `range`;
+    - `capacity-factor`, which replaces `gear.energy-unit-factor`;
+    - `enchantment` and `enchantment-level`, which replace the hard-coded silk touch, fortune, frost walker and soul speed;
+    - `glider`.
+  - The listeners and the suit ticker find these by behavior, never by item id.
+  - **Kept as events, by design:**
+    - mining and vein mining (`BlockBreakEvent`): each extra block must fire its own break event, and CraftEngine's `onBreakBlock` cannot cancel;
+    - hits (`EntityDamageByEntityEvent`) and bow shots (`EntityShootBowEvent`): item behaviors have no attack or shoot hook;
+    - falls (`EntityDamageEvent`).
+  - **Not used: CraftEngine's `equipment-potion-effects` and `attribute-modifiers`.** Each MekaSuit effect costs energy every second; CraftEngine's equipment system cannot pay it, and splitting the effect from its cost would let a drained suit keep its effects. The suit ticker applies them, with the numbers from the modules' item config.
+  - **Small change:** charge distribution now also charges another addon's energy items held or worn, not only Mekanized's.
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.
