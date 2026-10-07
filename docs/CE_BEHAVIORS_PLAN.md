@@ -108,6 +108,37 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
   - **Server check `/mekanized check-item-data`**, passing on Paper 26.3 and 1.20.6: items holding old PDC values (energy, modules, card, dropper, box) read the same, the energy unit's ×4 comes from the module's config, and new writes stick and remove the old PDC.
   - This answers Stage 0's question about item data.
 
+- **2026-10-07, investigation of what is still open (nothing built yet).**
+  1. **Lore in each player's language: feasible, recommended.**
+     - CraftEngine runs an item's `client-bound-data` processors on every packet, for each player, against the item's current data, and stores nothing on the item (`ModernNetworkItemHandler`).
+     - A processor implementing `SimpleNetworkItemProcessor` with `componentType = lore` gets its lore restored when a creative client sends the item back.
+     - So the engine can register an item processor, `machineengine:resource_lore` (`ItemProcessors.register`). It reads `machineengine.resources.*` and appends translatable lines (`<lang:machineengine.lore.energy>` style keys, in the engine pack's `lang.yml`).
+     - Mekanized adds `mekanized:gear_lore` for modules, the card, dropper, formula, frequency and box.
+     - Items list it under `client-bound-data:`. `GearItems.refresh` then only sets the tool's mining speed, plus a one-time removal of the old server-side English lore so lines are not shown twice.
+     - Not usable: `get-arguments` with `<arg:...>` text. It only reads the `craftengine:arguments` compound, so values would have to be copied there on every change.
+  2. **`machineengine:wrench`: straightforward.**
+     - Options: `rotate` (sneak-click turns the machine through `MachineBlocks.replaceBlock`, as the configurator does) and `dismantle` (sneak-click breaks it into its item, with keep-contents).
+     - Dismantling uses `Player#breakBlock` (in the 1.20.6 API). It goes through the normal player break, so the block is removed (and the machine packed) before the loot table runs; `CraftEngineBlocks.remove` would compute the loot first and lose the contents to the fallback.
+     - Several behaviors on one item are asked in order and the first that handles the click wins (`CompositeItemBehavior`). So the configurator lists `machineengine:wrench` before `mekanized:configurator`, and the configurator stops handling sneak-clicks.
+  3. **Module slots: data-driven, small.**
+     - `GearRules.MODULE_TARGETS`, `ANY_MEKASUIT` and `pickMekasuitPiece` become a module option `fits: [mekanized:mekasuit_helmet, ...]`, a list of the items the module can go into.
+     - Install looks through the worn armour, then the off hand, for the first item in that list that does not have the module yet.
+     - `module_holder` may add `max-modules`.
+  4. **Checks in game: a bot client is possible, but needs your approval.**
+     - Node 26 is installed. A Mineflayer bot can join the Paper 1.20.6 dev server and right-click, left-click, sneak and wear armour, which covers the clicks, tools, bins and suits.
+     - The dev server would need `online-mode=false` (local only) and an npm install of Mineflayer into a folder outside the project (`tools/` or the scratchpad).
+     - Worn-item effects and jetpack input still need a real client, because the jump input comes from 1.21.2+ packets.
+
+- **2026-10-07: items 1-3 of the investigation done.**
+  1. **Lore drawn per player.**
+     - The engine processor `machineengine:resource_lore` shows energy and resources; Mekanized's `mekanized:gear_lore` shows modules, card, dropper, formula, frequency and box. Both run from `client-bound-data`, translated by the client (`machineengine.lore.*`, `mekanized.lore.*`, with English fallbacks), so nothing is stored on the item.
+     - `gear_lore` replaces the item's lore, so the English lore servers wrote before is not shown. `GearItems.refresh` removes it from the item at its next change, and otherwise only sets the mining speed.
+     - 21 items list both processors.
+     - `check-item-data` runs the Meka-Tool's processors on a copy and logs the lore it would send (Paper 26.3 and 1.20.6).
+  2. **`machineengine:wrench`** (`click` / `sneak-click`: `rotate`, `dismantle` or `none`; dismantling uses `Player#breakBlock`). The configurator lists `machineengine:wrench` (`sneak-click: rotate`) before `mekanized:configurator`, which no longer turns machines itself.
+  3. **Module slots in the item config.** Each `mekanized:module` has `fits: [items]`; `GearRules.pick` chooses the first worn piece (then the off hand) that fits and lacks the module. The table, `ANY_MEKASUIT` and `pickMekasuitPiece` are gone.
+  - **Found on the way:** the module items have no names in Mekanized's `lang.yml` (`item.mekanized.module_*`), so their names show as keys. Their lore lines fall back to English names.
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.

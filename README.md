@@ -136,6 +136,16 @@ machines:
 Members can also be `role: valve` or `role: port`, passing the anchor's `storages` through.
 Addons use the same types from Java: `api.multiblock`, `MultiblockMember.of(types)`.
 
+## Items
+
+Items get MachineEngine's CraftEngine item behaviors in their `behaviors:` list:
+- `machineengine:energy_item` (`max-energy`, `max-input`, `max-output`);
+- `machineengine:resource_item` (`resource`, `capacity`, `fill-from-machines`);
+- `machineengine:storage_reader`, which prints a machine's storages;
+- `machineengine:wrench`, with `click` and `sneak-click` each `rotate`, `dismantle` or `none`.
+
+Machines charge or fill any item with these behaviors. Add `machineengine:resource_lore: {}` under the item's `client-bound-data:` to show what it holds, in each player's language.
+
 ## Hoppers
 
 Hoppers, droppers and hopper minecarts move items in and out of machines through their ports. The

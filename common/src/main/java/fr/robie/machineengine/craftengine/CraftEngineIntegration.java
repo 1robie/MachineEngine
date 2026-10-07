@@ -5,7 +5,9 @@ import fr.robie.machineengine.api.item.ResourceItem;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.craftengine.item.ResourceItemBehavior;
+import fr.robie.machineengine.craftengine.item.ResourceLoreProcessor;
 import fr.robie.machineengine.craftengine.item.StorageReaderBehavior;
+import fr.robie.machineengine.craftengine.item.WrenchBehavior;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.core.block.BlockDefinition;
@@ -13,6 +15,7 @@ import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.behavior.BlockBehaviors;
 import net.momirealms.craftengine.core.item.ItemDefinition;
 import net.momirealms.craftengine.core.item.behavior.ItemBehaviors;
+import net.momirealms.craftengine.core.item.processor.ItemProcessors;
 import net.momirealms.craftengine.core.loot.function.LootFunctions;
 import org.jetbrains.annotations.NotNull;
 
@@ -32,6 +35,8 @@ public final class CraftEngineIntegration {
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("energy_item")), ResourceItemBehavior.ENERGY_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_item")), ResourceItemBehavior.RESOURCE_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("storage_reader")), StorageReaderBehavior.FACTORY);
+        ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("wrench")), WrenchBehavior.FACTORY);
+        ItemProcessors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_lore")), ResourceLoreProcessor.FACTORY);
         LootFunctions.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("keep_contents")), KeepContentsFunction.FACTORY);
     }
 

@@ -17,6 +17,9 @@ lang:
     machineengine.reader.not_machine: "<gray>Not a machine"
     machineengine.reader.machine: "<gold>%s:"
     machineengine.reader.storage: "<gray>  %s: %s / %s (%s)"
+    machineengine.wrench.busy: "<red>The machine is busy; try again"
+    machineengine.lore.energy: "<gray>Energy: %s / %s %s"
+    machineengine.lore.resource: "<gray>%s: %s / %s %s"
   fr_fr:
     machineengine.contents.kept: "<gray>Contenu conservé"
     machineengine.contents.entry: "  <white>%s</white> <gray>%s"
@@ -30,3 +33,6 @@ lang:
     machineengine.reader.not_machine: "<gray>Ce n'est pas une machine"
     machineengine.reader.machine: "<gold>%s :"
     machineengine.reader.storage: "<gray>  %s : %s / %s (%s)"
+    machineengine.wrench.busy: "<red>La machine est occupée ; réessayez"
+    machineengine.lore.energy: "<gray>Énergie : %s / %s %s"
+    machineengine.lore.resource: "<gray>%s : %s / %s %s"
