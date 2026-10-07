@@ -97,6 +97,17 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
   - **Not used: CraftEngine's `equipment-potion-effects` and `attribute-modifiers`.** Each MekaSuit effect costs energy every second; CraftEngine's equipment system cannot pay it, and splitting the effect from its cost would let a drained suit keep its effects. The suit ticker applies them, with the numbers from the modules' item config.
   - **Small change:** charge distribution now also charges another addon's energy items held or worn, not only Mekanized's.
 
+- **2026-10-07: the remaining item data moved to CraftEngine item data (decision 3, done).**
+  - Mekanized's `ItemData` keeps all of its item state at `minecraft:custom_data` → `mekanized.<field>`:
+    - modules (now a list, no longer a comma string);
+    - configuration card, gauge dropper (type, amount), crafting formula;
+    - portable frequency;
+    - cardboard box (block, items, spawner).
+  - Old `PublicBukkitValues."mekanized:<field>"` values are moved on first read. `ItemLongs` is removed. Mekanized keeps no item data in PDC any more; only the player's radiation dose stays in player PDC.
+  - Plain Bukkit stacks are copied by CraftEngine, so writes copy the result back.
+  - **Server check `/mekanized check-item-data`**, passing on Paper 26.3 and 1.20.6: items holding old PDC values (energy, modules, card, dropper, box) read the same, the energy unit's ×4 comes from the module's config, and new writes stick and remove the old PDC.
+  - This answers Stage 0's question about item data.
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.
