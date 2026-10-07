@@ -13,6 +13,10 @@ lang:
     machineengine.machine.chunk_limit: "<red>This chunk already holds %s machines (limit %s)."
     machineengine.debug.on: "<gold>Debug view on: dots show machine states (green active, blue sleeping, orange blocked, red error), ports (blue in, orange out, purple both) and networks; look at a machine for details."
     machineengine.debug.off: "<gray>Debug view off."
+    machineengine.item.filled: "<green>Filled %s of %s"
+    machineengine.reader.not_machine: "<gray>Not a machine"
+    machineengine.reader.machine: "<gold>%s:"
+    machineengine.reader.storage: "<gray>  %s: %s / %s (%s)"
   fr_fr:
     machineengine.contents.kept: "<gray>Contenu conservé"
     machineengine.contents.entry: "  <white>%s</white> <gray>%s"
@@ -22,3 +26,7 @@ lang:
     machineengine.machine.chunk_limit: "<red>Ce chunk contient déjà %s machines (limite %s)."
     machineengine.debug.on: "<gold>Vue de débogage activée : les points montrent l'état des machines (vert actif, bleu en veille, orange bloqué, rouge erreur), les ports (bleu entrée, orange sortie, violet les deux) et les réseaux ; regardez une machine pour les détails."
     machineengine.debug.off: "<gray>Vue de débogage désactivée."
+    machineengine.item.filled: "<green>%s de %s ajoutés"
+    machineengine.reader.not_machine: "<gray>Ce n'est pas une machine"
+    machineengine.reader.machine: "<gold>%s :"
+    machineengine.reader.storage: "<gray>  %s : %s / %s (%s)"

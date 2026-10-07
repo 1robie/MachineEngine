@@ -217,13 +217,18 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     }
 
     /**
-     * Right-click holding an item. CraftEngine asks the block before the held item, so a machine tool
-     * (D32) only gets the click when the machine passes it on; anything else falls through to
-     * {@link #useWithoutItem} and opens the menu.
+     * Right-click holding an item. CraftEngine asks the block before the held item, so the machine
+     * offers the click to a machine tool first (D32); when the tool does nothing with it, the click
+     * falls through to {@link #useWithoutItem} and opens the menu.
      */
     @Override
     public InteractionResult useOnBlock(UseOnContext context, ImmutableBlockState state) {
-        return isMachineTool(context.getItem()) ? InteractionResult.PASS : InteractionResult.TRY_EMPTY_HAND;
+        Item item = context.getItem();
+        if (isMachineTool(item)) {
+            InteractionResult result = item.getBehavior().orElseThrow().useOnBlock(context);
+            if (result != InteractionResult.PASS) return result;
+        }
+        return InteractionResult.TRY_EMPTY_HAND;
     }
 
     /** @return whether {@code item} has a behavior that acts on machines ({@link MachineTool}) */

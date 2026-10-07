@@ -32,6 +32,23 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
   - Still to do: `wrench`, `storage_reader`, `fill-from-machines` (Stage 3); modules and other Mekanized PDC data to `ItemData`; client-bound lore.
   - `resource_item` takes one resource key, not a tag, for now.
 
+- **2026-10-07, Stage 3 (done; still to try in game).**
+  - Every right-click of a Mekanized item is a CraftEngine item behavior now, written on the new `api.paper.PaperItemBehavior`: a Bukkit `Use` (player, live item, block, face, sneaking) and `useOnEntity`.
+  - Mekanized types:
+    - `configurator`, `tier_installer` (`tier`), `turbine_blade`;
+    - `configuration_card`, `dictionary`, `gauge_dropper`, `crafting_formula`;
+    - `module` (`module`) and `module_holder` (taking modules out at a station);
+    - `flamethrower`, `canteen`, `meka_tool` (teleport, farming, shearing);
+    - `radiation_reader` (`mode`);
+    - `portable_teleporter`, `portable_qio`, `cardboard_box`, `cardboard_box_storage`, `seismic_reader`.
+  - Engine types: `machineengine:storage_reader` (the network reader), and `fill-from-machines` on `resource_item` (gear filled from machines). Their messages are translated (`machineengine.item.filled`, `machineengine.reader.*`).
+  - **Hand-off changed:** a machine offers the click to a `MachineTool` first and opens its menu when the tool passes. A plain "pass everything" would have stopped the menu from opening for a Meka-Tool that has nothing to do there.
+  - Gone: `PaperTools`, `GearTools.onUse` / `onShear`, `GearTools.fill`, `PaperRadiation.onUse`, `PaperAutomation.onPortable`.
+  - Block-side branches stay listeners until Stage 4: multiblock menus and taking a blade back in `PaperConfigurator`, and the dashboard block in `PaperAutomation.onUse`.
+  - **Small changes:**
+    - On a vanilla block that opens (chest, furnace), CraftEngine lets vanilla win unless the player sneaks. Using the configurator on a container to set the transports beside it, or the dictionary on such a block, now needs sneaking.
+    - The fill message is translated and no longer shows "mB".
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.

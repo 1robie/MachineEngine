@@ -5,6 +5,7 @@ import fr.robie.machineengine.api.item.ResourceItem;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.craftengine.item.ResourceItemBehavior;
+import fr.robie.machineengine.craftengine.item.StorageReaderBehavior;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.core.block.BlockDefinition;
@@ -29,6 +30,7 @@ public final class CraftEngineIntegration {
         BlockBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("transport")), TransportBlockBehavior.FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("energy_item")), ResourceItemBehavior.ENERGY_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_item")), ResourceItemBehavior.RESOURCE_FACTORY);
+        ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("storage_reader")), StorageReaderBehavior.FACTORY);
     }
 
     /** @return whether {@code state} is a block with the {@code machineengine:machine} behavior */
