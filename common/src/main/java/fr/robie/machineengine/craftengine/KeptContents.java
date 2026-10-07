@@ -10,17 +10,13 @@ import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
 import net.kyori.adventure.text.Component;
+import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.core.util.Key;
+import net.momirealms.craftengine.libraries.nbt.ByteArrayTag;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.entity.Item;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
-import org.bukkit.event.block.BlockDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
@@ -38,14 +34,19 @@ import java.util.concurrent.ConcurrentHashMap;
  * Keep-contents (§20.5): a machine block with {@code keep_contents: true} keeps its state in its
  * dropped item instead of spilling what it holds.
  *
- * <p>Breaking packs the machine; the player's {@link BlockDropItemEvent} (same tick, after the block
- * is gone) then writes the state into the dropped block item. A break without that event (explosion,
- * creative mode, a drop-less loot table) drops the contents as usual one tick later, so nothing is
- * ever lost or duplicated. Placing the item restores the state once CraftEngine has accepted the
- * placement ({@code loadCustomDataFromItem}), after every cancellable place event.</p>
+ * <p>Breaking packs the machine; the block's loot table, computed right after (same tick, the block is
+ * gone), writes the state into the dropped block item through the {@code machineengine:keep_contents}
+ * loot function ({@link KeepContentsFunction}, template {@code machineengine:loot_table/keep_contents}).
+ * A break without drops (an explosion, creative mode, a drop-less loot table) drops the contents as
+ * usual one tick later, so nothing is ever lost or duplicated. Placing the item restores the state once
+ * CraftEngine has accepted the placement ({@code loadCustomDataFromItem}), after every cancellable place
+ * event. The state is CraftEngine item data, {@code minecraft:custom_data} → {@code machineengine.contents}
+ * (D32); items from before keep theirs in Bukkit persistent data and are still read.</p>
  */
-public final class KeptContents implements Listener {
-    public static final NamespacedKey KEY = new NamespacedKey("machineengine", "contents");
+public final class KeptContents {
+    /** Before D32: the state in Bukkit persistent data. Still read. */
+    private static final NamespacedKey OLD_KEY = new NamespacedKey("machineengine", "contents");
+    private static final String[] PATH = {"machineengine", "contents"};
     private static final int LORE_LINES = 5;
 
     private final Plugin plugin;
@@ -75,26 +76,23 @@ public final class KeptContents implements Listener {
         }, 1);
     }
 
-    /** Lowest priority, so auto-pickup and other drop plugins see the item with its contents. */
-    @EventHandler(priority = EventPriority.LOWEST)
-    void onBlockDrop(BlockDropItemEvent event) {
-        Block block = event.getBlock();
-        WorldPosition position = WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ());
+    /**
+     * The block item dropped where a machine was just broken: the same item with the machine's state,
+     * or {@code null} if nothing waits there for this item (the drop stays as it is).
+     */
+    @Nullable ItemStack claim(@NotNull WorldPosition position, @NotNull ItemStack drop) {
         Pending entry = this.pending.get(position);
-        if (entry == null) return;
-        for (Item drop : event.getItems()) {
-            ItemStack stack = drop.getItemStack();
-            if (stack.getAmount() != 1 || !entry.item().equals(CraftEngineItems.getCustomItemId(stack))) continue;
-            if (!this.pending.remove(position, entry)) return;
-            drop.setItemStack(withContents(stack, entry.packed()));
-            return;
-        }
+        if (entry == null || drop.getAmount() != 1 || !entry.item().equals(CraftEngineItems.getCustomItemId(drop))) return null;
+        if (!this.pending.remove(position, entry)) return null;
+        return withContents(drop, entry.packed());
     }
 
     /** The packed state in {@code stack}, or {@code null} if it has none or it is unreadable. */
     @Nullable DataMap read(@NotNull ItemStack stack) {
-        if (!stack.hasItemMeta()) return null;
-        byte[] bytes = stack.getItemMeta().getPersistentDataContainer().get(KEY, PersistentDataType.BYTE_ARRAY);
+        byte[] bytes = BukkitAdaptor.adapt(stack).getSparrowTag((Object[]) PATH) instanceof ByteArrayTag tag ? tag.getAsByteArray() : null;
+        if (bytes == null && stack.hasItemMeta()) {
+            bytes = stack.getItemMeta().getPersistentDataContainer().get(OLD_KEY, PersistentDataType.BYTE_ARRAY);
+        }
         if (bytes == null) return null;
         try {
             return DataBinary.read(bytes);
@@ -105,9 +103,10 @@ public final class KeptContents implements Listener {
     }
 
     static ItemStack withContents(ItemStack stack, CoreMachines.Packed packed) {
-        ItemStack result = stack.clone();
+        var item = BukkitAdaptor.adapt(stack.clone());
+        item.setSparrowTag(new ByteArrayTag(DataBinary.write(packed.state())), (Object[]) PATH);
+        ItemStack result = (ItemStack) item.platformItem();
         result.editMeta(meta -> {
-            meta.getPersistentDataContainer().set(KEY, PersistentDataType.BYTE_ARRAY, DataBinary.write(packed.state()));
             List<Component> lore = meta.hasLore() ? new ArrayList<>(meta.lore()) : new ArrayList<>();
             lore.addAll(describe(packed.contents()));
             meta.lore(lore);

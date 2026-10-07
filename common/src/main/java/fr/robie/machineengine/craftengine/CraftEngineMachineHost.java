@@ -105,6 +105,11 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         return this.keptContents;
     }
 
+    /** Left-clicks on machine blocks for {@code MachineInteractions} (D32); a listener the plugin registers. */
+    public @NotNull org.bukkit.event.Listener leftClicks() {
+        return new MachineLeftClicks(this);
+    }
+
     /** The menu integration (zMenu), or {@code null} for no machine GUIs. */
     public void setMenus(@Nullable MachineMenuService menus) {
         this.menus = menus;

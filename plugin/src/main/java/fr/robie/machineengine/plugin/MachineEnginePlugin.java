@@ -86,13 +86,14 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
      */
     private void installCraftEnginePack() {
         Path target = getDataFolder().toPath().getParent().resolve("CraftEngine/resources/machineengine");
-        for (String file : List.of("pack.yml", "configuration/lang.yml")) {
+        // lang.yml is the server owner's to edit; the templates are what MachineEngine's types need (kept up to date).
+        for (String file : List.of("pack.yml", "configuration/lang.yml", "configuration/templates.yml")) {
             Path destination = target.resolve(file);
-            if (Files.exists(destination)) continue;
+            if (Files.exists(destination) && !file.endsWith("templates.yml")) continue;
             try (InputStream in = getResource("craftengine-pack/" + file)) {
                 if (in == null) throw new IOException("missing resource " + file);
                 Files.createDirectories(destination.getParent());
-                Files.copy(in, destination);
+                Files.copy(in, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
                 getLogger().warning("Could not install the CraftEngine pack file " + file + ": " + e.getMessage());
             }
@@ -138,7 +139,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         enableMenus();
 
         getServer().getPluginManager().registerEvents(this, this);
-        getServer().getPluginManager().registerEvents(this.host.keptContents(), this);
+        getServer().getPluginManager().registerEvents(this.host.leftClicks(), this);
         MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
         this.commands = commands;
         getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,

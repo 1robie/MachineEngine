@@ -1,6 +1,7 @@
 package fr.robie.machineengine.craftengine;
 
 import fr.robie.machineengine.api.item.MachineTool;
+import fr.robie.machineengine.api.paper.MachineInteractions;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.api.registry.Registries;
@@ -20,13 +21,17 @@ import net.momirealms.craftengine.core.block.behavior.WorldlyContainerHolder;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
 import net.momirealms.craftengine.core.block.property.Property;
+import net.momirealms.craftengine.core.entity.player.InteractionHand;
 import net.momirealms.craftengine.core.entity.player.InteractionResult;
 import net.momirealms.craftengine.core.item.Item;
 import net.momirealms.craftengine.core.plugin.config.ConfigSection;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.core.world.context.UseOnContext;
+import net.momirealms.craftengine.proxy.minecraft.world.entity.EntityProxy;
 import net.momirealms.craftengine.proxy.minecraft.world.level.LevelProxy;
 import org.bukkit.World;
+import org.bukkit.block.BlockFace;
+import org.bukkit.entity.Entity;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -228,7 +233,38 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
             InteractionResult result = item.getBehavior().orElseThrow().useOnBlock(context);
             if (result != InteractionResult.PASS) return result;
         }
+        // Then what the machine type's block does on Paper (bins, personal storage...).
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host != null && context.getPlayer() != null && context.getHand() == InteractionHand.MAIN_HAND) {
+            World world = (World) context.getLevel().platformWorld();
+            BlockPos pos = context.getClickedPos();
+            MachineInstanceImpl machine = host.machineAt(WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
+            if (machine != null) {
+                org.bukkit.entity.Player player = (org.bukkit.entity.Player) context.getPlayer().platformPlayer();
+                MachineInteractions.Click click = new MachineInteractions.Click(player, player.getInventory().getItemInMainHand(),
+                        machine, world.getBlockAt(pos.x(), pos.y(), pos.z()), BlockFace.valueOf(context.getClickedFace().name()),
+                        context.isSecondaryUseActive());
+                for (MachineInteractions.Interaction interaction : MachineInteractions.of(machine.inspect().type())) {
+                    if (interaction.use(click)) return InteractionResult.SUCCESS_AND_CANCEL;
+                }
+            }
+        }
         return InteractionResult.TRY_EMPTY_HAND;
+    }
+
+    /** An entity on the block: what the machine type's block does on Paper (teleporter pads...). */
+    @Override
+    public void stepOn(Object thisBlock, Object[] args) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host == null) return;
+        World world = LevelProxy.INSTANCE.getWorld(args[0]);
+        BlockPos pos = LocationUtils.fromBlockPos(args[1]);
+        MachineInstanceImpl machine = host.machineAt(WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
+        if (machine == null) return;
+        var interactions = MachineInteractions.of(machine.inspect().type());
+        if (interactions.isEmpty()) return;
+        Entity entity = EntityProxy.INSTANCE.getBukkitEntity(args[3]);
+        for (MachineInteractions.Interaction interaction : interactions) interaction.steppedOn(machine, entity);
     }
 
     /** @return whether {@code item} has a behavior that acts on machines ({@link MachineTool}) */

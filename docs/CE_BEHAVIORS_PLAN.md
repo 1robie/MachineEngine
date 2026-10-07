@@ -49,6 +49,23 @@ The per-item numbers (capacities, costs, ranges) move into the CraftEngine item 
     - On a vanilla block that opens (chest, furnace), CraftEngine lets vanilla win unless the player sneaks. Using the configurator on a container to set the transports beside it, or the dictionary on such a block, now needs sneaking.
     - The fill message is translated and no longer shows "mB".
 
+- **2026-10-07, Stage 4a (done; still to try in game).**
+  - `api.paper.MachineInteractions`: what a machine type's block does on Paper, registered per type by its addon. It has `use` (right-click, after any `MachineTool` and before the menu), `attack` (left-click, through CraftEngine's `CustomBlockInteractEvent`, which can cancel the break) and `steppedOn` (the block behavior's `stepOn`). Machine behaviors stay free of Bukkit.
+  - Mekanized uses it for:
+    - bins (insert and take);
+    - personal storage (owner);
+    - multiblock members (structure menu);
+    - the turbine rotor (taking blades back);
+    - the QIO dashboard block;
+    - teleporters (`steppedOn`, which replaces a `PlayerMoveEvent` listener on every move).
+  - Personal storage no longer needs explosion listeners: its block resistance is 3,600,000.
+  - Keep-contents is now the loot function `machineengine:keep_contents`, used by the template `machineengine:loot_table/keep_contents` (engine pack `templates.yml`, rewritten at every start); all 145 Mekanized blocks with `keep_contents: true` use it. The state is CraftEngine item data `machineengine.contents`, and the old PDC key is still read. `BlockDropItemEvent` is no longer used.
+  - Headless checks pass: `check-drop` (100/100 through the fallback) and `check-hopper` (10/10).
+  - **Stays:**
+    - the chargepad's per-player loop, because a machine cannot see the players on it;
+    - a non-owner breaking personal storage (`CustomBlockBreakEvent`), because block behaviors cannot cancel a break.
+  - **Small change:** a teleporter now only fires when the player stands directly on it, no longer from two blocks above.
+
 **Rules for every stage:**
 - Each stage is one or more commits that build and pass `./gradlew test`.
 - No gameplay change unless the stage says so.

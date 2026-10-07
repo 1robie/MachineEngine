@@ -1,0 +1,15 @@
+# Templates for blocks that use MachineEngine's CraftEngine types. Rewritten at every start: do not edit
+# (copy a template into your own pack under another name to change it).
+templates:
+  # A machine block with `keep_contents: true` drops itself, with the machine's state inside
+  # (the machineengine:keep_contents loot function). Use: loot: { template: machineengine:loot_table/keep_contents }
+  machineengine:loot_table/keep_contents:
+    pools:
+      - rolls: 1
+        conditions:
+          - type: survives_explosion
+        entries:
+          - type: item
+            item: ${__NAMESPACE__}:${__ID__}
+        functions:
+          - type: machineengine:keep_contents

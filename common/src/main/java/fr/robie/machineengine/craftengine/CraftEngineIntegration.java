@@ -13,6 +13,7 @@ import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.behavior.BlockBehaviors;
 import net.momirealms.craftengine.core.item.ItemDefinition;
 import net.momirealms.craftengine.core.item.behavior.ItemBehaviors;
+import net.momirealms.craftengine.core.loot.function.LootFunctions;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ public final class CraftEngineIntegration {
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("energy_item")), ResourceItemBehavior.ENERGY_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_item")), ResourceItemBehavior.RESOURCE_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("storage_reader")), StorageReaderBehavior.FACTORY);
+        LootFunctions.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("keep_contents")), KeepContentsFunction.FACTORY);
     }
 
     /** @return whether {@code state} is a block with the {@code machineengine:machine} behavior */
