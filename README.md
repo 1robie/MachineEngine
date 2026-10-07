@@ -46,8 +46,7 @@ out this way: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) §5 and decisions D24
 ./gradlew build
 ```
 
-The plugin jar is written to `plugin/build/libs/`. The build also fetches the pinned
-Mekanism commit into `.mekanism/` (sparse, a few MB) for Mekanized; later builds skip the network.
+The plugin jar is written to `plugin/build/libs/`.
 
 ## Dev servers
 
@@ -183,14 +182,12 @@ missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes th
 [docs/MEKANIZED_GUIDE.md](docs/MEKANIZED_GUIDE.md); its development plan is
 [docs/MEKANIZED_PLAN.md](docs/MEKANIZED_PLAN.md). It is inspired by Mekanism and uses its textures,
 models and recipes (Mekanism by Aidan C. Brady, MIT; `LICENSE-MEKANISM.txt` ships with it). It is not
-affiliated with Mekanism. The build imports one pinned Mekanism commit:
+affiliated with Mekanism.
 
-```
-./gradlew :mekanized:importMekanism
-```
-
-Review `mekanized/build/generated/mekanized/import-report.txt` for what was converted
-and skipped.
+Its content is kept by hand in `mekanized/src/main/resources/mekanized/` (D31): textures and models
+under `pack/resourcepack/`, CraftEngine items and crafting recipes under `pack/configuration/`, and
+machine recipes and tags under `definitions/`. A `.yml` file added to `pack/configuration/` or
+`definitions/` is installed automatically: the build lists them in `manifest.yml`.
 
 ## License
 
