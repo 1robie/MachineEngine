@@ -6,8 +6,6 @@ build/
 # Dev servers and the CraftEngine dev build
 run/
 .craftengine/
-# Mekanism checkout imported by Mekanized
-.mekanism/
 
 # Logs and Kotlin compiler state
 *.log

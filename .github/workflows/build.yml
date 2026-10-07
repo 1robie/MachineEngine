@@ -31,12 +31,6 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Cache the Mekanism checkout
-        uses: actions/cache@v4
-        with:
-          path: .mekanism
-          key: mekanism-${{ hashFiles('gradle.properties', 'buildSrc/src/**', 'mekanized/build.gradle.kts') }}
-
       - name: Resolve newest CraftEngine snapshot
         if: matrix.craftengine == 'latest'
         run: |
