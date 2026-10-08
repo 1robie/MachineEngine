@@ -26,6 +26,8 @@ import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.machineengine.paper.player.PaperPlayers;
+import fr.robie.machineengine.paper.player.PdcPlayerStorage;
 import fr.robie.paperdispatch.manager.CommandManager;
 import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
 import net.kyori.adventure.text.Component;
@@ -67,6 +69,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     /** Paper-Dispatch's (D35). */
     private final CommandManager<MachineEnginePlugin> commandManager = new CommandManager<>(this);
     private @Nullable ZMenuMachineMenus menus;
+    private @Nullable PaperPlayers players;
     private ConfigFile config;
 
     @Override
@@ -127,6 +130,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         CraftEngineItemBridge items = new CraftEngineItemBridge(this);
         builder.definitions(definitions::load, items);
         builder.itemTags(items);
+        // Where player data can be saved (D37); players.storage picks one.
+        builder.playerStorage(PdcPlayerStorage.TYPE);
         CoreMachineEngine started = builder.start();
         this.engine = started;
         items.attach(() -> this.engine);
@@ -137,6 +142,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (this.config.get(EngineConfig.BUKKIT_EVENT_BRIDGE)) {
             BukkitEventBridge.install(started.events());
         }
+        this.players = PaperPlayers.install(this, started.players(), this.config);
         this.host = CraftEngineMachineHost.start(this, started);
         started.setMachineLookup(this.host::machineAt);
         getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()
@@ -185,6 +191,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         MachineMenuService.setCurrent(null);
         if (this.host != null) this.host.shutdown();
         this.host = null;
+        if (this.players != null) this.players.shutdown();
+        this.players = null;
         this.engine = null;
         MachineEngineAccess.reset();
     }

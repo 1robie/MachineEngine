@@ -20,6 +20,7 @@ lang:
     machineengine.wrench.busy: "<red>The machine is busy; try again"
     machineengine.lore.energy: "<gray>Energy: %s / %s %s"
     machineengine.lore.resource: "<gray>%s: %s / %s %s"
+    machineengine.player.data_not_loaded: "Your data could not be loaded. Please try again in a moment."
   fr_fr:
     machineengine.contents.kept: "<gray>Contenu conservé"
     machineengine.contents.entry: "  <white>%s</white> <gray>%s"
@@ -36,3 +37,4 @@ lang:
     machineengine.wrench.busy: "<red>La machine est occupée ; réessayez"
     machineengine.lore.energy: "<gray>Énergie : %s / %s %s"
     machineengine.lore.resource: "<gray>%s : %s / %s %s"
+    machineengine.player.data_not_loaded: "Vos données n'ont pas pu être chargées. Réessayez dans un instant."

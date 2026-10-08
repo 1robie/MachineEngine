@@ -107,6 +107,11 @@ public final class CorePlayerData implements MachinePlayer {
         this.dirty.set(false);
     }
 
+    /** A save failed: the data must be saved again. */
+    public void markDirty() {
+        this.dirty.set(true);
+    }
+
     Map<Key, Object> values() {
         return Collections.unmodifiableMap(this.values);
     }

@@ -54,6 +54,11 @@ public final class Messages {
         return message("machineengine.debug.off", "§7Debug view off.");
     }
 
+    /** The login screen has no resource pack yet: players see the English fallback unless their client knows the key. */
+    public static @NotNull Component playerDataNotLoaded() {
+        return message("machineengine.player.data_not_loaded", "Your data could not be loaded. Please try again in a moment.");
+    }
+
     public static @NotNull Component message(@NotNull String key, @NotNull String fallback, @NotNull ComponentLike... arguments) {
         // Not the builder: its build() has another erased return type in the Adventure of 1.20.6.
         return Component.translatable(key, fallback, arguments);
