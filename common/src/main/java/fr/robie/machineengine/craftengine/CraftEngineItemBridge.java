@@ -127,6 +127,9 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
             }
             this.plugin.getLogger().info("Recipes and tags reloaded with CraftEngine's items ("
                     + running.registries().registry(Registries.RECIPE).size() + " recipes)");
+            // Loaded machines and transports read their block configs again (D34).
+            CraftEngineMachineHost host = CraftEngineMachineHost.current();
+            if (host != null) host.blockConfigsReloaded();
         });
     }
 }

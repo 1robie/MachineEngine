@@ -509,6 +509,12 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         return this;
     }
 
+    /** Forgets the block config's options and wakes the machine, which reads them again (a CraftEngine reload). */
+    public void optionsReloaded() {
+        this.options = null;
+        wake(WakeReason.CONFIG_CHANGED);
+    }
+
     /** The block config's options (D34). Asked again while the host has none, e.g. before its block entity registers. */
     @NotNull BlockOptions options() {
         BlockOptions options = this.options;

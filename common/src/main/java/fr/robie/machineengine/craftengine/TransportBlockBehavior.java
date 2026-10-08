@@ -14,6 +14,7 @@ import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.block.behavior.BukkitBlockBehavior;
 import net.momirealms.craftengine.bukkit.util.LocationUtils;
 import net.momirealms.craftengine.core.block.BlockDefinition;
+import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.behavior.BlockBehaviorFactory;
 import net.momirealms.craftengine.core.block.behavior.EntityBlock;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
@@ -213,11 +214,30 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
             if (world != null) world.blockEntityChanged(this.blockEntity.pos());
         }
 
+        /** The block's behavior as CraftEngine has it now (a reload gives the block state new ones). */
+        private TransportBlockBehavior currentBehavior() {
+            TransportBlockBehavior[] found = {null};
+            ImmutableBlockState state = LiveBlockStates.current(this.blockEntity.blockState());
+            if (state != null) state.behavior().let(TransportBlockBehavior.class, behavior -> {
+                if (found[0] == null) found[0] = behavior;
+            });
+            return found[0] != null ? found[0] : this.behavior;
+        }
+
+        /** After a CraftEngine reload, on the owning thread: rejoins the network if the block's rate changed (D34). */
+        void typeReloaded(CraftEngineMachineHost host) {
+            if (this.position == null) return;
+            var networks = host.engine().machines().networks();
+            TransportType type = currentBehavior().resolve(host.engine().registries());
+            if (type == null || type == networks.transportAt(this.position)) return;
+            networks.addTransport(type, this.position, host); // keeps its side modes
+        }
+
         @Override
         public void onLoad() {
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host == null) return;
-            TransportType type = this.behavior.resolve(host.engine().registries());
+            TransportType type = currentBehavior().resolve(host.engine().registries());
             if (type == null) return;
             this.position = host.position(this.blockEntity);
             var networks = host.engine().machines().networks();

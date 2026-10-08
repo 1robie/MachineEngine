@@ -68,8 +68,23 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private final Map<RelativeSide, MachineDisplayElement> sides =
             new EnumMap<>(RelativeSide.class);
 
-    MachineBlockBehavior behavior() {
-        return this.behavior;
+    /**
+     * The block's behavior as CraftEngine has it now: a reload gives the block state new behaviors, while
+     * this controller keeps the one it was made with (D34: the options must follow the reload).
+     */
+    MachineBlockBehavior currentBehavior() {
+        MachineBlockBehavior[] found = {null};
+        ImmutableBlockState state = LiveBlockStates.current(this.blockEntity.blockState());
+        if (state != null) state.behavior().let(MachineBlockBehavior.class, behavior -> {
+            if (found[0] == null) found[0] = behavior;
+        });
+        return found[0] != null ? found[0] : this.behavior;
+    }
+
+    /** After a CraftEngine reload, on the owning thread: the machine reads its block's options again. */
+    void optionsReloaded() {
+        MachineInstanceImpl instance = this.machine == null ? null : this.machine.instance();
+        if (instance != null) instance.optionsReloaded();
     }
 
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {

@@ -117,6 +117,11 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   2. The installed `utility.yml` and `machines.yml` edited (5000, 7000, 12345, cable 3000), then `ce reload all`: blocks placed afterwards read the new values (cable network 3000/tick); the blocks already placed kept the old ones.
   3. After a restart, the blocks placed before the edit read the new values. Mekanized kept the two edited files ("was edited: kept as is").
   - So: `/ce reload` reaches new blocks only; a restart reaches all. The guide says so. Making loaded machines follow a reload would need the machine to drop its cached `BlockOptions` and the host to read the block's current definition (and transports to rejoin their networks); not done.
+- **2026-10-08, loaded machines follow `/ce reload` (done, dev-server checked).**
+  - Cause of the old values: a reload builds new `ImmutableBlockState`s (with new behaviors) for the same state ids, and a loaded block entity keeps the old state; the machine also kept its first `BlockOptions`.
+  - The controllers read the behavior of the block's current state (`LiveBlockStates.current`: `BlockManager#getImmutableBlockState(registryId)`). On `CraftEngineReloadEvent` (after recipes and tags), `CraftEngineMachineHost#blockConfigsReloaded` posts to each loaded machine `optionsReloaded()` (forget the copy, wake) and to each loaded transport `typeReloaded` (re-resolve its rate, rejoin the network if it changed; side modes kept). It logs "Block configs reloaded: N loaded machines and M transports".
+  - Dev server, Paper 1.20.6: the loaded row read 6000 / 9000 / 22222 and cable 2000/tick; the YAML edited to 7777 / 11111 / 33333 / 1500, then `ce reload all`: the same loaded row read 7777 / 11111 / 33333 and cable 1500/tick. No errors. (The JVM crashed in jansi's console DLL after "Closing Server", with every world saved: the owner's run folder holds 8 earlier crash logs of the same kind.)
+  - Headless: `BlockOptionsTest#aMachineFollowsItsBlockConfigAfterAReload`.
 
 ## Stages
 

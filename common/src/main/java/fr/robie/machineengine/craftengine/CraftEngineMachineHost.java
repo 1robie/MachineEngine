@@ -78,7 +78,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     @Override
     public @NotNull BlockOptions options(@NotNull WorldPosition position) {
         MachineBlockEntityController controller = this.controllers.get(position);
-        return controller == null ? BlockOptions.EMPTY : controller.behavior().options();
+        return controller == null ? BlockOptions.EMPTY : controller.currentBehavior().options();
     }
 
     @Override
@@ -297,6 +297,17 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         if (block == null) return false;
         block.setType(Material.AIR, true);
         return true;
+    }
+
+    /**
+     * CraftEngine reloaded its configs: every loaded machine and transport reads its block config again
+     * (D34), each on the thread owning it.
+     */
+    void blockConfigsReloaded() {
+        this.controllers.forEach((position, controller) -> post(position, controller::optionsReloaded));
+        this.transports.forEach((position, controller) -> post(position, () -> controller.typeReloaded(this)));
+        logger().info("Block configs reloaded: " + this.controllers.size() + " loaded machines and " + this.transports.size()
+                + " transports read them again");
     }
 
     /** Loaded transport blocks, for their side modes. */

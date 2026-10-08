@@ -90,6 +90,25 @@ class BlockOptionsTest {
     }
 
     @Test
+    void aMachineFollowsItsBlockConfigAfterAReload() {
+        CoreMachineEngine engine = TestEngine.builder().addon(MachineFixtures.alpha()).addon(MachineFixtures.beta()).start();
+        FakeWorld world = FakeWorld.singleRegion(engine);
+        world.setOptions(HERE, BlockOptions.of("beta:chest", Map.of("energy-per-tick", 75), Map.of("items", Map.of("capacity", 250)),
+                message -> {
+                }));
+        MachineInstanceImpl chest = world.place(CHEST, HERE, Direction.NORTH);
+        assertEquals(75L, chest.context().options().get(ENERGY));
+
+        world.setOptions(HERE, BlockOptions.of("beta:chest", Map.of("energy-per-tick", 90), Map.of("items", Map.of("capacity", 400)),
+                message -> {
+                }));
+        assertEquals(75L, chest.context().options().get(ENERGY), "kept until the block configs are reloaded");
+        chest.optionsReloaded();
+        assertEquals(90L, chest.context().options().get(ENERGY));
+        assertEquals(400, chest.inspect().storages().get("items").getFirst().capacity());
+    }
+
+    @Test
     void aTransportRateCanBeReplaced() {
         TransportType cable = TransportType.of(Key.key("test", "cable"), NetworkType.of(Key.key("test", "net"), NetworkBehavior.distributing()), 8,
                 ResourcePredicate.any());
