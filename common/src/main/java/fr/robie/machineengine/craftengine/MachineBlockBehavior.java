@@ -64,6 +64,8 @@ import java.util.Map;
  *                                           #   that has a port (side configuration), turned like the block
  *   storages:                   # optional: capacities replacing the machine type's (D34)
  *     energy: { capacity: 40000 }
+ *   ports:                      # optional: port rates per tick replacing the machine type's (D34)
+ *     out: { rate: 4000 }
  *   options:                    # optional: numbers the machine reads with MachineContext#options (D34)
  *     energy-per-tick: 200
  * }</pre>

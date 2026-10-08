@@ -59,6 +59,18 @@ class BlockOptionsTest {
     }
 
     @Test
+    void portRatesReplaceTheTypesAndInvalidOnesAreReported() {
+        List<String> warnings = new ArrayList<>();
+        BlockOptions options = BlockOptions.of("test:block", null, null, Map.of("out", Map.of("rate", 64), "in", Map.of("rate", "fast")),
+                warnings::add);
+        assertEquals(64, options.portRate("out", 8));
+        assertEquals(8, options.portRate("in", 8), "an invalid rate keeps the type's");
+        assertEquals(8, options.portRate("other", 8));
+        assertEquals(1, warnings.size());
+        assertTrue(warnings.getFirst().startsWith("test:block: ports.in.rate must be"), warnings.getFirst());
+    }
+
+    @Test
     void aMachineIsSizedAndConfiguredByItsBlock() {
         CoreMachineEngine engine = TestEngine.builder().addon(MachineFixtures.alpha()).addon(MachineFixtures.beta()).start();
         FakeWorld world = FakeWorld.singleRegion(engine);

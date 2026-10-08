@@ -105,6 +105,13 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
     1. a changed `rate:`, bin capacity and casing option reach a placed block after a restart;
     2. whether `/ce reload` reaches machines already loaded. A machine keeps the `BlockOptions` it first read (`MachineInstanceImpl#options`), from its block entity controller's behavior. If CraftEngine keeps old controllers across a reload, making it live means reading the behavior from the block state's current definition and dropping the cache. The guide says to restart until then.
   - **Candidate follow-up:** numbers still passed as Java behavior arguments in other machines (energy and ticks of processing machines, generators' output, tank capacities in machine types). They can become options the way the pump's and lasers' did in Stage 2.
+- **2026-10-08, follow-up: behavior arguments (done; still to try in game).**
+  - Engine: block configs also take `ports: {<id>: {rate: N}}`, replacing a port's rate per tick before upgrades (`BlockOptions#portRate`, read by `MachineInstanceImpl`'s port handlers and by behaviors that push at their port's rate).
+  - The arguments of `fuelGenerator`, `solar`, `wind`, `SorterBehavior.of`, `plenisher` and `assemblicator` became options with the arguments as defaults. Energy cubes and tanks push (and charge items) at their `out` port's rate, so one `ports.out.rate` sets both.
+  - Shipped: options on the heat, bio, solar, advanced solar and wind generators, the logistical sorter, fluidic plenisher and formulaic assemblicator; `storages:` and `ports: out` on the 4 energy cubes, 4 chemical tanks and 4 fluid tanks. Creative blocks keep their Java numbers.
+  - Not shipped, but available to any block: `storages:` and `ports:` for every other machine (processing machines' energy buffers and tanks, factories' chemical tanks). Their recipes' energy and time are in the definitions already.
+  - Stay in Java: factory lanes (the machine type's slots), the gas-burning generator's fuels (a table of Joules per fuel, recipe-like), creative blocks.
+  - Tests: `BlockNumbersTest#everyShippedPortRateIsTheMachinesDefault` and the new options in `everyShippedOptionIsItsDefault`; `BlockOptionsTest#portRatesReplaceTheTypesAndInvalidOnesAreReported`; `EnergyItemsChainTest#aCubeChargesAtItsBlocksPortRate`.
 
 ## Stages
 

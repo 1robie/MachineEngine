@@ -11,8 +11,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
- * The numbers a block's config gives its machine (D34): storage capacities ({@code storages:}) and
- * behavior options ({@code options:}), read with the same {@link ConfigKey}s as a config file.
+ * The numbers a block's config gives its machine (D34): storage capacities ({@code storages:}), port
+ * rates ({@code ports:}) and behavior options ({@code options:}), read with the same {@link ConfigKey}s as
+ * a config file.
  *
  * <pre>{@code
  * behavior:
@@ -20,6 +21,8 @@ import java.util.function.Consumer;
  *   machine: mymod:refinery
  *   storages:
  *     energy: { capacity: 40000 }
+ *   ports:
+ *     out: { rate: 4000 }
  *   options:
  *     energy-per-tick: 200
  * }</pre>
@@ -29,20 +32,23 @@ import java.util.function.Consumer;
  * the default (or limited to the range, for a {@link ConfigKey#clamped()} key).</p>
  */
 public final class BlockOptions {
-    public static final BlockOptions EMPTY = new BlockOptions("", Map.of(), Map.of(), message -> {
+    public static final BlockOptions EMPTY = new BlockOptions("", Map.of(), Map.of(), Map.of(), message -> {
     });
 
     private final String where;
     private final Map<String, Object> options;
     private final Map<String, Long> capacities;
+    private final Map<String, Long> rates;
     private final Consumer<String> warnings;
     private final Map<String, Object> read = new ConcurrentHashMap<>();
     private final Set<String> warned = ConcurrentHashMap.newKeySet();
 
-    private BlockOptions(String where, Map<String, Object> options, Map<String, Long> capacities, Consumer<String> warnings) {
+    private BlockOptions(String where, Map<String, Object> options, Map<String, Long> capacities, Map<String, Long> rates,
+                         Consumer<String> warnings) {
         this.where = where;
         this.options = options;
         this.capacities = capacities;
+        this.rates = rates;
         this.warnings = warnings;
     }
 
@@ -56,25 +62,42 @@ public final class BlockOptions {
      */
     public static @NotNull BlockOptions of(@NotNull String where, @Nullable Map<String, ?> options, @Nullable Map<String, ?> storages,
                                            @NotNull Consumer<String> warnings) {
+        return of(where, options, storages, null, warnings);
+    }
+
+    /**
+     * Options read from a block config, with port rates.
+     *
+     * @param ports the {@code ports:} map, each port a map with {@code rate} (per tick), or {@code null}
+     */
+    public static @NotNull BlockOptions of(@NotNull String where, @Nullable Map<String, ?> options, @Nullable Map<String, ?> storages,
+                                           @Nullable Map<String, ?> ports, @NotNull Consumer<String> warnings) {
         Objects.requireNonNull(where);
         Objects.requireNonNull(warnings);
-        Map<String, Long> capacities = new LinkedHashMap<>();
-        if (storages != null) {
-            ConfigKey<Long> capacity = ConfigKey.whole("capacity", 1, 1, Long.MAX_VALUE);
-            storages.forEach((storage, raw) -> {
-                Object value = raw instanceof Map<?, ?> map ? map.get("capacity") : null;
-                Long parsed = capacity.parse(value);
-                if (parsed == null) {
-                    warnings.accept(where + ": storages." + storage + ".capacity must be " + capacity.expected() + " but is "
-                            + value + "; using the machine's own");
-                } else {
-                    capacities.put(storage, parsed);
-                }
-            });
-        }
+        Map<String, Long> capacities = numbers(where, "storages", "capacity", storages, warnings);
+        Map<String, Long> rates = numbers(where, "ports", "rate", ports, warnings);
         Map<String, Object> copy = options == null ? Map.of() : Map.copyOf(options);
-        if (copy.isEmpty() && capacities.isEmpty()) return EMPTY;
-        return new BlockOptions(where, copy, Map.copyOf(capacities), warnings);
+        if (copy.isEmpty() && capacities.isEmpty() && rates.isEmpty()) return EMPTY;
+        return new BlockOptions(where, copy, capacities, rates, warnings);
+    }
+
+    /** {@code section.<id>.<field>} for each id: a positive whole number, or warned about and left out. */
+    private static Map<String, Long> numbers(String where, String section, String field, @Nullable Map<String, ?> entries,
+                                             Consumer<String> warnings) {
+        if (entries == null) return Map.of();
+        ConfigKey<Long> number = ConfigKey.whole(field, 1, 1, Long.MAX_VALUE);
+        Map<String, Long> parsed = new LinkedHashMap<>();
+        entries.forEach((id, raw) -> {
+            Object value = raw instanceof Map<?, ?> map ? map.get(field) : null;
+            Long read = number.parse(value);
+            if (read == null) {
+                warnings.accept(where + ": " + section + "." + id + "." + field + " must be " + number.expected() + " but is "
+                        + value + "; using the machine's own");
+            } else {
+                parsed.put(id, read);
+            }
+        });
+        return Map.copyOf(parsed);
     }
 
     /** The option's value from the block config, or the key's default. */
@@ -90,9 +113,15 @@ public final class BlockOptions {
         return capacity != null ? capacity : fallback;
     }
 
-    /** True when the block config sets no option and no capacity. */
+    /** The port's rate per tick from the block config, or {@code fallback} (the machine type's). */
+    public long portRate(@NotNull String port, long fallback) {
+        Long rate = this.rates.get(port);
+        return rate != null ? rate : fallback;
+    }
+
+    /** True when the block config sets no option, capacity or port rate. */
     public boolean isEmpty() {
-        return this.options.isEmpty() && this.capacities.isEmpty();
+        return this.options.isEmpty() && this.capacities.isEmpty() && this.rates.isEmpty();
     }
 
     private <T> T read(ConfigKey<T> key) {

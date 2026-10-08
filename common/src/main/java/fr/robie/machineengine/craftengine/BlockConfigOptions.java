@@ -8,14 +8,14 @@ import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
 
-/** Reads a block behavior's {@code storages:} and {@code options:} sections into {@link BlockOptions} (D34). */
+/** Reads a block behavior's {@code storages:}, {@code ports:} and {@code options:} sections into {@link BlockOptions} (D34). */
 final class BlockConfigOptions {
     private BlockConfigOptions() {
     }
 
     static @NotNull BlockOptions read(@NotNull BlockDefinition block, @NotNull ConfigSection section) {
         return BlockOptions.of(String.valueOf(block.id()), values(section, "options"), values(section, "storages"),
-                BlockConfigOptions::warn);
+                values(section, "ports"), BlockConfigOptions::warn);
     }
 
     private static Map<String, Object> values(ConfigSection section, String key) {

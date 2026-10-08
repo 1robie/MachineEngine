@@ -190,8 +190,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         for (PortDefinition port : type.ports()) {
             MachineStorage storage = this.storages.get(port.storage());
             this.ports.add(new PortHandler(port, storage, services::tags, () -> host.gameTime(position.world()),
-                    () -> port.ratePerTick() == Long.MAX_VALUE ? Long.MAX_VALUE
-                            : Modifiers.apply(StandardModifiers.TRANSFER_RATE, port.ratePerTick(), this.modifiers)));
+                    () -> {
+                        // The block config's rate (D34) replaces the type's; upgrades apply on top of it.
+                        long rate = options().portRate(port.id(), port.ratePerTick());
+                        return rate == Long.MAX_VALUE ? Long.MAX_VALUE : Modifiers.apply(StandardModifiers.TRANSFER_RATE, rate, this.modifiers);
+                    }));
         }
         for (MachineDataKey<?> key : type.data()) {
             this.data.put(key, key.defaultValue());
