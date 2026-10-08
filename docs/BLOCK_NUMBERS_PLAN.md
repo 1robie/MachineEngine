@@ -22,8 +22,7 @@ No gameplay change: every number keeps its current value, and a test reads the s
 **Per block, hard-coded in Java (move):**
 - `UtilityMachines.BIN_CAPACITY` (5 bins), `CHARGEPAD_RATE`.
 - `HeatMachines.CONDUCTOR_RATES` (4 thermodynamic conductors), `FUELWOOD_HEAT`.
-- `MultiblockMachines.CELLS`, `PROVIDERS` (induction cells and providers, 4 tiers each).
-- `LogisticsMachines.LANES` (logistical sorter per tier).
+- `MultiblockMachines.CELLS`, `PROVIDERS` (induction cells and providers, 4 tiers each). They are plain blocks the matrix counts, not machines: they go with the matrix's options (Stage 5).
 - `GaugeDropper.CAPACITY` (an item: belongs in the dropper's item config, D32).
 - `Liquifier.TICKS`, `ENERGY_PER_TICK`, `PASTE_PER_FOOD` (nutritional liquifier).
 - `ChemistryBehaviors.HEAVY_WATER_PER_BLOCK` (electric pump with a filter upgrade).
@@ -36,6 +35,8 @@ No gameplay change: every number keeps its current value, and a test reads the s
 - `Fusion.FUSION_IGNITION`, `FUSION_ENERGY_PER_MB`.
 - `Sps.SPS_POLONIUM_PER_ANTIMATTER`, `SPS_ENERGY_PER_POLONIUM`.
 - `Turbines.STEAM_ENERGY`, `FULL_BLADES`, `BLADES_PER_COIL`, `VENT_FLOW`, `CONDENSER_RATE`.
+
+**Structural (stay in Java):** `LogisticsMachines.LANES`, the process lanes of each factory tier (3, 5, 7, 9): they decide the machine type's slots and ports, so they cannot change per block.
 
 **Internal (stay in Java):** save intervals (`SAVE_TICKS`, `SAVE_SECONDS`), `RETRY_TICKS`, `EVERY_TICKS`, `CHARGE_EVERY`, `PER_PAGE`, `SaveLines.*_FIELDS`, `BEAM_COLOR`, `MekanizedConfig.MAX`, `QioSettings.DRIVES`. They are timing or format details, not balance.
 
@@ -68,17 +69,22 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
 ## Progress
 - **2026-10-08: option 1 chosen (D34).**
 - **2026-10-08, Stage 0 (done).** `api.config.BlockOptions` (`get(ConfigKey)`, `capacity(storage, fallback)`), `MachineContext#options()`, `MachineHost#options(position)` (the CraftEngine host asks the block's controller), `storages:` and `options:` on `machineengine:machine`, `rate:` on `machineengine:transport` (`TransportType#withRate`). A block's capacity replaces the type's before upgrades; a runtime `setStorageCapacity` still wins. `FakeWorld#setOptions` for tests (`BlockOptionsTest`). Options are kept per block, so blocks sharing a machine type may differ; still to check on the dev server: whether `/ce reload` reaches machines already loaded (a machine keeps the options it first read).
+- **2026-10-08, Stage 1 (done; still to try in game).**
+  - `rate:` on the 20 transport blocks (universal cable, pressurized tube, mechanical pipe, logistical transporter, thermodynamic conductor; 4 tiers each), `storages.items.capacity` on the 4 bins (the creative bin keeps its unlimited Java capacity), `options.charge-per-tick` on the chargepad (`UtilityMachines.CHARGE_PER_TICK`, read by `PaperUtility`).
+  - The rates are now Java constants next to their transport types (`MekanizedRegistry.CABLE_RATES`, `ChemistryMachines`, `LogisticsMachines`); `MekanizedSettings.*Rates` and `MekanizedConfig`'s `transport` section are gone. Old `transport.*` keys left in a file are kept and ignored.
+  - `BlockNumbersTest` checks that every shipped `rate` and `storages` capacity equals the Java default, and that a bin holds what its block says. `ShippedBlocks` reads the shipped block configs.
+  - Found on the way: induction cells and providers are plain blocks counted by the matrix, so they move to Stage 5; factory lanes are structural and stay in Java.
 
 ## Stages
 
 Each stage is one or more commits that build and pass `./gradlew check`. No gameplay change. Old `config.yml` keys left in a file are kept and ignored, as for `gear.*`.
 
 - **Stage 0: engine support.** `options:` (and `storages:` capacity overrides, if decision 1) on `machineengine:machine`, `rate:` on `machineengine:transport`, read through a typed `BlockOptions` the machine behavior gets at bind time (`ConfigKey`-like: default, range, clamped, reported when invalid). Headless tests with a fake block config.
-- **Stage 1: tiered capacities and rates.** Bins, induction cells and providers, thermodynamic conductors, logistical sorter lanes, chargepad, universal cable, pressurized tube, mechanical pipe, logistical transporter. Removes `transport.*` from `MekanizedConfig`.
+- **Stage 1: tiered capacities and rates.** Bins, thermodynamic conductors, chargepad, universal cable, pressurized tube, mechanical pipe, logistical transporter. Removes `transport.*` from `MekanizedConfig`.
 - **Stage 2: single machines.** Nutritional liquifier, electric pump, fuelwood heater, seismic vibrator, laser, energized smelter furnace recipes, radioactive waste barrel, digital miner, dimensional stabilizer. Removes `radiation.barrel-*`, `digital-miner.*`, `chunk-loading.*`.
 - **Stage 3: QIO.** Drive items and kinds go in each drive's item config (D32, `mekanized:qio_drive` item behavior); array kinds and importer/exporter rate on their blocks. Removes `qio.*`.
 - **Stage 4: gauge dropper capacity** in its item config (D32), with the other dropper data already in `ItemData`.
-- **Stage 5: multiblock physics.** Dynamic tank and evaporation per-block amounts, boiler, fission, fusion, SPS, turbine numbers as options on their multiblock types. Removes `dynamic-tank.*`, `thermal-evaporation.*`.
+- **Stage 5: multiblock physics.** Induction cells and providers, dynamic tank and evaporation per-block amounts, boiler, fission, fusion, SPS, turbine numbers as options on their multiblock types. Removes `dynamic-tank.*`, `thermal-evaporation.*`.
 - **Stage 6: clean-up.** `MekanizedConfig` keeps only radiation and teleporter; `MEKANIZED_GUIDE.md` lists where each number now lives; decision log entry.
 
 ## Rules for every stage
