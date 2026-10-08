@@ -1,7 +1,6 @@
 package fr.robie.machineengine.api.paper;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.builder.ArgumentBuilder;
 import com.mojang.brigadier.builder.RequiredArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
@@ -29,8 +28,7 @@ import org.jetbrains.annotations.Nullable;
  * player uses the {@link Default} position; the console must give them.
  *
  * <p>Brigadier types only, so any command library can use it (D35): add {@link #positionArgument()}
- * then {@link #worldArgument()} as optional arguments and call {@link #resolve} when the command
- * runs; or let {@link #optionalPosition} build both on a Brigadier node.
+ * then {@link #worldArgument()} as optional arguments and call {@link #resolve} when the command runs.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class PositionArguments {
@@ -48,12 +46,6 @@ public final class PositionArguments {
 
     /** A command position: a world and block coordinates. */
     public record Position(@NotNull World world, int x, int y, int z) {
-    }
-
-    @FunctionalInterface
-    public interface PositionCommand {
-        int run(@NotNull CommandContext<CommandSourceStack> context, @NotNull World world, int x, int y, int z)
-                throws CommandSyntaxException;
     }
 
     private PositionArguments() {
@@ -95,28 +87,12 @@ public final class PositionArguments {
         }
     }
 
-    /** Adds {@code [<x y z>] [<world>]} to {@code node}, all variants running {@code command}. */
-    public static <T extends ArgumentBuilder<CommandSourceStack, T>> @NotNull T optionalPosition(
-            @NotNull T node, @NotNull Default fallback, @NotNull PositionCommand command) {
-        return node
-                .executes(context -> run(context, fallback, command))
-                .then(positionArgument()
-                        .executes(context -> run(context, fallback, command))
-                        .then(worldArgument().executes(context -> run(context, fallback, command))));
-    }
-
     /** A world by name ({@code world}) or key ({@code minecraft:overworld}). */
     public static @Nullable World world(@NotNull String name) {
         World world = Bukkit.getWorld(name);
         if (world != null) return world;
         NamespacedKey key = NamespacedKey.fromString(name);
         return key == null ? null : Bukkit.getWorld(key);
-    }
-
-    private static int run(CommandContext<CommandSourceStack> context, Default fallback, PositionCommand command)
-            throws CommandSyntaxException {
-        Position position = resolve(context, fallback);
-        return position == null ? 0 : command.run(context, position.world(), position.x(), position.y(), position.z());
     }
 
     private static boolean has(CommandContext<CommandSourceStack> context, String argument) {
