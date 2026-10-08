@@ -1,4 +1,4 @@
-# CraftEngine templates and config factories plan (2026-10-08)
+# CraftEngine templates and config factories plan (2026-10-08, done)
 
 Mekanized's CraftEngine configuration (`mekanized/src/main/resources/mekanized/pack/configuration/`) writes every block and item out in full. The 200 blocks take 7,396 lines, and the 958 items include 574 model-only `display/` and `cable_part/` items. Most of these entries are copies of each other with one name changed. CraftEngine has two tools for this, and Mekanized uses neither beyond three settings and loot templates:
 
@@ -135,7 +135,7 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 - Item templates `mekanized:item/block_item` (name `lang:block.<ns>.<id>`, model `block/<id>` unless the `model` argument says otherwise, `block_item` of the same id) and `mekanized:item/named` (name `lang:item.<ns>.<id>`, model `item/<id>`): 96 block items and 182 other items use them, their other keys (tags, behaviors, components) next to the template. Kept as they are: the two cardboard boxes, and the blueprint items of the factories (written once each).
 - Result for the 11 content files: 11,927 lines before Stage 1, 3,521 now, plus `templates.yml` (189 lines) and the engine's new templates (~230 lines).
 
-**Stage 7 — docs.** In `MEKANIZED_GUIDE.md`: how to read a factory (one row per block), how to change one block (edit its row, or move it out of the factory into `blocks:`) or a family (edit the blueprint), and where the templates are. `docs/ARCHITECTURE.md` gets D36 with decisions 1–5.
+**Stage 7 — docs. Done (2026-10-08).** `MEKANIZED_GUIDE.md`: where each block's numbers are (factory rows named), and "Reading the block and item files" (templates, keys next to them, factory rows and blueprints, where the templates are and how to change one). `README.md`: "CraftEngine templates" for addons. `docs/ARCHITECTURE.md`: D36, and D34 points to it.
 
 ## Existing servers
 

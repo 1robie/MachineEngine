@@ -171,6 +171,32 @@ Add `keep_contents: true` to a block's `machineengine:machine` behavior and
 gets one item holding the machine's contents, process and upgrades; placing it resumes the machine.
 Explosions and other non-player breaks drop the contents as usual. Empty machines drop plain items.
 
+## CraftEngine templates
+
+MachineEngine ships CraftEngine templates for blocks that use its types
+(`plugins/CraftEngine/resources/machineengine/configuration/templates.yml`, rewritten at every start; each
+template is described there). Put one at the top of a block and write what is the block's own next to it:
+keys next to `template:` are merged in.
+
+```yaml
+blocks:
+  example:crusher:
+    template: machineengine:block/machine       # machine of the same id, keeps its contents
+    behavior:
+      options: { energy-per-tick: 40 }
+    settings: { template: default:settings/solid_1x1x1 }
+    states:
+      template: machineengine:block_state/facing_active   # block/<id>, block/<id>_active
+```
+
+- `machineengine:block/machine`, `machineengine:block/transport`: the behavior and drops.
+- `machineengine:block_state/solid`, `facing`, `active`, `facing_active`: solid models (argument `model`,
+  `active_model`).
+- `machineengine:block_state/display_rendered`, `display_rendered_facing`, `display_rendered_facing_6`: blocks
+  drawn by display entities, sharing one visual state (arguments `display_state`, `display_model`).
+
+Mekanized uses them with CraftEngine config factories (`config_factory`) to declare its tiers once.
+
 ## Bukkit events
 
 Plugins that do not use the MachineEngine API can listen to ordinary Bukkit events in
