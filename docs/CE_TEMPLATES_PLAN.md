@@ -130,7 +130,10 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 - Caught by the snapshot: `personal_chest`'s blast-proof resistance was dropped by the first conversion; it is now `settings: {resistance: 3600000.0}` next to the template.
 - Templates pass arguments down: a block's `arguments:` reach every template nested inside (`TemplateManagerImpl#processTemplates` merges them with the parent's), so whole-block templates need not repeat them.
 
-**Stage 6 — storage blocks and plain items.** Storage blocks (factory) and `mekanized:item/named` where it fits.
+**Stage 6 — storage blocks and items. Done (2026-10-08).** −1,388 / +427 lines, `ceSnapshot` matches.
+- Factory `storage_blocks` (materials.yml): the 13 blocks of a material whose item is tagged exactly `c:storage_blocks`, `c:storage_blocks/<material>`, one row each (`material`). Bio fuel (fuel tags), refined glowstone (also `piglin_loved`), salt and steel casing (no tags) are templated entries: `mekanized:block/storage_block` (self loot, storage settings, solid model).
+- Item templates `mekanized:item/block_item` (name `lang:block.<ns>.<id>`, model `block/<id>` unless the `model` argument says otherwise, `block_item` of the same id) and `mekanized:item/named` (name `lang:item.<ns>.<id>`, model `item/<id>`): 96 block items and 182 other items use them, their other keys (tags, behaviors, components) next to the template. Kept as they are: the two cardboard boxes, and the blueprint items of the factories (written once each).
+- Result for the 11 content files: 11,927 lines before Stage 1, 3,521 now, plus `templates.yml` (189 lines) and the engine's new templates (~230 lines).
 
 **Stage 7 — docs.** In `MEKANIZED_GUIDE.md`: how to read a factory (one row per block), how to change one block (edit its row, or move it out of the factory into `blocks:`) or a family (edit the blueprint), and where the templates are. `docs/ARCHITECTURE.md` gets D36 with decisions 1–5.
 
