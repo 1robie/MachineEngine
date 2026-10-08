@@ -3,6 +3,7 @@ package fr.robie.machineengine.core.machine;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.Capabilities;
 import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.error.MachineError;
@@ -96,6 +97,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     private final List<PortHandler> ports = new ArrayList<>();
     /** Runtime storage capacities ({@code MachineContext#setStorageCapacity}), saved with the machine. */
     final Map<String, Long> capacities = new ConcurrentHashMap<>();
+    /** The block config's options (D34), asked from the host on first use. */
+    private volatile @Nullable BlockOptions options;
     /** What every side shows instead of the ports ({@code MachineContext#exposeHandler}), or null. */
     private volatile @Nullable ResourceHandler exposed;
     private final Map<Direction, ResourceHandler> sideHandlers = new EnumMap<>(Direction.class);
@@ -171,8 +174,10 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             List<MachineSlot> slots = new ArrayList<>(definition.slots());
             for (int i = 0; i < definition.slots(); i++) {
                 // Tags are read live: a tag reload must reach machines that already exist.
-                LongSupplier base = definition.capacityModifier() == null ? definition::capacity
-                        : () -> Modifiers.apply(definition.capacityModifier(), definition.capacity(), this.modifiers);
+                // The block config's capacity (D34) replaces the type's; upgrades apply on top of it.
+                LongSupplier declared = () -> options().capacity(definition.id(), definition.capacity());
+                LongSupplier base = definition.capacityModifier() == null ? declared
+                        : () -> Modifiers.apply(definition.capacityModifier(), declared.getAsLong(), this.modifiers);
                 // A runtime capacity (multiblocks) wins over the type's.
                 LongSupplier capacity = () -> {
                     Long set = this.capacities.get(definition.id());
@@ -499,6 +504,15 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     @Override
     public @Nullable MachineInstanceImpl instance() {
         return this;
+    }
+
+    /** The block config's options (D34). Asked again while the host has none, e.g. before its block entity registers. */
+    @NotNull BlockOptions options() {
+        BlockOptions options = this.options;
+        if (options != null) return options;
+        options = this.host.options(this.position);
+        if (!options.isEmpty()) this.options = options;
+        return options;
     }
 
     @Override
@@ -842,6 +856,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         @Override
         public @NotNull PortDirection portDirection(@NotNull String id) {
             return port(id).direction();
+        }
+
+        @Override
+        public @NotNull BlockOptions options() {
+            return MachineInstanceImpl.this.options();
         }
 
         @Override

@@ -18,6 +18,7 @@ import net.momirealms.craftengine.core.block.behavior.BlockBehaviorFactory;
 import net.momirealms.craftengine.core.block.behavior.EntityBlock;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
 import net.momirealms.craftengine.core.block.entity.BlockEntityController;
+import net.momirealms.craftengine.core.plugin.config.ConfigSection;
 import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement;
 import net.momirealms.craftengine.core.world.BlockPos;
 import net.momirealms.craftengine.libraries.nbt.CompoundTag;
@@ -41,6 +42,7 @@ import java.util.function.Consumer;
  *   type: machineengine:transport
  *   transport: mymod:copper_cable
  *   connection_items: mymod:cable_part/copper   # optional: arm models <prefix>/<direction>
+ *   rate: 8000                                  # optional: per tick, replacing the transport type's (D34)
  * }</pre>
  *
  * With {@code connection_items}, the block shows its center piece and an arm toward each connected
@@ -50,16 +52,31 @@ import java.util.function.Consumer;
 public final class TransportBlockBehavior extends BukkitBlockBehavior implements EntityBlock {
     public static final BlockBehaviorFactory<TransportBlockBehavior> FACTORY =
             (block, section) -> new TransportBlockBehavior(block, Key.key(section.getNonEmptyString("transport")),
-                    section.getString("connection_items", (String) null));
+                    section.getString("connection_items", (String) null), rate(block, section));
 
     private final Key transport;
     private final @Nullable String connectionItems;
+    /** The block config's {@code rate}, or 0 for the transport type's. */
+    private final long rate;
+    /** The registered type and this block's copy of it at {@link #rate}, made once per registered type. */
+    private volatile @Nullable TransportType[] resolved;
     private int controllerId;
 
-    private TransportBlockBehavior(BlockDefinition block, Key transport, @Nullable String connectionItems) {
+    private TransportBlockBehavior(BlockDefinition block, Key transport, @Nullable String connectionItems, long rate) {
         super(block);
         this.transport = transport;
         this.connectionItems = connectionItems;
+        this.rate = rate;
+    }
+
+    private static long rate(BlockDefinition block, ConfigSection section) {
+        if (!section.keySet().contains("rate")) return 0;
+        long rate = section.getLong("rate", 0L);
+        if (rate < 1) {
+            BlockConfigOptions.warn(block.id() + ": rate must be a whole number from 1 but is " + rate + "; using the transport's own");
+            return 0;
+        }
+        return rate;
     }
 
     /** A neighbor changed: redraw this transport's connections (next task, once the neighbor is set up). */
@@ -79,7 +96,14 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
     }
 
     public @Nullable TransportType resolve(@NotNull RegistryAccess registries) {
-        return registries.registry(Registries.TRANSPORT_TYPE).get(this.transport).orElse(null);
+        TransportType type = registries.registry(Registries.TRANSPORT_TYPE).get(this.transport).orElse(null);
+        if (type == null || this.rate == 0) return type;
+        TransportType[] resolved = this.resolved;
+        if (resolved == null || resolved[0] != type) {
+            resolved = new TransportType[]{type, type.withRate(this.rate)};
+            this.resolved = resolved;
+        }
+        return resolved[1];
     }
 
     @Override

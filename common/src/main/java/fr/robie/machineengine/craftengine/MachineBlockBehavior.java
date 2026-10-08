@@ -1,5 +1,6 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.item.MachineTool;
 import fr.robie.machineengine.api.paper.MachineInteractions;
 import fr.robie.machineengine.api.machine.MachineType;
@@ -61,6 +62,10 @@ import java.util.Map;
  *   level_steps: 4
  *   side_display: mymod:display/cube/port   # optional: <prefix>/<side> (front, back...) shown on each side
  *                                           #   that has a port (side configuration), turned like the block
+ *   storages:                   # optional: capacities replacing the machine type's (D34)
+ *     energy: { capacity: 40000 }
+ *   options:                    # optional: numbers the machine reads with MachineContext#options (D34)
+ *     energy-per-tick: 200
  * }</pre>
  */
 public final class MachineBlockBehavior extends BukkitBlockBehavior implements EntityBlock,
@@ -78,6 +83,7 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
     private final Map<fr.robie.machineengine.api.world.Direction, int[]> displayRotations;
     private final @Nullable LevelDisplay levelDisplay;
     private final @Nullable String sideDisplay;
+    private BlockOptions options = BlockOptions.EMPTY;
     private int controllerId;
 
     /** A gauge drawn inside the block ({@code level_display}). */
@@ -100,6 +106,16 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
         this.displayRotations = new EnumMap<>(fr.robie.machineengine.api.world.Direction.class);
         this.levelDisplay = levelDisplay;
         this.sideDisplay = sideDisplay;
+    }
+
+    /** The block config's {@code storages:} and {@code options:} (D34). */
+    @NotNull BlockOptions options() {
+        return this.options;
+    }
+
+    private MachineBlockBehavior withOptions(@NotNull BlockOptions options) {
+        this.options = options;
+        return this;
     }
 
     @Nullable String sideDisplay() {
@@ -318,7 +334,8 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
                             section.getString("level_display", (String) null), section.getString("level_storage", "energy"),
                             section.getInt("level_steps", 4)),
                     section.getString("side_display", (String) null))
-                    .withRotations(section.getString("display_rotations", (String) null));
+                    .withRotations(section.getString("display_rotations", (String) null))
+                    .withOptions(BlockConfigOptions.read(block, section));
         }
     }
 }

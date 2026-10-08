@@ -1,5 +1,6 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.api.network.TransportSideMode;
@@ -72,6 +73,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         this.engine = engine;
         this.protection = new CraftEngineProtection(plugin.getLogger());
         this.keptContents = new KeptContents(plugin, this);
+    }
+
+    @Override
+    public @NotNull BlockOptions options(@NotNull WorldPosition position) {
+        MachineBlockEntityController controller = this.controllers.get(position);
+        return controller == null ? BlockOptions.EMPTY : controller.behavior().options();
     }
 
     @Override

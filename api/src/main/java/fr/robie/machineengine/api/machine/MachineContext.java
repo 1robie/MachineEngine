@@ -1,6 +1,7 @@
 package fr.robie.machineengine.api.machine;
 
 import fr.robie.machineengine.api.capability.CapabilityType;
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.process.ProcessControl;
 import fr.robie.machineengine.api.recipe.RecipeLookup;
@@ -146,6 +147,13 @@ public interface MachineContext {
      * already holds beyond a smaller capacity stays, and nothing more fits until it is below again.
      */
     void setStorageCapacity(@NotNull String storage, long capacity);
+
+    /**
+     * The numbers this machine's block config gives it (D34): its {@code options:}, read with the
+     * machine's own {@link fr.robie.machineengine.api.config.ConfigKey}s. Its {@code storages:}
+     * capacities already size the storages.
+     */
+    @NotNull BlockOptions options();
 
     /**
      * Makes every side of this machine show {@code handler} instead of its ports (e.g. a multiblock's

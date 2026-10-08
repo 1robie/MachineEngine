@@ -1,4 +1,4 @@
-# Block numbers plan (draft, 2026-10-08)
+# Block numbers plan (2026-10-08)
 
 Gear keeps its numbers in its CraftEngine item config (D32). Mekanized's blocks do not: their numbers are either global settings in `plugins/Mekanized/config.yml` (`MekanizedConfig`) or constants in Java. This plan moves the numbers that belong to one block next to that block, the way D32 did for items, and leaves world-wide rules in `config.yml`.
 
@@ -39,7 +39,7 @@ No gameplay change: every number keeps its current value, and a test reads the s
 
 **Internal (stay in Java):** save intervals (`SAVE_TICKS`, `SAVE_SECONDS`), `RETRY_TICKS`, `EVERY_TICKS`, `CHARGE_EVERY`, `PER_PAGE`, `SaveLines.*_FIELDS`, `BEAM_COLOR`, `MekanizedConfig.MAX`, `QioSettings.DRIVES`. They are timing or format details, not balance.
 
-## Decision needed: where a block's numbers live
+## Where a block's numbers live (decided: option 1, D34)
 
 1. **In the CraftEngine block config (recommended).** The `machineengine:machine` and `machineengine:transport` block behaviors take an `options:` map, plus `storages: {<id>: {capacity: ...}}` overrides:
    ```yaml
@@ -64,6 +64,10 @@ No gameplay change: every number keeps its current value, and a test reads the s
    - But a second place for block data beside the CraftEngine config, and server owners must know which file holds what.
 
 Multiblock physics goes in the multiblock type in either case: Mekanized's types become `multiblocks:` definitions (D33 already reads `capacities` there) with an `options:` map, or stay in Java with YAML options. This plan assumes `options:` on the type.
+
+## Progress
+- **2026-10-08: option 1 chosen (D34).**
+- **2026-10-08, Stage 0 (done).** `api.config.BlockOptions` (`get(ConfigKey)`, `capacity(storage, fallback)`), `MachineContext#options()`, `MachineHost#options(position)` (the CraftEngine host asks the block's controller), `storages:` and `options:` on `machineengine:machine`, `rate:` on `machineengine:transport` (`TransportType#withRate`). A block's capacity replaces the type's before upgrades; a runtime `setStorageCapacity` still wins. `FakeWorld#setOptions` for tests (`BlockOptionsTest`). Options are kept per block, so blocks sharing a machine type may differ; still to check on the dev server: whether `/ce reload` reaches machines already loaded (a machine keeps the options it first read).
 
 ## Stages
 

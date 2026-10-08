@@ -43,6 +43,11 @@ public final class TransportType implements Keyed {
         return this.ratePerTick;
     }
 
+    /** The same transport moving {@code ratePerTick} instead: a block config's {@code rate} (D34). */
+    public @NotNull TransportType withRate(long ratePerTick) {
+        return ratePerTick == this.ratePerTick ? this : new TransportType(this.key, this.network, ratePerTick, this.filter);
+    }
+
     public @NotNull ResourcePredicate filter() {
         return this.filter;
     }

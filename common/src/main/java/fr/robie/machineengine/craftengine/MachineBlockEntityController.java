@@ -68,6 +68,10 @@ public final class MachineBlockEntityController extends BlockEntityController {
     private final Map<RelativeSide, MachineDisplayElement> sides =
             new EnumMap<>(RelativeSide.class);
 
+    MachineBlockBehavior behavior() {
+        return this.behavior;
+    }
+
     MachineBlockEntityController(BlockEntity blockEntity, MachineBlockBehavior behavior) {
         super(blockEntity);
         this.behavior = behavior;

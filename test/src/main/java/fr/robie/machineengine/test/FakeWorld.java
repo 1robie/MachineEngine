@@ -1,5 +1,6 @@
 package fr.robie.machineengine.test;
 
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.item.ItemData;
 import fr.robie.machineengine.api.item.Items;
@@ -89,6 +90,7 @@ public final class FakeWorld implements MachineHost {
     }
 
     private MachineEnvironment environment = MachineEnvironment.NONE;
+    private final Map<WorldPosition, BlockOptions> options = new java.util.concurrent.ConcurrentHashMap<>();
     private final Map<WorldPosition, WorldFluid> fluids = new ConcurrentHashMap<>();
 
     /** Puts a fluid (e.g. {@code minecraft:water}) at {@code position}, or removes it ({@code null}). */
@@ -258,6 +260,16 @@ public final class FakeWorld implements MachineHost {
     @Override
     public @NotNull MachineEnvironment environment(@NotNull WorldPosition position) {
         return this.environment;
+    }
+
+    /** What the block config at {@code position} gives its machine (D34): set before placing it. */
+    public void setOptions(@NotNull WorldPosition position, @NotNull BlockOptions options) {
+        this.options.put(position, options);
+    }
+
+    @Override
+    public @NotNull BlockOptions options(@NotNull WorldPosition position) {
+        return this.options.getOrDefault(position, BlockOptions.EMPTY);
     }
 
     public long time() {

@@ -1,5 +1,6 @@
 package fr.robie.machineengine.core.machine;
 
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.resource.ResourceStack;
@@ -112,6 +113,11 @@ public interface MachineHost {
 
     /** A committed transaction changed what the machine holds (e.g. to update comparators). */
     default void contentsChanged(@NotNull MachineInstanceImpl machine) {
+    }
+
+    /** What the block config at {@code position} gives its machine (D34); {@link BlockOptions#EMPTY} if nothing. */
+    default @NotNull BlockOptions options(@NotNull WorldPosition position) {
+        return BlockOptions.EMPTY;
     }
 
     /** Runs {@code task} on the thread owning {@code target} (Folia: its region scheduler). */
