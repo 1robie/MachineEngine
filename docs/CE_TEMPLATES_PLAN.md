@@ -122,7 +122,13 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 - `mekanized:block/display_machine_facing`: a machine with `display_item: <ns>:display/<id>`, transparent settings and that state. `display_rotations` stays on the block: not every display machine has it (the digital miner does not).
 - `mekanized:block/chemical_tank` is rebuilt on it (same snapshot).
 
-**Stage 5 — single machines.** Factories by shape for the ones without options. Templated `blocks:` entries for the ones with options.
+**Stage 5 — single machines. Done (2026-10-08).** −2,202 / +425 lines, `ceSnapshot` matches. Changed from the plan: no "factory by shape". Apart from the basic machines, the single machines differ in their visual state, model, rotations and number of display items (a row cannot make a varying number of items), and half of them have options. So each keeps a short `blocks:` entry: a shape template, its `arguments:`, and its own `behavior:` (options, `display_rotation(s)`) next to it.
+- Factory `basic_machines` (machines.yml): the 7 solid machines with nothing of their own (enrichment chamber, crusher, energized smelter, osmium compressor, combiner, purification chamber, precision sawmill), one row each (`machine`), block and item.
+- 76 templated entries: `mekanized:block/display_machine_facing` (30), `…/display_machine_facing_6` (10), `…/display_machine` (4), `mekanized:block/machine` (21), `…/machine_facing` (2), `…/machine_active` (6), `…/machine_facing_active` (3). Models default to `block/<id>` (`block/<id>_active`); the `model` argument is written only where it differs.
+- New engine state templates `machineengine:block_state/solid`, `…/facing`, `…/active`, `…/display_rendered`, `…/display_rendered_facing_6`. `mekanized:block/energy_cube` is rebuilt on `display_machine_facing_6`.
+- Kept as they are (one of a kind): `structural_glass`, `reactor_glass` (tintable glass), `boiler_valve`, `fission_reactor_port` (`mode`), `personal_barrel` (`open`), `chargepad` (pressure plate).
+- Caught by the snapshot: `personal_chest`'s blast-proof resistance was dropped by the first conversion; it is now `settings: {resistance: 3600000.0}` next to the template.
+- Templates pass arguments down: a block's `arguments:` reach every template nested inside (`TemplateManagerImpl#processTemplates` merges them with the parent's), so whole-block templates need not repeat them.
 
 **Stage 6 — storage blocks and plain items.** Storage blocks (factory) and `mekanized:item/named` where it fits.
 

@@ -142,3 +142,104 @@ templates:
         appearance: default
       facing=west:
         appearance: default
+
+  # A solid block with one model (argument model, default <namespace>:block/<id>).
+  # Use under `state:` (a block with no properties): state: { template: machineengine:block_state/solid }
+  machineengine:block_state/solid:
+    auto_state: solid
+    model:
+      path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+
+  # A solid block turned by `facing` (4 directions). Argument model (default <namespace>:block/<id>).
+  machineengine:block_state/facing:
+    properties:
+      facing:
+        type: 4-direction
+        default: north
+    appearances:
+      facing_north:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+      facing_south:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 180
+      facing_east:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 90
+      facing_west:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 270
+    variants:
+      facing=north:
+        appearance: facing_north
+      facing=south:
+        appearance: facing_south
+      facing=east:
+        appearance: facing_east
+      facing=west:
+        appearance: facing_west
+
+  # A solid block that shows another model while `active`. Arguments model and active_model
+  # (defaults <namespace>:block/<id> and <namespace>:block/<id>_active).
+  machineengine:block_state/active:
+    properties:
+      active:
+        type: boolean
+        default: false
+    appearances:
+      active_false:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+      active_true:
+        auto_state: solid
+        model:
+          path: ${active_model:-"${__NAMESPACE__}:block/${__ID__}_active"}
+    variants:
+      active=false:
+        appearance: active_false
+      active=true:
+        appearance: active_true
+
+  # A block without properties that display entities draw: one invisible model. Use under
+  # `state:`. Arguments as machineengine:block_state/display_rendered_facing.
+  machineengine:block_state/display_rendered:
+    auto_state:
+      type: ${state_type:-leaves}
+      id: ${display_state}
+    model:
+      path: ${display_model}
+
+  # As machineengine:block_state/display_rendered_facing, turned by `facing` in all 6 directions.
+  machineengine:block_state/display_rendered_facing_6:
+    properties:
+      facing:
+        type: 6-direction
+        default: north
+    appearances:
+      default:
+        auto_state:
+          type: ${state_type:-leaves}
+          id: ${display_state}
+        model:
+          path: ${display_model}
+    variants:
+      facing=north:
+        appearance: default
+      facing=south:
+        appearance: default
+      facing=east:
+        appearance: default
+      facing=west:
+        appearance: default
+      facing=up:
+        appearance: default
+      facing=down:
+        appearance: default
