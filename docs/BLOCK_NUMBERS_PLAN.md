@@ -74,6 +74,15 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - The rates are now Java constants next to their transport types (`MekanizedRegistry.CABLE_RATES`, `ChemistryMachines`, `LogisticsMachines`); `MekanizedSettings.*Rates` and `MekanizedConfig`'s `transport` section are gone. Old `transport.*` keys left in a file are kept and ignored.
   - `BlockNumbersTest` checks that every shipped `rate` and `storages` capacity equals the Java default, and that a bin holds what its block says. `ShippedBlocks` reads the shipped block configs.
   - Found on the way: induction cells and providers are plain blocks counted by the matrix, so they move to Stage 5; factory lanes are structural and stay in Java.
+- **2026-10-08, Stage 2 (done; still to try in game).**
+  - Options on the nutritional liquifier (`ticks`, `energy-per-tick`), electric pump (`energy`, `ticks`, `range`, `heavy-water-per-block`), fuelwood heater (`heat-per-tick`), seismic vibrator (`energy-per-tick`), laser, laser amplifier and tractor beam (`energy-per-tick`, `range`, `energy-per-hardness`), digital miner (`energy-per-block`, `ticks-per-block`), dimensional stabilizer (`energy-per-chunk`); the waste barrel has `storages.waste.capacity` and `decay-per-second`.
+  - The pump's and lasers' behavior arguments became options too, the arguments being their defaults (`ConfigKey`s made per factory call).
+  - Removed from `config.yml`: `radiation.barrel-capacity`, `radiation.barrel-decay-per-second`, `chunk-loading.energy-per-chunk`, `digital-miner.energy-per-block`, `digital-miner.ticks-per-block`. Old keys are kept and ignored.
+  - **Kept in `config.yml`, by choice:** `digital-miner.max-radius`, `digital-miner.scan-per-tick`, `chunk-loading.max-radius`. They are server-load limits, and the menus list the radii from them (one menu per machine kind).
+  - **Kept in Java:** `Liquifier.PASTE_PER_FOOD` (the canteen reads the same ratio: a conversion, not a block number) and `PaperFurnaceRecipes.JOULES_PER_TICK` (a recipe number, shared by every smelter).
+  - The stabilizer's and barrel's menus no longer print their energy per chunk and decay rate, which can now differ per block.
+  - `BlockNumbersTest#everyShippedOptionIsItsDefault` checks every shipped option against its Java default, and that no block has options the test does not know.
+  - Found on the way: many other machines take numbers as behavior arguments (energy, ticks, capacities passed to factories). A later stage could turn them into options the same way; nothing changes for them yet.
 
 ## Stages
 
@@ -81,7 +90,7 @@ Each stage is one or more commits that build and pass `./gradlew check`. No game
 
 - **Stage 0: engine support.** `options:` (and `storages:` capacity overrides, if decision 1) on `machineengine:machine`, `rate:` on `machineengine:transport`, read through a typed `BlockOptions` the machine behavior gets at bind time (`ConfigKey`-like: default, range, clamped, reported when invalid). Headless tests with a fake block config.
 - **Stage 1: tiered capacities and rates.** Bins, thermodynamic conductors, chargepad, universal cable, pressurized tube, mechanical pipe, logistical transporter. Removes `transport.*` from `MekanizedConfig`.
-- **Stage 2: single machines.** Nutritional liquifier, electric pump, fuelwood heater, seismic vibrator, laser, energized smelter furnace recipes, radioactive waste barrel, digital miner, dimensional stabilizer. Removes `radiation.barrel-*`, `digital-miner.*`, `chunk-loading.*`.
+- **Stage 2: single machines.** Nutritional liquifier, electric pump, fuelwood heater, seismic vibrator, lasers, radioactive waste barrel, digital miner, dimensional stabilizer. Removes `radiation.barrel-*` and the miner's and stabilizer's energy and ticks; their radius and scan limits stay world rules.
 - **Stage 3: QIO.** Drive items and kinds go in each drive's item config (D32, `mekanized:qio_drive` item behavior); array kinds and importer/exporter rate on their blocks. Removes `qio.*`.
 - **Stage 4: gauge dropper capacity** in its item config (D32), with the other dropper data already in `ItemData`.
 - **Stage 5: multiblock physics.** Induction cells and providers, dynamic tank and evaporation per-block amounts, boiler, fission, fusion, SPS, turbine numbers as options on their multiblock types. Removes `dynamic-tank.*`, `thermal-evaporation.*`.
