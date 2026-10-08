@@ -117,7 +117,10 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 - New engine state template `machineengine:block_state/facing_active` (`model`, `active_model`, defaults `block/<id>` and `block/<id>_active`), used by the bins.
 - `ShippedBlocks` follows template chains through Mekanized's `templates.yml` (`ShippedConfig.usesTemplate`) to know a block is a `machineengine:block/machine`.
 
-**Stage 4 — factory machines.** One factory with 36 rows `{kind, tier}`.
+**Stage 4 — factory machines. Done (2026-10-08).** One factory, `factories` in logistics.yml, 36 one-line rows `{ kind: smelting, tier: basic }`: 36 blocks and 108 items (block item, idle and working display items), `ceSnapshot` matches. They have no per-block numbers (their lanes are structural, in Java). New templates, which Stage 5 reuses:
+- `machineengine:block_state/display_rendered_facing` (engine): one invisible appearance for the four facings; arguments `display_state`, `display_model`, `state_type` (default `leaves`).
+- `mekanized:block/display_machine_facing`: a machine with `display_item: <ns>:display/<id>`, transparent settings and that state. `display_rotations` stays on the block: not every display machine has it (the digital miner does not).
+- `mekanized:block/chemical_tank` is rebuilt on it (same snapshot).
 
 **Stage 5 — single machines.** Factories by shape for the ones without options. Templated `blocks:` entries for the ones with options.
 

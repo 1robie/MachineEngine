@@ -113,3 +113,32 @@ templates:
         appearance: facing_east_active_true
       facing=west,active=true:
         appearance: facing_west_active_true
+
+  # A block turned by `facing` (4 directions) that display entities draw (MachineEngine's
+  # display_item): the block itself shows one invisible model whatever its facing, so blocks with
+  # the same breaking particles can share one vanilla visual state. Arguments:
+  #   display_state: the id of the shared visual state (blocks with the same id share it; their
+  #     display_model must then be the same)
+  #   display_model: the invisible model, which gives the breaking particles
+  #   state_type: the auto_state group (default leaves)
+  machineengine:block_state/display_rendered_facing:
+    properties:
+      facing:
+        type: 4-direction
+        default: north
+    appearances:
+      default:
+        auto_state:
+          type: ${state_type:-leaves}
+          id: ${display_state}
+        model:
+          path: ${display_model}
+    variants:
+      facing=north:
+        appearance: default
+      facing=south:
+        appearance: default
+      facing=east:
+        appearance: default
+      facing=west:
+        appearance: default
