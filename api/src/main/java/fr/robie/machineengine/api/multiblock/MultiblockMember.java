@@ -1,6 +1,7 @@
 package fr.robie.machineengine.api.multiblock;
 
 import fr.robie.machineengine.api.capability.Capabilities;
+import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineDataKey;
@@ -45,12 +46,18 @@ public final class MultiblockMember implements MachineBehavior {
         void run(@NotNull MachineContext anchor, @NotNull MultiblockStructure structure);
     }
 
+    /** What an output port pushes per tick, from the structure and the port block's options (D34). */
+    @FunctionalInterface
+    public interface PortRate {
+        long of(@NotNull MultiblockStructure structure, @NotNull BlockOptions port);
+    }
+
     private final List<MultiblockType> types;
     private final List<String> storages;
     private final List<String> insertInto;
     private final List<String> extractFrom;
     private final boolean exclusive;
-    private final @Nullable ToLongFunction<MultiblockStructure> outputRate;
+    private final @Nullable PortRate outputRate;
     private final @Nullable AnchorTask task;
     private final long taskTicks;
     private final MachineDataKey<String> portMode;
@@ -58,7 +65,7 @@ public final class MultiblockMember implements MachineBehavior {
     private @Nullable Map<String, List<String>> pushes;
 
     private MultiblockMember(List<MultiblockType> types, List<String> insertInto, List<String> extractFrom, boolean exclusive,
-                             @Nullable ToLongFunction<MultiblockStructure> outputRate, @Nullable AnchorTask task, long taskTicks,
+                             @Nullable PortRate outputRate, @Nullable AnchorTask task, long taskTicks,
                              MachineDataKey<String> portMode) {
         this.types = List.copyOf(types);
         this.insertInto = List.copyOf(insertInto);
@@ -134,6 +141,11 @@ public final class MultiblockMember implements MachineBehavior {
 
         /** A port: passes {@code storage} in, or (in {@code output} mode) pushes it out at {@code outputRate} per tick. */
         public @NotNull MachineBehavior.Factory port(@NotNull String storage, @NotNull ToLongFunction<MultiblockStructure> outputRate) {
+            return port(storage, (structure, options) -> outputRate.applyAsLong(structure));
+        }
+
+        /** A port whose output rate also depends on the port block's options (D34). */
+        public @NotNull MachineBehavior.Factory port(@NotNull String storage, @NotNull PortRate outputRate) {
             return type -> new MultiblockMember(this.types, List.of(storage), List.of(storage), false, outputRate, null, RECHECK_TICKS,
                     this.portMode);
         }
@@ -159,7 +171,7 @@ public final class MultiblockMember implements MachineBehavior {
             } else {
                 structure = again;
                 Multiblocks.form(again);
-                again.type().capacities().apply(again).forEach(context::setStorageCapacity);
+                again.type().sizes().of(again, context.options()).forEach(context::setStorageCapacity);
                 if (this.task != null) this.task.run(context, again);
             }
             context.wakeIn(this.taskTicks);
@@ -201,7 +213,7 @@ public final class MultiblockMember implements MachineBehavior {
 
     /** Output port: the structure's energy into every neighbor, up to the providers' rate. */
     private void push(MachineContext context, MultiblockStructure structure) {
-        pushOut(context, structure, this.storages.getFirst(), this.outputRate.applyAsLong(structure));
+        pushOut(context, structure, this.storages.getFirst(), this.outputRate.of(structure, context.options()));
     }
 
     /** The anchor's {@code storage} into every neighbor outside the structure, up to {@code budget}. */

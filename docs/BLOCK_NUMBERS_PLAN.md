@@ -90,6 +90,13 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - **Kept in `config.yml`:** `qio.array-kinds`. It sets how many item slots the drive array's machine type has, fixed at registration, so it cannot change per block (structural, like the factory lanes).
   - `BlockNumbersTest#everyShippedDriveHoldsTheDefault` compares the shipped drive items with `QioDrives.DEFAULTS`.
 - **2026-10-08, Stage 4 (done; still to try in game).** The gauge dropper's `mekanized:gauge_dropper` behavior takes `capacity` (16,000 mB, `gear.yml`). `GaugeDropper.take` and `lore` get the capacity from the caller; the dropper behavior and the `mekanized:gear_lore` processor read it from the item. `BlockNumbersTest#theShippedGaugeDropperHoldsTheDefault` checks the shipped value.
+- **2026-10-08, Stage 5 (done; still to try in game).**
+  - Engine: `MultiblockType` has `Sizes` (structure, anchor options) instead of a structure-only function; the old three-argument constructor still takes one. `MultiblockMember.Builder#port` also takes a `PortRate` (structure, port options). Anchor tasks read `anchor.options()`.
+  - Every Box's anchor is its lowest-corner casing, so the options go on the casing blocks: `dynamic_tank` (`fluid-per-block`, `chemical-per-block`), `induction_casing` (`cell-capacity.<tier>`), `induction_port` (`provider-output.<tier>`), `thermal_evaporation_block` (`input-per-level-per-tick`, `input-tank-per-level`, `output-tank`), `boiler_casing` (heat per mB, boil per element, five capacities per block), `fission_reactor_casing` (heat per mB burned, coolant heat per mB, six capacities per assembly), `fusion_reactor_frame` (ignition energy, energy per mB, fuel tank, energy buffer), `sps_casing` (polonium per antimatter, energy per polonium, three tanks), `turbine_casing` (steam energy, full blades, blades per coil, vent flow, condenser rate, two capacities per block).
+  - Beyond the plan's list: the structures' per-volume and fixed capacities (boiler, fission, fusion, SPS, turbine) became options too, like the dynamic tank's.
+  - The fission reactor has its own `coolant-heat-per-mb` instead of sharing the boiler's constant.
+  - Removed from `config.yml`: `dynamic-tank.*`, `thermal-evaporation.*`.
+  - `BlockNumbersTest` checks every multiblock option against its Java default (nested tier maps flattened to the keys' paths); `MultiblockTest#aTankIsSizedByItsCasingsBlockConfig` forms a tank sized by its anchor's options.
 
 ## Stages
 
