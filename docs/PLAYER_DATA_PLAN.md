@@ -1,4 +1,4 @@
-# Player data plan (2026-10-08, in progress)
+# Player data plan (2026-10-08, done)
 
 MachineEngine has no object for a player. Per-player state is spread across addon code, in different forms:
 
@@ -146,7 +146,9 @@ Each stage builds, passes `check`, and is committed on its own.
 3. **File backend, addon backends, offline load.** *Done* (`FilePlayerStorage`, `FilePlayerStorageTest`; dev-checked on Paper 26.3 with `players.storage: machineengine:files`). A damaged file is moved aside (`<uuid>.dat.damaged-<time>`) and the player starts empty. `machineengine:files` with atomic writes and per-UUID ordering; `playerStorages().register`; `loadOffline`. Tests: write/read, a crash between temp file and move keeps the old file, a load waits for a pending write. Headless dev-server check with `players.storage: files`.
 4. **Commands, events and zMenu.** *Done* (`PlayerSettingsCommand`, `PlayerAdminCommand`, `PlayerValues`, `PlayerSettingButton`, `PlayerSettingsMenu`; dev-checked on Paper 26.3 from the console; in-game clicks are the owner's check). `PlayerDataKey#display` formats a value for placeholders and admin output. The menu is rewritten at every start while its first line is MachineEngine's marker. `/machinesettings`, `/machineengine player`, the placeholders, the button type and `player_settings.yml`, lang entries in the engine pack (D23).
 5. **Mekanized.** *Done* (`MekanizedPlayers`, `mekanized` `PlayerDataTest`; dev-checked on Paper 26.3 and 1.20.6: the four keys and the setting register, the menu lists the setting). The keys above; `PaperRadiation`, `SuitTicker` and `PaperAutomation` use them; the PDC code and the `UUID` fields go. The radiation HUD obeys `mekanized:radiation_hud`. Tests: dose migration from the old PDC key, dose reset on death, existing radiation tests unchanged.
-6. **Docs.** MEKANIZED_GUIDE (settings, placeholders), README (config keys, permissions), memory note.
+6. **Docs.** *Done.* MEKANIZED_GUIDE (radiation HUD setting, dose placeholder), README (*Player data and settings*, the admin command).
+
+Left for the owner: in-game checks with a client (join, quit and rejoin, death, the settings menu clicks, the dose moving over from an old PDC entry, flight after a restart).
 
 Real-player behaviour (join/quit timing, death, menus) cannot run on a headless dev server; Stages 2, 4 and 5 end with a short manual check on the dev server with a client, listed in the commit message.
 

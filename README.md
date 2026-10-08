@@ -94,6 +94,28 @@ MachineEngine provides an energy and fluids every addon and definition can share
 size (1000) are set under `resources:` in `config.yml`. Addons add their own fluids to the same
 category, so any fluid pipe or port takes them.
 
+## Player data and settings
+
+Addons keep values per player through MachineEngine (`MachineEngine.get().players()`, D37): saved
+values such as Mekanized's radiation dose, values kept while the player is online, and settings
+players change themselves.
+- **Storage:** `players.storage` in `config.yml` (restart to apply). `machineengine:pdc` (default)
+  saves with the player's own data file; `machineengine:files` writes
+  `plugins/MachineEngine/players/<ab>/<uuid>.dat` and lets admins edit offline players. Addons may
+  add others. Switching does not move existing data.
+- **Saving:** every `players.save-interval` seconds (60) when something changed, when the player
+  leaves, and when the server stops. A player whose data cannot be loaded within
+  `players.load-timeout` seconds is refused rather than let in without it.
+- **Settings:** players use `/machinesettings` (alias `/msettings`, permission
+  `machineengine.settings`, everyone by default): no argument opens the zMenu menu
+  `player_settings` (or lists the settings), `/machinesettings <setting> <value>` changes one,
+  `/machinesettings <setting> reset` puts it back. `players.setting-defaults` sets the default of
+  a setting, `players.locked-settings` keeps the default and stops players from changing it.
+- **Menus:** `player_settings.yml` is written at every start with a button per setting, until you
+  delete its first line to keep your own version. In any menu,
+  `%zmenu_machineengine_player_<namespace>_<id>%` shows a player's value and the button type
+  `machineengine_player_setting` (`setting: <namespace>:<id>`) changes a setting.
+
 ## YAML definitions
 
 Server owners can define resources, recipes and whole machines without Java in
@@ -238,7 +260,9 @@ Admin commands (`machineengine.admin`): `/machineengine status`, `report`,
 `machine [<x y z>] [world]` (alias `inspect`), `network [<x y z>] [world]`,
 `placeholders [<x y z>] [world]` (menu placeholder values), `placeholders list` (loaded machines keeping data of
 missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes that data, run twice to confirm),
-`registry <name>` (with its aliases: old keys still accepted), `reload config|recipes|tags`.
+`registry <name>` (with its aliases: old keys still accepted), `reload config|recipes|tags`,
+`player <player> [get|set|reset <key> [value]]` (a player's data and settings; offline players with
+`players.storage: machineengine:files`).
 
 `/machineengine debug` toggles an in-world debug view for you:
 - **Machine dots:** a colored dot above each machine shows its state: green active, blue sleeping, orange blocked, red error.
