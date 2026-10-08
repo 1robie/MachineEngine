@@ -126,32 +126,78 @@ fun registerDevServer(minecraftVersion: String, javaVersion: Int, folia: Boolean
     tasks.register<RunServer>("run$software-$minecraftVersion") {
         group = "run dev server"
         description = "Runs a $software $minecraftVersion dev server with MachineEngine and CraftEngine."
-        minecraftVersion(minecraftVersion)
-        runDirectory = rootProject.layout.projectDirectory.dir("run/${software.lowercase()}-$minecraftVersion")
-        if (folia) {
-            downloadsApiService.convention(xyz.jpenilla.runtask.service.DownloadsAPIService.folia(project))
-            pluginDownloadService.convention(xyz.jpenilla.runtask.pluginsapi.PluginDownloadService.paper(project))
-        }
-        javaLauncher = javaToolchains.launcherFor {
-            languageVersion = JavaLanguageVersion.of(javaVersion)
-        }
-        // -PwithMachineEngine=false runs CraftEngine alone (checks that CE keeps machine data, §21).
-        val withMachineEngine = providers.gradleProperty("withMachineEngine").orElse("true").get() == "true"
-        if (withMachineEngine) pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
-        if (withMachineEngine && providers.gradleProperty("withAddons").orElse("true").get() == "true") pluginJars.from(devAddons)
-        when (craftEngineRuntime) {
-            "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
-            "modrinth" -> downloadPlugins {
-                modrinth("craftengine", providers.gradleProperty("craftengine_modrinth_version").get())
-            }
-            "none" -> {} // checks that MachineEngine refuses to load without CraftEngine
-            else -> error("Unknown craftengine_runtime '$craftEngineRuntime' (expected dev, modrinth or none)")
-        }
-        if (providers.gradleProperty("withZMenu").orElse("true").get() == "true") {
-            downloadPlugins { modrinth("zmenu", libs.versions.zmenu.get()) }
-        }
-        jvmArgs("-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
+        devServer(minecraftVersion, javaVersion, folia)
     }
+}
+
+/** What every dev server has: its folder in run/, the plugins and the Java version. */
+fun RunServer.devServer(minecraftVersion: String, javaVersion: Int, folia: Boolean) {
+    val software = if (folia) "Folia" else "Paper"
+    minecraftVersion(minecraftVersion)
+    runDirectory = rootProject.layout.projectDirectory.dir("run/${software.lowercase()}-$minecraftVersion")
+    if (folia) {
+        downloadsApiService.convention(xyz.jpenilla.runtask.service.DownloadsAPIService.folia(project))
+        pluginDownloadService.convention(xyz.jpenilla.runtask.pluginsapi.PluginDownloadService.paper(project))
+    }
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(javaVersion)
+    }
+    // -PwithMachineEngine=false runs CraftEngine alone (checks that CE keeps machine data, §21).
+    val withMachineEngine = providers.gradleProperty("withMachineEngine").orElse("true").get() == "true"
+    if (withMachineEngine) pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
+    if (withMachineEngine && providers.gradleProperty("withAddons").orElse("true").get() == "true") pluginJars.from(devAddons)
+    when (craftEngineRuntime) {
+        "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
+        "modrinth" -> downloadPlugins {
+            modrinth("craftengine", providers.gradleProperty("craftengine_modrinth_version").get())
+        }
+        "none" -> {} // checks that MachineEngine refuses to load without CraftEngine
+        else -> error("Unknown craftengine_runtime '$craftEngineRuntime' (expected dev, modrinth or none)")
+    }
+    if (providers.gradleProperty("withZMenu").orElse("true").get() == "true") {
+        downloadPlugins { modrinth("zmenu", libs.versions.zmenu.get()) }
+    }
+    jvmArgs("-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
+}
+
+// ---------------------------------------------------------------------------------------------
+// ceSnapshot (docs/CE_TEMPLATES_PLAN.md, Stage 0): what CraftEngine makes of every Mekanized block
+// and item, read on the Paper 26.3 dev server and compared with mekanized/ce-snapshot.json.
+// -PacceptCeSnapshot replaces the reference with this run's result.
+// ---------------------------------------------------------------------------------------------
+
+/** A dev server that stops by itself once started ([StopWhenDone]) instead of reading the console. */
+abstract class SelfStoppingServer : RunServer() {
+    override fun setStandardInput(inputStream: java.io.InputStream): JavaExec =
+        super.setStandardInput(StopWhenDone(runDirectory.get().asFile.resolve("logs/latest.log")))
+}
+
+val snapshotRun = rootProject.layout.projectDirectory.dir("run/paper-26.3")
+val snapshotInstalled = snapshotRun.dir("plugins/CraftEngine/resources/mekanized/configuration")
+val snapshotBackup = layout.buildDirectory.dir("ce-snapshot/installed")
+
+val ceSnapshotPrepare = tasks.register<CeSnapshotPrepare>("ceSnapshotPrepare") {
+    sourceConfiguration = rootProject.layout.projectDirectory.dir("mekanized/src/main/resources/mekanized/pack/configuration")
+    runDirectory = snapshotRun
+    installedConfiguration = snapshotInstalled
+    backupDirectory = snapshotBackup
+}
+
+val ceSnapshotCollect = tasks.register<CeSnapshotCollect>("ceSnapshotCollect") {
+    runDirectory = snapshotRun
+    installedConfiguration = snapshotInstalled
+    backupDirectory = snapshotBackup
+    output = layout.buildDirectory.file("ce-snapshot/snapshot.json")
+    reference = rootProject.layout.projectDirectory.file("mekanized/ce-snapshot.json")
+    accept = providers.gradleProperty("acceptCeSnapshot").isPresent
+}
+
+tasks.register<SelfStoppingServer>("ceSnapshot") {
+    group = "run dev server"
+    description = "Checks that Mekanized's CraftEngine blocks and items expand as in mekanized/ce-snapshot.json."
+    devServer("26.3", javaVersion = 25, folia = false)
+    dependsOn(ceSnapshotPrepare)
+    finalizedBy(ceSnapshotCollect)
 }
 
 registerDevServer("1.20.6", javaVersion = 21)
