@@ -264,6 +264,14 @@ missing addons or resources), `placeholders purge [<x y z>] [world]` (deletes th
 `player <player> [get|set|reset <key> [value]]` (a player's data and settings; offline players with
 `players.storage: machineengine:files`).
 
+Changing a machine (admins; the block you look at, or `<x y z> [world]` after the arguments):
+- `/machineengine fill <storage> <resource> <amount>`: puts energy, a fluid, a chemical or an item
+  (`minecraft:iron_ingot`, a CraftEngine item id) into a storage. It takes only what the storage accepts.
+- `/machineengine drain <storage>`: empties a storage.
+- `/machineengine wake`: wakes up a sleeping machine.
+
+A wrong storage name lists the machine's storages.
+
 `/machineengine debug` toggles an in-world debug view for you:
 - **Machine dots:** a colored dot above each machine shows its state: green active, blue sleeping, orange blocked, red error.
 - **Port dots:** blue input, orange output, purple both.

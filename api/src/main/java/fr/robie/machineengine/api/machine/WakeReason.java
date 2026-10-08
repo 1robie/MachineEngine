@@ -23,6 +23,8 @@ public record WakeReason(@NotNull Key key) {
     public static final WakeReason CONFIG_CHANGED = builtIn("config_changed");
     public static final WakeReason TIMER = builtIn("timer");
     public static final WakeReason CHUNK_LOADED = builtIn("chunk_loaded");
+    /** An admin changed the machine or woke it up with a command. */
+    public static final WakeReason ADMIN = builtIn("admin");
 
     public WakeReason {
         Objects.requireNonNull(key);

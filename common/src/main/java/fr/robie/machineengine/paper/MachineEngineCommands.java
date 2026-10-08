@@ -47,7 +47,7 @@ import java.util.function.Supplier;
 @SuppressWarnings("UnstableApiUsage")
 public final class MachineEngineCommands extends BaseCommand<Plugin> {
     public static final String PERMISSION = "machineengine.admin";
-    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|placeholders|network|registry|player|reload>";
+    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|fill|drain|wake|placeholders|network|registry|player|reload>";
 
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
@@ -74,6 +74,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         addSubCommand(new PositionCommand(plugin, "network", this::network, null));
         addSubCommand(new RegistryCommand(plugin, this.engine, this::registry));
         addSubCommand(new PlayerAdminCommand(plugin, this.engine));
+        MachineStorageCommands.commands(plugin, this.engine, this.locator).forEach(this::addSubCommand);
         addSubCommand(SubCommand.builder(plugin, "reload")
                 .addSubCommand(simple("config", dispatch -> reloadConfig(dispatch.getSender())))
                 .addSubCommand(simple("recipes", dispatch -> reload(dispatch.getSender(), Registries.RECIPE)))
