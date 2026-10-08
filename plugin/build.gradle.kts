@@ -27,6 +27,8 @@ dependencies {
     implementation(project(":nms:v1_20_6"))
     implementation(project(":nms:v26_3"))
     compileOnly(libs.zmenu.api)
+    // Registers the commands; the classes come with :common (bundled, relocated: D35).
+    compileOnly(libs.paper.dispatch)
     // The shaded jar: Mekanized bundles a relocated Paper-Dispatch (D35).
     devAddons(project(":mekanized", "shadowRuntimeElements"))
 }

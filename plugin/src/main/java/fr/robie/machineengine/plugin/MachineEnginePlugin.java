@@ -25,8 +25,8 @@ import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.paperdispatch.manager.CommandManager;
 import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
-import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
@@ -63,6 +63,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
+    /** Paper-Dispatch's (D35). */
+    private final CommandManager<MachineEnginePlugin> commandManager = new CommandManager<>(this);
     private @Nullable ZMenuMachineMenus menus;
     private ConfigFile config;
 
@@ -142,10 +144,9 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(this.host.leftClicks(), this);
-        MachineEngineCommands commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
-        this.commands = commands;
-        getLifecycleManager().registerEventHandler(LifecycleEvents.COMMANDS,
-                event -> event.registrar().register(commands.build(), "MachineEngine admin commands", List.of("me")));
+        this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
+        this.commandManager.trackCommand(this.commands);
+        this.commandManager.flushRegistrations();
     }
 
     /** {@code /machineengine reload config}: new values apply at once; menus are reloaded for {@code menus.*}. */
@@ -176,6 +177,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         if (this.commands != null) this.commands.debugView().stopAll();
+        this.commandManager.unregisterAll(this);
         if (this.menus != null) this.menus.disable();
         this.menus = null;
         MachineMenuService.setCurrent(null);

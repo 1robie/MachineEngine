@@ -1,11 +1,8 @@
 package fr.robie.machineengine.paper;
 
+import com.mojang.brigadier.arguments.StringArgumentType;
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.paper.PositionArguments;
-import com.mojang.brigadier.Command;
-import com.mojang.brigadier.arguments.StringArgumentType;
-import com.mojang.brigadier.context.CommandContext;
-import com.mojang.brigadier.tree.LiteralCommandNode;
 import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
@@ -19,7 +16,10 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
-import io.papermc.paper.command.brigadier.CommandSourceStack;
+import fr.robie.paperdispatch.command.BaseCommand;
+import fr.robie.paperdispatch.command.CommandDispatch;
+import fr.robie.paperdispatch.command.CommandResultType;
+import fr.robie.paperdispatch.command.SubCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -29,22 +29,25 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /**
  * {@code /machineengine} admin commands (§27): status, startup report, machine inspection, registry
- * listing and reloads. Debug output must be useful without attaching a debugger.
+ * listing and reloads. Debug output must be useful without attaching a debugger. Built with
+ * Paper-Dispatch (D35).
  */
 @SuppressWarnings("UnstableApiUsage")
-public final class MachineEngineCommands {
+public final class MachineEngineCommands extends BaseCommand<Plugin> {
     public static final String PERMISSION = "machineengine.admin";
+    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|placeholders|network|registry|reload>";
 
-    private final Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
     private final Supplier<ConfigLoadResult> reloadConfig;
@@ -52,11 +55,32 @@ public final class MachineEngineCommands {
 
     public MachineEngineCommands(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
                                  @NotNull Supplier<MachineLocator> locator, @NotNull Supplier<ConfigLoadResult> reloadConfig) {
-        this.plugin = plugin;
+        super(plugin, "machineengine");
         this.engine = engine;
         this.locator = locator;
         this.reloadConfig = reloadConfig;
         this.debugView = new MachineDebugView(plugin, engine, locator);
+        setDescription("MachineEngine admin commands");
+        setPermission(PERMISSION);
+        addSubCommand(simple("status", this::status));
+        addSubCommand(simple("report", this::report));
+        addSubCommand(simple("debug", this::debug));
+        // Positions are optional: a player defaults to the block they look at; "~" works.
+        addSubCommand(new PositionCommand(plugin, "inspect", this::inspectAt, "machine"));
+        addSubCommand(new PositionCommand(plugin, "placeholders", this::placeholders, null,
+                simple("list", this::listPlaceholders),
+                new PositionCommand(plugin, "purge", this::purge, null)));
+        addSubCommand(new PositionCommand(plugin, "network", this::network, null));
+        addSubCommand(new RegistryCommand(plugin, this.engine, this::registry));
+        addSubCommand(SubCommand.builder(plugin, "reload")
+                .addSubCommand(simple("config", dispatch -> reloadConfig(dispatch.getSender())))
+                .addSubCommand(simple("recipes", dispatch -> reload(dispatch.getSender(), Registries.RECIPE)))
+                .addSubCommand(simple("tags", dispatch -> {
+                    reload(dispatch.getSender(), Registries.ITEM_TAG);
+                    return reload(dispatch.getSender(), Registries.RESOURCE_TAG);
+                }))
+                .executes(dispatch -> usage(dispatch, "Usage: /machineengine reload <config|recipes|tags>"))
+                .build());
     }
 
     /** The in-world debug view; the plugin stops it on disable. */
@@ -64,43 +88,74 @@ public final class MachineEngineCommands {
         return this.debugView;
     }
 
-    public @NotNull LiteralCommandNode<CommandSourceStack> build() {
-        return Commands.literal("machineengine")
-                .requires(source -> source.getSender().hasPermission(PERMISSION))
-                .then(Commands.literal("status").executes(this::status))
-                .then(Commands.literal("report").executes(this::report))
-                .then(Commands.literal("debug").executes(this::debug))
-                // Positions are optional: a player defaults to the block they look at; "~" works.
-                .then(PositionArguments.optionalPosition(Commands.literal("inspect"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
-                .then(PositionArguments.optionalPosition(Commands.literal("machine"), PositionArguments.Default.TARGET_BLOCK, this::inspectAt))
-                .then(PositionArguments.optionalPosition(Commands.literal("placeholders"), PositionArguments.Default.TARGET_BLOCK, this::placeholders)
-                        .then(Commands.literal("list").executes(this::listPlaceholders))
-                        .then(PositionArguments.optionalPosition(Commands.literal("purge"), PositionArguments.Default.TARGET_BLOCK, this::purge)))
-                .then(PositionArguments.optionalPosition(Commands.literal("network"), PositionArguments.Default.TARGET_BLOCK, this::network))
-                .then(Commands.literal("registry")
-                        .then(Commands.argument("registry", StringArgumentType.greedyString())
-                                .suggests((context, builder) -> {
-                                    CoreMachineEngine running = this.engine.get();
-                                    if (running != null) running.registries().types().forEach(type -> builder.suggest(type.key().asString()));
-                                    return builder.buildFuture();
-                                })
-                                .executes(this::registry)))
-                .then(Commands.literal("reload")
-                        .then(Commands.literal("config").executes(this::reloadConfig))
-                        .then(Commands.literal("recipes").executes(context -> reload(context, Registries.RECIPE)))
-                        .then(Commands.literal("tags").executes(context -> {
-                            reload(context, Registries.ITEM_TAG);
-                            return reload(context, Registries.RESOURCE_TAG);
-                        })))
-                .build();
+    @Override
+    protected @NotNull CommandResultType perform(@NotNull CommandDispatch<Plugin> dispatch) {
+        return usage(dispatch, USAGE);
     }
 
-    private int status(CommandContext<CommandSourceStack> context) {
-        CommandSender sender = context.getSource().getSender();
+    private static CommandResultType usage(CommandDispatch<Plugin> dispatch, String usage) {
+        dispatch.getSender().sendMessage(Component.text(usage, NamedTextColor.RED));
+        return CommandResultType.FAILURE;
+    }
+
+    private SubCommand<Plugin> simple(String name, SubCommand.ArgumentExecutor<Plugin> executor) {
+        return SubCommand.builder(this.plugin, name).executes(executor).build();
+    }
+
+    /** What a command at a position does, once the world and block coordinates are resolved. */
+    @FunctionalInterface
+    private interface PositionHandler {
+        @NotNull CommandResultType run(@NotNull CommandSender sender, @NotNull World world, int x, int y, int z);
+    }
+
+    /** A sub-command taking {@code [<x y z>] [<world>]}, the block looked at by default ({@link PositionArguments}). */
+    private static final class PositionCommand extends SubCommand<Plugin> {
+        private final PositionHandler handler;
+
+        @SafeVarargs
+        PositionCommand(Plugin plugin, String name, PositionHandler handler, @Nullable String alias, SubCommand<Plugin>... children) {
+            super(plugin, name, alias == null ? new String[0] : new String[]{alias});
+            this.handler = handler;
+            for (SubCommand<Plugin> child : children) addSubCommand(child);
+            addOptionalArgument(PositionArguments.positionArgument());
+            addOptionalArgument(PositionArguments.worldArgument());
+        }
+
+        @Override
+        protected @NotNull CommandResultType perform(@NotNull CommandDispatch<Plugin> dispatch) {
+            PositionArguments.Position position = PositionArguments.resolve(dispatch.getContext(), PositionArguments.Default.TARGET_BLOCK);
+            if (position == null) return CommandResultType.FAILURE;
+            return this.handler.run(dispatch.getSender(), position.world(), position.x(), position.y(), position.z());
+        }
+    }
+
+    /** {@code registry <registry>}, with the registries suggested. */
+    private static final class RegistryCommand extends SubCommand<Plugin> {
+        private final Function<CommandDispatch<Plugin>, CommandResultType> executor;
+
+        RegistryCommand(Plugin plugin, Supplier<CoreMachineEngine> engine, Function<CommandDispatch<Plugin>, CommandResultType> executor) {
+            super(plugin, "registry");
+            this.executor = executor;
+            addRequiredArgument(Commands.argument("registry", StringArgumentType.greedyString())
+                    .suggests((context, builder) -> {
+                        CoreMachineEngine running = engine.get();
+                        if (running != null) running.registries().types().forEach(type -> builder.suggest(type.key().asString()));
+                        return builder.buildFuture();
+                    }));
+        }
+
+        @Override
+        protected @NotNull CommandResultType perform(@NotNull CommandDispatch<Plugin> dispatch) {
+            return this.executor.apply(dispatch);
+        }
+    }
+
+    private CommandResultType status(CommandDispatch<Plugin> dispatch) {
+        CommandSender sender = dispatch.getSender();
         CoreMachineEngine running = this.engine.get();
         if (running == null) {
             sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
-            return 0;
+            return CommandResultType.FAILURE;
         }
         List<LoadedMachine> machines = List.copyOf(this.locator.get().loadedMachines());
         long active = machines.stream().filter(machine -> machine.instance() != null
@@ -113,52 +168,50 @@ public final class MachineEngineCommands {
                 + (machines.size() - active - placeholders) + " sleeping, " + placeholders + " placeholders)"));
         sender.sendMessage(line("Startup problems", running.startupReport().errors().size() + " errors, "
                 + running.startupReport().warnings().size() + " warnings"));
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
-    private int debug(CommandContext<CommandSourceStack> context) {
-        if (!(context.getSource().getExecutor() instanceof Player player)) {
-            context.getSource().getSender().sendMessage(Component.text("Only players can see the debug view.", NamedTextColor.RED));
-            return 0;
+    private CommandResultType debug(CommandDispatch<Plugin> dispatch) {
+        if (!(dispatch.getExecutor() instanceof Player player)) {
+            dispatch.getSender().sendMessage(Component.text("Only players can see the debug view.", NamedTextColor.RED));
+            return CommandResultType.FAILURE;
         }
         boolean on = this.debugView.toggle(player);
         player.sendMessage(on ? Messages.debugOn() : Messages.debugOff());
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
-    private int report(CommandContext<CommandSourceStack> context) {
+    private CommandResultType report(CommandDispatch<Plugin> dispatch) {
         CoreMachineEngine running = this.engine.get();
-        if (running == null) return 0;
-        sendReport(context.getSource().getSender(), running.startupReport());
-        return Command.SINGLE_SUCCESS;
+        if (running == null) return CommandResultType.FAILURE;
+        sendReport(dispatch.getSender(), running.startupReport());
+        return CommandResultType.SUCCESS;
     }
 
-    private int inspectAt(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType inspectAt(CommandSender sender, World world, int x, int y, int z) {
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         // Machines are read on the thread that owns them (Folia: their region).
         onRegion(position, world, () -> inspect(sender, position));
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
-    private int network(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType network(CommandSender sender, World world, int x, int y, int z) {
         CoreMachineEngine running = this.engine.get();
         if (running == null) {
             sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
-            return 0;
+            return CommandResultType.FAILURE;
         }
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         onRegion(position, world, () -> describeNetwork(sender, running, position));
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
     /**
      * Loaded machines holding data of missing content: placeholders (addon missing) and machines with
      * locked slots or unknown data. Unloaded chunks are not scanned.
      */
-    private int listPlaceholders(CommandContext<CommandSourceStack> context) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType listPlaceholders(CommandDispatch<Plugin> dispatch) {
+        CommandSender sender = dispatch.getSender();
         List<LoadedMachine> found = this.locator.get().loadedMachines().stream()
                 .filter(machine -> {
                     MachineInspection inspection = machine.inspect();
@@ -175,7 +228,7 @@ public final class MachineEngineCommands {
         if (!found.isEmpty()) {
             sender.sendMessage(Component.text("Delete with /machineengine placeholders purge <x y z> [world] (irreversible).", NamedTextColor.GRAY));
         }
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
     private final Map<String, PendingPurge> pendingPurges = new ConcurrentHashMap<>();
@@ -184,8 +237,7 @@ public final class MachineEngineCommands {
     }
 
     /** Irreversible, so it must be run twice within 10 seconds. */
-    private int purge(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType purge(CommandSender sender, World world, int x, int y, int z) {
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         PendingPurge pending = this.pendingPurges.get(sender.getName());
         long now = System.currentTimeMillis();
@@ -194,7 +246,7 @@ public final class MachineEngineCommands {
             sender.sendMessage(Component.text("This deletes the missing content's data at " + position
                     + " for good (a placeholder machine is removed with its block). Run the command again within 10 seconds to confirm.",
                     NamedTextColor.YELLOW));
-            return Command.SINGLE_SUCCESS;
+            return CommandResultType.SUCCESS;
         }
         this.pendingPurges.remove(sender.getName());
         onRegion(position, world, () -> {
@@ -202,12 +254,11 @@ public final class MachineEngineCommands {
             sender.sendMessage(result == null ? Component.text("Nothing to purge at " + position + ".", NamedTextColor.GRAY)
                     : Component.text("Purged: " + result + ".", NamedTextColor.GREEN));
         });
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
     /** Prints the menu placeholders of a machine, e.g. to check a menu without opening it. */
-    private int placeholders(CommandContext<CommandSourceStack> context, World world, int x, int y, int z) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType placeholders(CommandSender sender, World world, int x, int y, int z) {
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
         onRegion(position, world, () -> {
             LoadedMachine machine = this.locator.get().machine(position);
@@ -224,7 +275,7 @@ public final class MachineEngineCommands {
                 sender.sendMessage(line("%zmenu_machineengine_" + key + "%", String.valueOf(MachinePlaceholders.resolve(inspection, key))));
             }
         });
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
     private void onRegion(WorldPosition position, World world, Runnable task) {
@@ -279,16 +330,16 @@ public final class MachineEngineCommands {
         return lines;
     }
 
-    private int registry(CommandContext<CommandSourceStack> context) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType registry(CommandDispatch<Plugin> dispatch) {
+        CommandSender sender = dispatch.getSender();
         CoreMachineEngine running = this.engine.get();
-        if (running == null) return 0;
-        String name = StringArgumentType.getString(context, "registry").trim();
+        if (running == null) return CommandResultType.FAILURE;
+        String name = dispatch.getArgument("registry", String.class).trim();
         Key key = Key.key(name.contains(":") ? name : "machineengine:" + name);
         Registry<?> registry = running.registries().find(key).orElse(null);
         if (registry == null) {
             sender.sendMessage(Component.text("No registry " + key.asString() + ".", NamedTextColor.RED));
-            return 0;
+            return CommandResultType.FAILURE;
         }
         sender.sendMessage(Component.text("Registry " + key.asString() + " (" + registry.size() + " entries)", NamedTextColor.GOLD));
         for (Key entry : registry.keys()) {
@@ -296,15 +347,14 @@ public final class MachineEngineCommands {
         }
         registry.aliases().forEach((from, to) -> sender.sendMessage(line(from.asString() + " → " + to.asString(),
                 "alias by " + registry.owner(from).map(Object::toString).orElse("?"))));
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
-    private int reloadConfig(CommandContext<CommandSourceStack> context) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType reloadConfig(CommandSender sender) {
         ConfigLoadResult result = this.reloadConfig.get();
         if (result.error() != null) {
             sender.sendMessage(Component.text("config.yml could not be read; the previous settings stay live: " + result.error(), NamedTextColor.RED));
-            return 0;
+            return CommandResultType.FAILURE;
         }
         sender.sendMessage(Component.text("Reloaded config.yml.", NamedTextColor.GREEN));
         if (!result.changed().isEmpty()) sender.sendMessage(line("Changed", String.join(", ", result.changed())));
@@ -315,13 +365,12 @@ public final class MachineEngineCommands {
         if (!result.invalid().isEmpty()) {
             sender.sendMessage(Component.text("Invalid, using the default (see the console): " + String.join(", ", result.invalid()), NamedTextColor.YELLOW));
         }
-        return Command.SINGLE_SUCCESS;
+        return CommandResultType.SUCCESS;
     }
 
-    private int reload(CommandContext<CommandSourceStack> context, RegistryType<?> type) {
-        CommandSender sender = context.getSource().getSender();
+    private CommandResultType reload(CommandSender sender, RegistryType<?> type) {
         CoreMachineEngine running = this.engine.get();
-        if (running == null) return 0;
+        if (running == null) return CommandResultType.FAILURE;
         ValidationReport report = running.reload(type);
         if (report.hasErrors()) {
             sender.sendMessage(Component.text("Reload of " + type + " rejected; the previous content stays live.", NamedTextColor.RED));
@@ -330,7 +379,7 @@ public final class MachineEngineCommands {
             if (type.equals(Registries.RECIPE)) this.locator.get().wakeAll(WakeReason.RECIPES_RELOADED);
         }
         sendReport(sender, report);
-        return report.hasErrors() ? 0 : Command.SINGLE_SUCCESS;
+        return report.hasErrors() ? CommandResultType.FAILURE : CommandResultType.SUCCESS;
     }
 
     private static void sendReport(CommandSender sender, ValidationReport report) {
