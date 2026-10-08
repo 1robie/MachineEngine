@@ -1,10 +1,12 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.PortDefinition;
 import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.machine.SchedulerState;
 import fr.robie.machineengine.api.network.NetworkView;
+import fr.robie.machineengine.api.platform.Task;
 import fr.robie.machineengine.api.process.ProcessView;
 import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.BlockPosition;
@@ -14,7 +16,6 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
-import io.papermc.paper.threadedregions.scheduler.ScheduledTask;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
@@ -62,7 +63,7 @@ public final class MachineDebugView {
     private final Plugin plugin;
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
-    private final Map<UUID, ScheduledTask> viewers = new ConcurrentHashMap<>();
+    private final Map<UUID, Task> viewers = new ConcurrentHashMap<>();
 
     public MachineDebugView(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine, @NotNull Supplier<MachineLocator> locator) {
         this.plugin = plugin;
@@ -72,13 +73,13 @@ public final class MachineDebugView {
 
     /** @return whether the view is now on for {@code player} */
     public boolean toggle(@NotNull Player player) {
-        ScheduledTask running = this.viewers.remove(player.getUniqueId());
+        Task running = this.viewers.remove(player.getUniqueId());
         if (running != null) {
             running.cancel();
             player.sendActionBar(Component.empty());
             return false;
         }
-        ScheduledTask task = player.getScheduler().runAtFixedRate(this.plugin, scheduled -> show(player), () -> this.viewers.remove(player.getUniqueId()),
+        Task task = MachineEngine.scheduler(this.plugin).runTimer(player, () -> show(player), () -> this.viewers.remove(player.getUniqueId()),
                 1, PERIOD_TICKS);
         if (task == null) return false;
         this.viewers.put(player.getUniqueId(), task);
@@ -86,7 +87,7 @@ public final class MachineDebugView {
     }
 
     public void stopAll() {
-        this.viewers.values().forEach(ScheduledTask::cancel);
+        this.viewers.values().forEach(Task::cancel);
         this.viewers.clear();
     }
 

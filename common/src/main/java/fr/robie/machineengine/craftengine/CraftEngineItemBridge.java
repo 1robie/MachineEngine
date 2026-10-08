@@ -1,5 +1,6 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
@@ -14,7 +15,6 @@ import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
 import net.momirealms.craftengine.bukkit.item.BukkitItemManager;
 import net.momirealms.craftengine.core.util.UniqueKey;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -117,7 +117,7 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
     public void onCraftEngineReload(CraftEngineReloadEvent event) {
         this.loaded = true;
         this.tags.clear();
-        Bukkit.getGlobalRegionScheduler().execute(this.plugin, () -> {
+        MachineEngine.scheduler(this.plugin).run(() -> {
             CoreMachineEngine running = this.engine.get();
             if (running == null) return;
             for (var type : List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG, Registries.RECIPE)) {

@@ -15,6 +15,7 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.api.platform.Nms;
+import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
@@ -55,6 +56,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     static final String DEFAULT_MENU_RESOURCE = "menus/machine.yml";
 
     private final Plugin plugin;
+    private final Scheduler scheduler;
     private final InventoryManager inventories;
     private final ButtonManager buttons;
     private final MachineLocator locator;
@@ -68,6 +70,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
 
     private ZMenuMachineMenus(Plugin plugin, InventoryManager inventories, ButtonManager buttons, MachineLocator locator) {
         this.plugin = plugin;
+        this.scheduler = MachineEngine.scheduler(plugin);
         this.inventories = inventories;
         this.buttons = buttons;
         this.locator = locator;
@@ -155,12 +158,12 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.switching.add(id);
         this.inventories.openInventory(player, menu);
         // zMenu may open on the player's scheduler (Folia): the old menu's close can come a tick later.
-        player.getScheduler().runDelayed(this.plugin, task -> this.switching.remove(id), () -> this.switching.remove(id), 2);
+        this.scheduler.runLater(player, () -> this.switching.remove(id), () -> this.switching.remove(id), 2);
         return true;
     }
 
-    @NotNull Plugin plugin() {
-        return this.plugin;
+    @NotNull Scheduler scheduler() {
+        return this.scheduler;
     }
 
     /**
@@ -199,7 +202,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     void changed(@NotNull Player player, @NotNull WorldPosition position) {
         refresh(player);
         forViewers(position, viewer -> {
-            if (!viewer.equals(player)) viewer.getScheduler().run(this.plugin, task -> refresh(viewer), null);
+            if (!viewer.equals(player)) this.scheduler.run(viewer, () -> refresh(viewer), null);
         });
     }
 
@@ -212,7 +215,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         forViewers(position, viewer -> {
             if (!this.pendingRefresh.add(viewer.getUniqueId())) return;
             // At most every 5 ticks: a machine on a network changes almost every tick.
-            viewer.getScheduler().runDelayed(this.plugin, task -> {
+            this.scheduler.runLater(viewer, () -> {
                 this.pendingRefresh.remove(viewer.getUniqueId());
                 if (position.equals(this.openMachines.get(viewer.getUniqueId()))) refresh(viewer);
             }, () -> this.pendingRefresh.remove(viewer.getUniqueId()), 5);
@@ -221,7 +224,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
 
     @Override
     public void machineGone(@NotNull WorldPosition position) {
-        forViewers(position, viewer -> viewer.getScheduler().run(this.plugin, task -> {
+        forViewers(position, viewer -> this.scheduler.run(viewer, () -> {
             if (position.equals(this.openMachines.get(viewer.getUniqueId()))) viewer.closeInventory();
         }, null));
     }

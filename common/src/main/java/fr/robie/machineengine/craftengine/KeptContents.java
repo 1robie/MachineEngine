@@ -1,6 +1,8 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.data.DataMap;
+import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.world.WorldPosition;
@@ -14,7 +16,6 @@ import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.core.util.Key;
 import net.momirealms.craftengine.libraries.nbt.ByteArrayTag;
-import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.inventory.ItemStack;
@@ -49,12 +50,12 @@ public final class KeptContents {
     private static final String[] PATH = {"machineengine", "contents"};
     private static final int LORE_LINES = 5;
 
-    private final Plugin plugin;
+    private final Scheduler scheduler;
     private final CraftEngineMachineHost host;
     private final Map<WorldPosition, Pending> pending = new ConcurrentHashMap<>();
 
     KeptContents(Plugin plugin, CraftEngineMachineHost host) {
-        this.plugin = plugin;
+        this.scheduler = MachineEngine.scheduler(plugin);
         this.host = host;
     }
 
@@ -70,7 +71,7 @@ public final class KeptContents {
             this.pending.remove(position, entry);
             return;
         }
-        Bukkit.getRegionScheduler().runDelayed(this.plugin, world, position.position().chunkX(), position.position().chunkZ(), task -> {
+        this.scheduler.runLater(world, position.position().chunkX(), position.position().chunkZ(), () -> {
             // No drop event claimed the state: drop the contents as a normal break would.
             if (this.pending.remove(position, entry)) this.host.dropResources(position, packed.contents());
         }, 1);

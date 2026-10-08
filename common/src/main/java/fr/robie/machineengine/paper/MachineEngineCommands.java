@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.paper.PositionArguments;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -23,7 +24,6 @@ import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -228,7 +228,7 @@ public final class MachineEngineCommands {
     }
 
     private void onRegion(WorldPosition position, World world, Runnable task) {
-        Bukkit.getRegionScheduler().execute(this.plugin, world, position.position().chunkX(), position.position().chunkZ(), task);
+        MachineEngine.scheduler(this.plugin).run(world, position.position().chunkX(), position.position().chunkZ(), task);
     }
 
     private void describeNetwork(CommandSender sender, CoreMachineEngine running, WorldPosition position) {

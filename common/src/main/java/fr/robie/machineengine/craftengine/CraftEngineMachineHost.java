@@ -1,9 +1,11 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.api.network.TransportSideMode;
+import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.world.WorldFluid;
@@ -23,7 +25,6 @@ import net.kyori.adventure.sound.Sound;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.core.block.ImmutableBlockState;
 import net.momirealms.craftengine.core.block.entity.BlockEntity;
-import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -62,6 +63,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     private static volatile @Nullable CraftEngineMachineHost current;
 
     private final Plugin plugin;
+    private final Scheduler scheduler;
     private final CoreMachineEngine engine;
     private final Map<WorldPosition, MachineBlockEntityController> controllers = new ConcurrentHashMap<>();
     private final CraftEngineProtection protection;
@@ -70,6 +72,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     private CraftEngineMachineHost(Plugin plugin, CoreMachineEngine engine) {
         this.plugin = plugin;
+        this.scheduler = MachineEngine.scheduler(plugin);
         this.engine = engine;
         this.protection = new CraftEngineProtection(plugin.getLogger());
         this.keptContents = new KeptContents(plugin, this);
@@ -240,7 +243,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     @Override
     public boolean isOwnedByCurrentThread(@NotNull WorldPosition position) {
         World world = world(position.world());
-        return world != null && Bukkit.isOwnedByCurrentRegion(world, position.position().chunkX(), position.position().chunkZ());
+        return world != null && this.scheduler.isOwnedByCurrentThread(world, position.position().chunkX(), position.position().chunkZ());
     }
 
     @Override
@@ -255,8 +258,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         World world = world(position.world());
         if (world == null) return;
         long delay = Math.max(1, gameTime - world.getGameTime());
-        Bukkit.getRegionScheduler().runDelayed(this.plugin, world, position.position().chunkX(), position.position().chunkZ(),
-                task -> machine.timerFired(world.getGameTime()), delay);
+        this.scheduler.runLater(world, position.position().chunkX(), position.position().chunkZ(),
+                () -> machine.timerFired(world.getGameTime()), delay);
     }
 
     @Override
@@ -523,7 +526,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public void post(@NotNull WorldPosition target, @NotNull Runnable task) {
         World world = world(target.world());
         if (world == null) return;
-        Bukkit.getRegionScheduler().execute(this.plugin, world, target.position().chunkX(), target.position().chunkZ(), task);
+        this.scheduler.run(world, target.position().chunkX(), target.position().chunkZ(), task);
     }
 
     @Override

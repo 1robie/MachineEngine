@@ -71,7 +71,7 @@ final class OpenMenuButton extends Button {
         String target = this.group == null && this.groups.isEmpty() ? this.menu : target(machine.instance().type());
         if (target == null && (this.group != null || !this.groups.isEmpty())) return;
         // Next tick: opening an inventory from inside its click event is not allowed.
-        player.getScheduler().run(this.menus.plugin(), task -> this.menus.open(player, machine, target), null);
+        this.menus.scheduler().run(player, () -> this.menus.open(player, machine, target), null);
     }
 
     static final class Loader extends ButtonLoader {

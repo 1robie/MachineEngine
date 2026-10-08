@@ -68,11 +68,14 @@ The owner took the recommendations:
 - Tests: `FoliaLibSchedulerTest` (the `EntityTask` handle, the tick floor). Headless engine tests keep using `FakeWorld` through `MachineHost`; `MachineEngine.scheduler` throws without a server.
 - Not exercised on a server yet: nothing calls it until Stage 3. Stage 7 checks it on Paper and Folia.
 
-### Stage 3: move `common` and `hooks:zmenu` to the scheduler
-- `CraftEngineMachineHost`: `scheduleWake`, `post` and `isOwnedByCurrentThread` call the scheduler. The `MachineHost` interface and `FakeWorld` stay the same.
-- `KeptContents`, `CraftEngineItemBridge`, `MachineEngineCommands#onRegion`, `MachineDebugView` (keeps `Task` instead of `ScheduledTask`).
-- `OpenMenuButton`, `ZMenuMachineMenus`.
-- Check: no `getRegionScheduler`, `getGlobalRegionScheduler`, `getAsyncScheduler`, `getScheduler()` or `isOwnedByCurrentRegion` left in `common` or `hooks` (a grep in the plan's check list, not a build rule).
+### Stage 3: move `common` and `hooks:zmenu` to the scheduler (done)
+- `CraftEngineMachineHost`: `scheduleWake` (region `runLater` at the machine's chunk), `post` (region `run`) and `isOwnedByCurrentThread` use `MachineEngine.scheduler(plugin)`. The `MachineHost` interface and `FakeWorld` stay the same.
+- `KeptContents` (region `runLater`, 1 tick; its `plugin` field went), `CraftEngineItemBridge` (global `run`), `MachineEngineCommands#onRegion` (region `run`), `MachineDebugView` (entity `runTimer`, keeps `Task`s).
+- `ZMenuMachineMenus` holds a scheduler; its `plugin()` accessor, used only by `OpenMenuButton` to schedule, became `scheduler()`.
+- Checked: no `getRegionScheduler`, `getGlobalRegionScheduler`, `getAsyncScheduler`, `getScheduler()`, `isOwnedByCurrentRegion` or `ScheduledTask` left in `common` or `hooks` outside `FoliaLibScheduler`; `./gradlew check` passes.
+- **Dev servers (2026-10-08, copies of `run/paper-1.20.6` and `run/folia-1.20.6` in a scratch folder, started with the jars run-paper uses):** `mekanized test` (wake timers: 2 osmium dust, 10000 J left), `test-cable` (network posts: 2 dust through the cable), `check-drop` (KeptContents: 100 of 100 dropped), `check-hopper` (10 of 10 in the chest) all give their expected values on both; startup's "Recipes and tags reloaded" (global task) appears; on Folia `machineengine inspect 40 120 8 world` (region `run` from the console) and `machineengine status` answer. No errors or warnings from MachineEngine, FoliaLib or Paper-Dispatch. Paper 1.20.6 hit the known jansi crash after "Closing Server", with every world saved; Folia closed cleanly.
+- Not covered there: the debug view and menus need a player online.
+- Found on the way: from the console, `me status` runs vanilla's `/me` emote ("* Server status"): vanilla owns the `me` label, so the alias never reached MachineEngine. Not new; Stage 5 decides what to do about the alias (Paper-Dispatch reports aliases the server declines).
 
 ### Stage 4: move Mekanized to the scheduler
 - `PaperRadiation`, `PaperEntangloporters`, `PaperChunkLoaders`, `PaperUtility`, `SuitTicker`, `GearTools`, `PaperAutomation`, and the command classes' region tasks.
