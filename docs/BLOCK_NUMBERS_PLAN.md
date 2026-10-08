@@ -97,6 +97,14 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - The fission reactor has its own `coolant-heat-per-mb` instead of sharing the boiler's constant.
   - Removed from `config.yml`: `dynamic-tank.*`, `thermal-evaporation.*`.
   - `BlockNumbersTest` checks every multiblock option against its Java default (nested tier maps flattened to the keys' paths); `MultiblockTest#aTankIsSizedByItsCasingsBlockConfig` forms a tank sized by its anchor's options.
+- **2026-10-08, Stage 6 (done, but for the dev-server checks).**
+  - `MekanizedConfig` holds only world-wide rules: radiation, the teleporter, the chunk-loading and miner limits, the QIO array size. The generated `config.yml` header tells owners that each block's and item's numbers are in its CraftEngine config. Unused helpers removed.
+  - Headless already: `BlockNumbersTest` fails on an unknown `storages:` id or option name and checks every shipped value against its Java default.
+  - D34 in ARCHITECTURE.md covers block options, transport rates and multiblocks; MEKANIZED_GUIDE.md lists every option and the ignored old keys.
+  - **Still to check on a dev server** (not done: the owner's dev server was running from the main checkout, and a second would clash with it):
+    1. a changed `rate:`, bin capacity and casing option reach a placed block after a restart;
+    2. whether `/ce reload` reaches machines already loaded. A machine keeps the `BlockOptions` it first read (`MachineInstanceImpl#options`), from its block entity controller's behavior. If CraftEngine keeps old controllers across a reload, making it live means reading the behavior from the block state's current definition and dropping the cache. The guide says to restart until then.
+  - **Candidate follow-up:** numbers still passed as Java behavior arguments in other machines (energy and ticks of processing machines, generators' output, tank capacities in machine types). They can become options the way the pump's and lasers' did in Stage 2.
 
 ## Stages
 
