@@ -1,5 +1,6 @@
 package fr.robie.machineengine.plugin;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.MachineEngineAccess;
 import fr.robie.machineengine.api.MachineEngineApi;
 import fr.robie.machineengine.api.addon.AddonRegistration;
@@ -115,6 +116,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
             return;
         }
         getLogger().info("Using CraftEngine " + craftEngine.getPluginMeta().getVersion());
+        getLogger().info("Scheduling with FoliaLib on " + (MachineEngine.scheduler(this).isFolia() ? "Folia" : "Paper"));
 
         List<AddonRegistration> registrations = MachineEngineAccess.closeRegistration();
         MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());

@@ -5,6 +5,7 @@ import com.tcoded.folialib.impl.PlatformScheduler;
 import com.tcoded.folialib.wrapper.task.WrappedTask;
 import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.platform.Task;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
@@ -21,9 +22,25 @@ import java.util.function.Function;
  * {@code Consumer} variants and an {@link EntityTask} handle: the {@code Runnable} variants throw on
  * Folia when the entity is already retired, and the {@code Consumer} ones only hand out their task
  * when it first runs.
+ *
+ * <p>Nothing is scheduled once the server is stopping: such a task would never run, and Folia throws
+ * from its shutdown thread (FoliaLib uses {@code RegionScheduler#run}, which needs the current region's
+ * scheduler; machines unloading during shutdown still post). Paper's {@code execute}, used before D35,
+ * queued without throwing.
  */
 public final class FoliaLibScheduler implements Scheduler {
     private static final Runnable NOTHING = () -> {
+    };
+    /** Returned instead of a task when nothing was scheduled. */
+    private static final Task NOT_SCHEDULED = new Task() {
+        @Override
+        public void cancel() {
+        }
+
+        @Override
+        public boolean isCancelled() {
+            return true;
+        }
     };
 
     private final FoliaLib foliaLib;
@@ -47,21 +64,25 @@ public final class FoliaLibScheduler implements Scheduler {
 
     @Override
     public void run(@NotNull Runnable task) {
+        if (stopping()) return;
         this.scheduler.runNextTick(ignored -> task.run());
     }
 
     @Override
     public @NotNull Task runLater(@NotNull Runnable task, long delay) {
+        if (stopping()) return NOT_SCHEDULED;
         return new Wrapped(this.scheduler.runLater(task, ticks(delay)));
     }
 
     @Override
     public @NotNull Task runTimer(@NotNull Runnable task, long delay, long period) {
+        if (stopping()) return NOT_SCHEDULED;
         return new Wrapped(this.scheduler.runTimer(task, ticks(delay), ticks(period)));
     }
 
     @Override
     public void run(@NotNull Location location, @NotNull Runnable task) {
+        if (stopping()) return;
         this.scheduler.runAtLocation(location, ignored -> task.run());
     }
 
@@ -72,6 +93,7 @@ public final class FoliaLibScheduler implements Scheduler {
 
     @Override
     public @NotNull Task runLater(@NotNull Location location, @NotNull Runnable task, long delay) {
+        if (stopping()) return NOT_SCHEDULED;
         return new Wrapped(this.scheduler.runAtLocationLater(location, task, ticks(delay)));
     }
 
@@ -82,19 +104,20 @@ public final class FoliaLibScheduler implements Scheduler {
 
     @Override
     public @NotNull Task runTimer(@NotNull Location location, @NotNull Runnable task, long delay, long period) {
+        if (stopping()) return NOT_SCHEDULED;
         return new Wrapped(this.scheduler.runAtLocationTimer(location, task, ticks(delay), ticks(period)));
     }
 
     @Override
     public boolean run(@NotNull Entity entity, @NotNull Runnable task, @Nullable Runnable retired) {
-        if (!entity.isValid()) return false;
+        if (stopping() || !entity.isValid()) return false;
         this.scheduler.runAtEntityWithFallback(entity, ignored -> task.run(), retired != null ? retired : NOTHING);
         return true;
     }
 
     @Override
     public @Nullable Task runLater(@NotNull Entity entity, @NotNull Runnable task, @Nullable Runnable retired, long delay) {
-        if (!entity.isValid()) return null;
+        if (stopping() || !entity.isValid()) return null;
         EntityTask handle = new EntityTask(task, retired);
         this.scheduler.runAtEntityLater(entity, handle::run, handle::retire, ticks(delay));
         return handle;
@@ -103,7 +126,7 @@ public final class FoliaLibScheduler implements Scheduler {
     @Override
     public @Nullable Task runTimer(@NotNull Entity entity, @NotNull Runnable task, @Nullable Runnable retired,
                                    long delay, long period) {
-        if (!entity.isValid()) return null;
+        if (stopping() || !entity.isValid()) return null;
         EntityTask handle = new EntityTask(task, retired);
         this.scheduler.runAtEntityTimer(entity, handle::run, handle::retire, ticks(delay), ticks(period));
         return handle;
@@ -111,6 +134,7 @@ public final class FoliaLibScheduler implements Scheduler {
 
     @Override
     public void runAsync(@NotNull Runnable task) {
+        if (stopping()) return;
         this.scheduler.runAsync(ignored -> task.run());
     }
 
@@ -127,6 +151,10 @@ public final class FoliaLibScheduler implements Scheduler {
     @Override
     public boolean isOwnedByCurrentThread(@NotNull Entity entity) {
         return this.scheduler.isOwnedByCurrentRegion(entity);
+    }
+
+    private static boolean stopping() {
+        return Bukkit.isStopping();
     }
 
     /** Folia needs at least one tick; FoliaLib would round up too, with a warning. */

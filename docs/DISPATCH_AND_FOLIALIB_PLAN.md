@@ -103,16 +103,24 @@ The owner took the recommendations:
 - `PositionArguments#optionalPosition` and its `PositionCommand` interface are removed: nothing builds Brigadier trees by hand any more.
 - Checked: `./gradlew check` passes; Mekanized's bundled Paper-Dispatch passes the baseline check (12 allowed) and the relocation check.
 - **Dev servers (2026-10-08, fresh copies of `run/paper-1.20.6` and `run/folia-1.20.6`), from the console, same results on both:** `mekanized` and `mekanized build` print usage (the structures listed); `test` (2 dust, 10000 J left), `test-cable` (2 dust), `place-set`, `check-drop` (100 of 100), `check-hopper` (10 in the chest), `check-comparator` (8, 0), `check-block-options` (4096, 4000, 51200 as shipped), `check-item-data` (all as expected), `fill 2 8 120 40 world` (4 crushers), `build dynamic_tank` (built), `radiation clear`, `radiation 0.5` all answer; `test` alone says "Give a position", `test 40 120 92 nowhere` "Unknown world 'nowhere'"; `frequency alpha` from the console and `fill` without a size are unknown/incomplete commands, as before (player-only node, required size).
-  - `test-chemistry` reports 800 mB hydrogen in the tank and 400 mB oxygen in the separator after 30 s, against "1000 mB hydrogen and 500 mB oxygen in all": the 2:1 ratio holds, 80 % of the water is through. No earlier result is recorded to compare with; the machines tick on CraftEngine's ticker, not the scheduler. To check against the commit before this plan (`ef2c0f2`).
-  - **Folia, at shutdown:** CraftEngine unloads block entities from the shutdown thread after Folia's scheduler has halted; a machine unloading next to an active network (the test-chemistry tube) calls `CoreNetworks.machineChanged` → `Network.activate` → `MachineHost#post` → a region task, and Folia throws a `NullPointerException` (`FoliaRegionScheduler.scheduleInternalOnRegion`). CraftEngine logs it as "Failed to unload block entity"; the worlds still save. Not new: before Stage 3 `post` called `Bukkit.getRegionScheduler().execute`, the same path. A fix would skip posting once the server is stopping; not done.
+  - `test-chemistry` reports 800 mB hydrogen in the tank and 400 mB oxygen in the separator after 30 s, against "1000 mB hydrogen and 500 mB oxygen in all": the 2:1 ratio holds, 80 % of the water is through. **Not from this plan:** the commit before it (`ef2c0f2`, built in a scratch worktree) gives exactly the same on Paper and Folia 1.20.6. A content or timing question for Mekanized, left as it is.
+  - **Folia, at shutdown:** CraftEngine unloads block entities from the shutdown thread after Folia's scheduler has halted; a machine unloading next to an active network (the test-chemistry tube) calls `CoreNetworks.machineChanged` → `Network.activate` → `MachineHost#post` → a region task, and Folia throws a `NullPointerException` (`FoliaRegionScheduler.scheduleInternalOnRegion`). CraftEngine logs it as "Failed to unload block entity"; the worlds still save. **This was new, from Stage 3** (first noted here as old, wrongly): Folia's `execute`, used before, queues into the region task queue (`RegionizedServer…queueTickTaskQueue`) and does not throw; FoliaLib's `runAtLocation` calls `RegionScheduler#run`, whose `scheduleInternalOnRegion` needs the current region's scheduler, which the shutdown thread does not have. It depends on unload order: four more Folia runs (two before the plan, two after) did not show it. Fixed in Stage 7.
 
-### Stage 7: dev-server checks
-On `runPaper-1.20.6`, `runPaper-26.3`, `runFolia-1.20.6` and `runFolia-26.2` (headless, console commands piped in):
-- Both plugins enable; the log shows FoliaLib's detected platform.
-- `me status`, `me report`, `me registry machineengine:machine_type`, `me reload config`, and `me inspect <x y z>` from the console. Wrong permission and wrong arguments give the library's messages.
-- `mekanized check-drop`, `check-hopper`, `check-comparator`, `check-block-options`: they run multi-tick region tasks, so they exercise the scheduler on every server.
-- Shutdown saves cleanly, with no "task still running" warnings. On 1.20.6, Paper-Dispatch's registration, reflective command sync and unregistering do not throw. If they do, that is a fix upstream in paper-dispatch, not a workaround here.
-- Results go into this plan, as in BLOCK_NUMBERS_PLAN.md.
+### Stage 7: fixes and dev-server checks (done)
+- **Nothing is scheduled once the server is stopping** (`FoliaLibScheduler`, every method; `Bukkit.isStopping()`, which exists in 1.20.6): `run` does nothing, `runLater`/`runTimer` return a cancelled task, the entity variants false/null; documented on `Scheduler`. Such a task would never run, and it fixes the Folia shutdown error above for every caller, Mekanized too. Checked in Folia 1.20.6's bytecode: `CraftServer#isStopping` reads `MinecraftServer#hasStopped`, which `stopServer` sets before it disables the plugins.
+- `MachineEnginePlugin` logs "Scheduling with FoliaLib on Paper|Folia" when it enables.
+- `./gradlew check` passes.
+- **Dev servers (2026-10-08), fresh copies of the four run folders, started with the jars run-paper uses (JDK 21 for 1.20.6, JDK 25 for 26.x), every `/mekanized` and `/machineengine` command of Stages 5 and 6 from the console:**
+
+  | Server | Version module | Scheduler log | Every check as expected | Shutdown |
+  |---|---|---|---|---|
+  | Paper 1.20.6 | `v1_20_6` | Paper | yes | clean, exit 0 |
+  | Folia 1.20.6 | `v1_20_6` | Folia | yes | clean, exit 0 |
+  | Paper 26.3 (build 159) | `v26_3` | Paper | yes | clean, exit 0 |
+  | Folia 26.2 (build 7) | reflective (no module for 26.2, D24) | Folia | yes | clean, exit 0 |
+
+  No error or warning from MachineEngine, Mekanized, FoliaLib or Paper-Dispatch on any of them (26.x print Paper's Windows system-probe errors, as always). Commands register and unregister on all four; `test-chemistry` reads 800/400 everywhere (see Stage 6).
+- **Still to check in game (needs a player):** the entity tasks: `/machineengine debug`, machine menus (zMenu), the suit ticker and jetpack, radiation exposure, chargepads, the QIO dashboard, `/mekanized frequency`, the electric bow.
 
 ## Risks
 - **Paper-Dispatch on 1.20.6.** It is built and tested against 26.2. The lazily linked `Flags` factories are covered by the allow-list. The reflective `CommandManager` paths are covered only by the Stage 7 check.

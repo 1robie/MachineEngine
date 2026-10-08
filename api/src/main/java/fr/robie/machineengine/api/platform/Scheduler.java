@@ -13,7 +13,9 @@ import org.jetbrains.annotations.Nullable;
  * the region owning an entity. Get one with {@code MachineEngine.scheduler(plugin)}: its tasks belong to
  * that plugin and stop when it is disabled.
  *
- * <p>Delays and periods are in ticks; anything below 1 counts as 1.
+ * <p>Delays and periods are in ticks; anything below 1 counts as 1. Once the server is stopping,
+ * nothing is scheduled (such a task would never run): {@code run} does nothing, {@code runLater} and
+ * {@code runTimer} return a cancelled task, and the entity variants return false or null.
  */
 @ApiStatus.NonExtendable
 public interface Scheduler {
