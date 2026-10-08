@@ -77,10 +77,14 @@ The owner took the recommendations:
 - Not covered there: the debug view and menus need a player online.
 - Found on the way: from the console, `me status` runs vanilla's `/me` emote ("* Server status"): vanilla owns the `me` label, so the alias never reached MachineEngine. Not new; Stage 5 decides what to do about the alias (Paper-Dispatch reports aliases the server declines).
 
-### Stage 4: move Mekanized to the scheduler
-- `PaperRadiation`, `PaperEntangloporters`, `PaperChunkLoaders`, `PaperUtility`, `SuitTicker`, `GearTools`, `PaperAutomation`, and the command classes' region tasks.
-- `PaperWorld#isOwnedByCurrentThread` and the direct `isOwnedByCurrentRegion` calls go through `Scheduler#isOwnedByCurrentThread`.
+### Stage 4: move Mekanized to the scheduler (done)
+- Mekanized has one scheduler, `MachineEngine.scheduler(mekanized)`, installed first in `MekanizedPlugin#onEnable` and kept by `PaperWorld` (`PaperWorld.scheduler()`), so static helpers reach it too and its tasks stop with Mekanized.
+- 34 call sites: `PaperRadiation`, `PaperEntangloporters`, `PaperChunkLoaders`, `PaperUtility`, `SuitTicker`, `GearTools`, `PaperAutomation`, and the command classes' region tasks. `PaperWorld#isOwnedByCurrentThread` and the direct `isOwnedByCurrentRegion` calls (`MekanizedDebugCommands#place`, `MekanizedStructures`, `GearTools`) go through `Scheduler#isOwnedByCurrentThread`.
+- Left unused, so removed: the `plugin` fields of `PaperUtility`, `GearTools`, `SuitTicker` and `MekanizedCommands`, and `PaperAutomation.setFrequency`'s `plugin` parameter.
 - `LineStore` keeps its own file-writer thread: ordered writes on one thread matter there, and FoliaLib's async pool does not guarantee order.
+- Checked: no direct Paper scheduler call left in any module outside `FoliaLibScheduler`; `./gradlew check` passes.
+- **Dev servers (2026-10-08, fresh copies of `run/paper-1.20.6` and `run/folia-1.20.6`):** on both, `test`, `test-cable`, `check-drop`, `check-hopper` and `check-comparator` (half full 8, empty 0: nested region `runLater`s) give their expected values, `mekanized build dynamic_tank` builds (ownership check), and the radiation and entangloporter timers run without errors. No errors or warnings from MachineEngine, Mekanized or FoliaLib. Paper hit the known jansi crash after "All dimensions are saved"; Folia closed cleanly.
+- Not covered there: player-bound tasks (suit ticker, radiation exposure, chargepads, dashboards, frequency setting, the electric bow) need a player online.
 
 ### Stage 5: MachineEngine commands on Paper-Dispatch
 - `MachineEngineCommands` becomes a `BaseCommand<Plugin>` named `machineengine`, alias `me`, permission `machineengine.admin`, with one `SubCommand` per branch: `status`, `report`, `debug`, `inspect`/`machine`, `placeholders` (`list`, `purge`), `network`, `registry <registry>` (same suggestions), `reload` (`config`, `recipes`, `tags`).
