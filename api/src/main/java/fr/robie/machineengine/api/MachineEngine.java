@@ -8,12 +8,14 @@ import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
 import fr.robie.machineengine.api.machine.MachineInstance;
+import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverterLookup;
 import fr.robie.machineengine.api.resource.tag.ResourceTags;
 import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.api.world.WorldPosition;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 
@@ -56,6 +58,16 @@ public interface MachineEngine {
      */
     static @NotNull ConfigValues config() {
         return MachineEngineAccess.config();
+    }
+
+    /**
+     * A {@link Scheduler} whose tasks belong to {@code plugin} and stop when it is disabled (D35).
+     * Available from MachineEngine's {@code onLoad}; tasks can be scheduled once the plugin is enabled.
+     *
+     * @throws IllegalStateException before MachineEngine has loaded, or without a server (headless tests)
+     */
+    static @NotNull Scheduler scheduler(@NotNull Plugin plugin) {
+        return MachineEngineAccess.scheduler(plugin);
     }
 
     @NotNull LifecyclePhase phase();

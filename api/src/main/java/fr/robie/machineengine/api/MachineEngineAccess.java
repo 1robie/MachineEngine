@@ -3,6 +3,8 @@ package fr.robie.machineengine.api;
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.config.ConfigValues;
 import fr.robie.machineengine.api.config.EngineConfig;
+import fr.robie.machineengine.api.platform.Scheduler;
+import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -10,6 +12,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Holds the registrations submitted before the engine starts and the running engine afterwards.
@@ -21,6 +24,7 @@ public final class MachineEngineAccess {
     private static final List<AddonRegistration> PENDING = new ArrayList<>();
     private static @Nullable MachineEngine engine;
     private static volatile @Nullable ConfigValues config;
+    private static volatile @Nullable Function<Plugin, Scheduler> schedulers;
     private static boolean closed;
 
     private MachineEngineAccess() {
@@ -43,6 +47,19 @@ public final class MachineEngineAccess {
     static @NotNull ConfigValues config() {
         ConfigValues loaded = config;
         return loaded != null ? loaded : EngineConfig.SPEC.defaults();
+    }
+
+    static @NotNull Scheduler scheduler(@NotNull Plugin plugin) {
+        Objects.requireNonNull(plugin);
+        Function<Plugin, Scheduler> installed = schedulers;
+        if (installed == null) throw new IllegalStateException("MachineEngine has not loaded yet: no scheduler");
+        return installed.apply(plugin);
+    }
+
+    /** The platform's schedulers, one per plugin (D35); installed in {@code onLoad}. */
+    @ApiStatus.Internal
+    public static void installSchedulers(@Nullable Function<Plugin, Scheduler> perPlugin) {
+        schedulers = perPlugin;
     }
 
     /** The loaded {@code config.yml}; installed in {@code onLoad}, before addons register. */
@@ -71,6 +88,7 @@ public final class MachineEngineAccess {
         PENDING.clear();
         engine = null;
         config = null;
+        schedulers = null;
         closed = false;
     }
 }

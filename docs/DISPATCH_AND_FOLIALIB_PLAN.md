@@ -38,7 +38,7 @@ No gameplay change: every command keeps its name, alias, arguments, permission a
 ## Decisions (D35, 2026-10-08)
 
 The owner took the recommendations:
-1. **Mekanized's scheduling goes through MachineEngine's API**, not through its own FoliaLib. `api` gets a small MachineEngine-owned `Scheduler` interface (no FoliaLib types: they are relocated, so addons cannot compile against them). `common` implements it with the relocated FoliaLib. Mekanized and other addons call `MachineEngine.scheduler()`. This follows D27 (`api` is the one module addons compile against).
+1. **Mekanized's scheduling goes through MachineEngine's API**, not through its own FoliaLib. `api` gets a small MachineEngine-owned `Scheduler` interface (no FoliaLib types: they are relocated, so addons cannot compile against them). `common` implements it with the relocated FoliaLib. Mekanized and other addons call `MachineEngine.scheduler(plugin)`. This follows D27 (`api` is the one module addons compile against).
 2. **Mekanized shades its own relocated Paper-Dispatch.** Command classes are generic in the plugin (`BaseCommand<T extends Plugin>`) and relocated, so they cannot be shared through `api`. `PositionArguments` stays in `api` and stays Brigadier-only (no Paper-Dispatch types), so both plugins keep sharing it.
 3. **Relocation targets:** `fr.robie.machineengine.libs.paperdispatch` and `fr.robie.machineengine.libs.folialib` in MachineEngine, and `fr.robie.machineengine.mekanized.libs.paperdispatch` in Mekanized.
 
@@ -54,16 +54,19 @@ The owner took the recommendations:
 - **Relocation check:** `VerifyRelocation` (`verifyRelocation` in `plugin` and `mekanized`, part of `check`) fails if the shaded jar has an entry under an original package.
 - Checked: `./gradlew check` passes; the plugin jar holds `fr/robie/machineengine/libs/{paperdispatch,folialib}` (39 + 27 entries), Mekanized's `fr/robie/machineengine/mekanized/libs/paperdispatch` (39), and neither has the original packages; `runPaper-1.20.6` builds `:mekanized:shadowJar`.
 
-### Stage 2: scheduler API (`api`) and implementation (`common`)
-- `api.platform.Scheduler`, reached through `MachineEngine.scheduler()`. It mirrors what the code uses today and nothing more:
+### Stage 2: scheduler API (`api`) and implementation (`common`) (done)
+- `api.platform.Scheduler`, reached through **`MachineEngine.scheduler(plugin)`**: one per plugin, whose tasks belong to that plugin and stop when it is disabled, as Bukkit tasks do (a single MachineEngine-owned scheduler would keep an addon's tasks running after the addon is disabled). It mirrors what the code uses today and nothing more:
   - global: `run`, `runLater`, `runTimer`;
-  - at a location or chunk: `run`, `runLater`, `runTimer`, `isOwnedByCurrentThread`;
-  - for an entity: `run`, `runLater`, `runTimer` with a "retired" callback (the entity left);
-  - `runAsync`.
-  - Returns `api.platform.Task` (`cancel()`, `isCancelled()`), a MachineEngine type wrapping FoliaLib's `WrappedTask`.
+  - region, at a location or a chunk: `run`, `runLater`, `runTimer` (location only), `isOwnedByCurrentThread`;
+  - entity: `run`, `runLater`, `runTimer` with a `retired` callback (the entity was removed), and `isOwnedByCurrentThread`;
+  - `runAsync`; `isFolia()`.
+  - Immediate `run`s return nothing (no caller cancels them). `runLater`/`runTimer` return `api.platform.Task` (`cancel()`, `isCancelled()`).
+  - Delays and periods below 1 tick count as 1 (Folia needs one; FoliaLib would round up with a warning).
   - No `isGlobalTickThread()`: FoliaLib's fails on Folia 1.20.6 (allow-list).
-- `common`: `FoliaLibScheduler implements Scheduler`, built from `new FoliaLib(plugin)` in `MachineEnginePlugin#onEnable`, installed next to the other platform singletons. `onDisable` cancels the plugin's tasks (`cancelAllTasks`).
-- Tests: unit tests of the `Task` wrapper only. Headless engine tests keep using `FakeWorld` through `MachineHost`, which this plan does not change.
+- **Entity tasks, as Paper's `EntityScheduler` behaves today:** if the entity is no longer valid (`Entity#isValid`, a player who left), nothing is scheduled and `run` returns false, `runLater`/`runTimer` null. FoliaLib's `Runnable` entity variants disagree here: on Folia they throw (they wrap the scheduler's `null`), on Paper they run `retired` at once. So `FoliaLibScheduler` uses the `Consumer` variants with its own handle (`EntityTask`): usable at once, a cancelled task never runs again (FoliaLib's task is cancelled at its next run), and a cancelled task's `retired` no longer runs.
+- `common`: `paper.FoliaLibScheduler implements Scheduler`, one `FoliaLib` per plugin (`perPlugin()`), installed in `MachineEnginePlugin#onLoad` (`MachineEngineAccess.installSchedulers`) next to the config, cleared by `reset()`. No `cancelAllTasks` on disable: the server cancels a disabled plugin's tasks.
+- Tests: `FoliaLibSchedulerTest` (the `EntityTask` handle, the tick floor). Headless engine tests keep using `FakeWorld` through `MachineHost`; `MachineEngine.scheduler` throws without a server.
+- Not exercised on a server yet: nothing calls it until Stage 3. Stage 7 checks it on Paper and Folia.
 
 ### Stage 3: move `common` and `hooks:zmenu` to the scheduler
 - `CraftEngineMachineHost`: `scheduleWake`, `post` and `isOwnedByCurrentThread` call the scheduler. The `MachineHost` interface and `FakeWorld` stay the same.

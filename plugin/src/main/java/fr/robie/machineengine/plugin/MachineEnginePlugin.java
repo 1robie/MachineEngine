@@ -19,6 +19,7 @@ import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
 import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.api.paper.ClassPreloader;
+import fr.robie.machineengine.paper.FoliaLibScheduler;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
@@ -71,6 +72,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         // Before addons' onLoad: they may read MachineEngine.config().
         this.config = ConfigFile.load(this, "config.yml", EngineConfig.SPEC);
         MachineEngineAccess.installConfig(this.config);
+        MachineEngineAccess.installSchedulers(FoliaLibScheduler.perPlugin());
         BuiltInResources.install(this.config);
         // The running version's nms class only (NmsLoader); another version's may not even load here.
         Nms.install(NmsLoader.load(getLogger()));
