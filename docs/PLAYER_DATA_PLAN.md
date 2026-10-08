@@ -125,10 +125,12 @@ Mekanized registers no command of its own for this; its settings appear in `/mac
 | Key | Kind | Replaces |
 |---|---|---|
 | `mekanized:radiation_dose` (double, Sv) | persistent, reset on death, `migratePdc("mekanized:radiation_dose", DOUBLE)` | `PaperRadiation.DOSE` in the PDC |
-| `mekanized:flying` (bool) | session | `SuitTicker.flying` |
-| `mekanized:raised_step` (bool) | session | `SuitTicker.stepping` |
+| `mekanized:suit_flight` (bool) | persistent | `SuitTicker.flying` |
+| `mekanized:raised_step` (bool) | persistent | `SuitTicker.stepping` |
 | `mekanized:last_teleport` (long, ms) | session | `PaperAutomation.lastTeleport` |
 | `mekanized:radiation_hud` (bool, default true) | setting | new: show the MekaSuit Geiger/dosimeter action bar |
+
+`suit_flight` and `raised_step` are saved, not session values: the server saves a player's permission to fly and their step-height attribute, so after a restart the in-memory sets forgot that Mekanized had given them and the player kept them without the suit.
 
 Further settings candidates (each only if it maps to something the gear already does; decided in Stage 5): MekaSuit module toggles that are per player rather than per item, such as the magnetic attraction unit and the step-assist height.
 
@@ -143,7 +145,7 @@ Each stage builds, passes `check`, and is committed on its own.
 2. **Paper lifecycle and the PDC backend.** *Done* (`paper.player.PaperPlayers`, `PdcPlayerStorage`; dev-checked on Paper 26.3 and 1.20.6: the storage is picked and listed, no errors). The listener (join, quit, death, save timer, disable), `players.storage` / `players.save-interval` / `players.settings` in `EngineConfig.SPEC`, PDC migrations. Headless dev-server check: the engine starts with `players.storage: pdc` and reports the backend.
 3. **File backend, addon backends, offline load.** *Done* (`FilePlayerStorage`, `FilePlayerStorageTest`; dev-checked on Paper 26.3 with `players.storage: machineengine:files`). A damaged file is moved aside (`<uuid>.dat.damaged-<time>`) and the player starts empty. `machineengine:files` with atomic writes and per-UUID ordering; `playerStorages().register`; `loadOffline`. Tests: write/read, a crash between temp file and move keeps the old file, a load waits for a pending write. Headless dev-server check with `players.storage: files`.
 4. **Commands, events and zMenu.** *Done* (`PlayerSettingsCommand`, `PlayerAdminCommand`, `PlayerValues`, `PlayerSettingButton`, `PlayerSettingsMenu`; dev-checked on Paper 26.3 from the console; in-game clicks are the owner's check). `PlayerDataKey#display` formats a value for placeholders and admin output. The menu is rewritten at every start while its first line is MachineEngine's marker. `/machinesettings`, `/machineengine player`, the placeholders, the button type and `player_settings.yml`, lang entries in the engine pack (D23).
-5. **Mekanized.** The keys above; `PaperRadiation`, `SuitTicker` and `PaperAutomation` use them; the PDC code and the `UUID` fields go. The radiation HUD obeys `mekanized:radiation_hud`. Tests: dose migration from the old PDC key, dose reset on death, existing radiation tests unchanged.
+5. **Mekanized.** *Done* (`MekanizedPlayers`, `mekanized` `PlayerDataTest`; dev-checked on Paper 26.3 and 1.20.6: the four keys and the setting register, the menu lists the setting). The keys above; `PaperRadiation`, `SuitTicker` and `PaperAutomation` use them; the PDC code and the `UUID` fields go. The radiation HUD obeys `mekanized:radiation_hud`. Tests: dose migration from the old PDC key, dose reset on death, existing radiation tests unchanged.
 6. **Docs.** MEKANIZED_GUIDE (settings, placeholders), README (config keys, permissions), memory note.
 
 Real-player behaviour (join/quit timing, death, menus) cannot run on a headless dev server; Stages 2, 4 and 5 end with a short manual check on the dev server with a client, listed in the commit message.
