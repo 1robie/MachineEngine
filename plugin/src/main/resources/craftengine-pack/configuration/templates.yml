@@ -29,3 +29,17 @@ templates:
       keep_contents: true
     loot:
       template: machineengine:loot_table/keep_contents
+
+  # A block that is a MachineEngine transport of the same id (a cable, pipe, …), dropping itself.
+  # Use it at the top of the block, and add the rest next to it (D34: the rate is the block's):
+  #   mekanized:basic_universal_cable:
+  #     template: machineengine:block/transport
+  #     behavior:
+  #       rate: 8000
+  #       connection_items: mekanized:cable_part/basic_universal_cable
+  machineengine:block/transport:
+    behavior:
+      type: machineengine:transport
+      transport: ${__NAMESPACE__}:${__ID__}
+    loot:
+      template: default:loot_table/self

@@ -25,7 +25,7 @@ Measured on the shipped files (2026-10-08):
 
 | Family | Blocks | Items per block today | What differs between rows |
 |---|---|---|---|
-| Transports: universal cable, pressurized tube, mechanical pipe, logistical transporter, thermodynamic conductor × 4 tiers | 20 | item + block + 16 `cable_part/` model items (4 conductors without parts) | tier, `rate` (D34) |
+| Transports: universal cable, pressurized tube, mechanical pipe, logistical transporter, thermodynamic conductor × 4 tiers | 20 | item + block + 19 `cable_part/` model items | tier, `rate` (D34) |
 | Factories: 9 kinds × 4 tiers | 36 | item + block + 2 `display/` items | kind, tier |
 | Energy cubes × 5 tiers | 5 | item + block + frame, 4 core levels, 6 ports | tier, capacity (D34) |
 | Fluid tanks, chemical tanks, bins × 5 tiers | 15 | item + block + 1 `display/` item | tier, capacity (D34) |
@@ -77,7 +77,7 @@ config_factory#universal_cable:
         template: mekanized:item/block_item
       mekanized:cable_part/${tier}_universal_cable/center:
         model: mekanized:block/cable/${tier}_universal_cable/center
-      # … the 15 other parts, written once for all tiers
+      # … the 18 other parts, written once for all tiers
     blocks:
       mekanized:${tier}_universal_cable:
         template: mekanized:block/transport
@@ -109,7 +109,7 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 
 **Stage 1 — templates. Done (2026-10-08).** The Mekanized `templates.yml` (installed with replace at every start, `MekanizedPlugin.TEMPLATES`) with the three settings templates, and `machineengine:block/machine` in the engine's. The 190 settings overrides and the 145 machines' behavior and loot use them: −2,629 / +335 lines, `ceSnapshot` matches. `ShippedBlocks` fills in what `machineengine:block/machine` gives (type, the block's id, `keep_contents`), since `BlockNumbersTest` needs the machine id. Each later template is added with the stage that first uses it, so none ships untested.
 
-**Stage 2 — transports.** 5 factories, 20 blocks, 340 items. This is the biggest saving and has the simplest shape.
+**Stage 2 — transports. Done (2026-10-08).** One factory per file (`energy_transports` in machines.yml, `chemistry_transports`, `item_transports` in logistics.yml, `heat_transports` in reactors.yml), one row per block (`transport`, `rate`): 20 blocks, 400 items (each transport has 19 parts, not 16). Templates `machineengine:block/transport` (engine) and `mekanized:block/transport` (Mekanized's shared invisible state, settings and `connection_items`). −1,220 / +288 lines, `ceSnapshot` matches (rates keep their integer type through `${rate}`). The snapshot marker learned keys with `#` (`config_factory#name`).
 
 **Stage 3 — tiered storage.** Energy cubes (with their display parts), fluid tanks, chemical tanks, bins, induction cells and providers.
 
