@@ -43,3 +43,73 @@ templates:
       transport: ${__NAMESPACE__}:${__ID__}
     loot:
       template: default:loot_table/self
+
+  # A solid block turned by `facing` (4 directions) that shows another model while `active`
+  # (machines set it while they work). Arguments, both optional:
+  #   model: the idle model (default <namespace>:block/<id>)
+  #   active_model: the working model (default <namespace>:block/<id>_active)
+  # Use: states: { template: machineengine:block_state/facing_active, arguments: { model: ... } }
+  machineengine:block_state/facing_active:
+    properties:
+      facing:
+        type: 4-direction
+        default: north
+      active:
+        type: boolean
+        default: false
+    appearances:
+      facing_north_active_false:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+      facing_south_active_false:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 180
+      facing_east_active_false:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 90
+      facing_west_active_false:
+        auto_state: solid
+        model:
+          path: ${model:-"${__NAMESPACE__}:block/${__ID__}"}
+          y: 270
+      facing_north_active_true:
+        auto_state: solid
+        model:
+          path: ${active_model:-"${__NAMESPACE__}:block/${__ID__}_active"}
+      facing_south_active_true:
+        auto_state: solid
+        model:
+          path: ${active_model:-"${__NAMESPACE__}:block/${__ID__}_active"}
+          y: 180
+      facing_east_active_true:
+        auto_state: solid
+        model:
+          path: ${active_model:-"${__NAMESPACE__}:block/${__ID__}_active"}
+          y: 90
+      facing_west_active_true:
+        auto_state: solid
+        model:
+          path: ${active_model:-"${__NAMESPACE__}:block/${__ID__}_active"}
+          y: 270
+    variants:
+      facing=north,active=false:
+        appearance: facing_north_active_false
+      facing=south,active=false:
+        appearance: facing_south_active_false
+      facing=east,active=false:
+        appearance: facing_east_active_false
+      facing=west,active=false:
+        appearance: facing_west_active_false
+      facing=north,active=true:
+        appearance: facing_north_active_true
+      facing=south,active=true:
+        appearance: facing_south_active_true
+      facing=east,active=true:
+        appearance: facing_east_active_true
+      facing=west,active=true:
+        appearance: facing_west_active_true

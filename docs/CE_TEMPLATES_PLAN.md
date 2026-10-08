@@ -111,7 +111,11 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 
 **Stage 2 — transports. Done (2026-10-08).** One factory per file (`energy_transports` in machines.yml, `chemistry_transports`, `item_transports` in logistics.yml, `heat_transports` in reactors.yml), one row per block (`transport`, `rate`): 20 blocks, 400 items (each transport has 19 parts, not 16). Templates `machineengine:block/transport` (engine) and `mekanized:block/transport` (Mekanized's shared invisible state, settings and `connection_items`). −1,220 / +288 lines, `ceSnapshot` matches (rates keep their integer type through `${rate}`). The snapshot marker learned keys with `#` (`config_factory#name`).
 
-**Stage 3 — tiered storage.** Energy cubes (with their display parts), fluid tanks, chemical tanks, bins, induction cells and providers.
+**Stage 3 — tiered storage. Done (2026-10-08).** Factories `energy_cubes` (machines.yml), `fluid_tanks` and `chemical_tanks` (chemistry.yml), `bins` (utility.yml), `induction_parts` (multiblocks.yml): 33 blocks, 88 items, −1,180 / +404 lines, `ceSnapshot` matches.
+- A row holds its block's numbers as a `behavior:` map written as on a block (`storages:`, `ports:`; creative: `behavior: {}`), and the blueprint writes `behavior: ${behavior}`. A plain number per row (`rate: ${rate}`, Stage 2) cannot express a tier with no number.
+- A blueprint entry cannot write both fixed `behavior:` keys and the row's map, so families with fixed keys (`display_item`, `level_display`, …) get a family template: `mekanized:block/energy_cube` (argument `tier`), `…/chemical_tank`, `…/fluid_tank`. Bins have none and keep their whole shape in the blueprint.
+- New engine state template `machineengine:block_state/facing_active` (`model`, `active_model`, defaults `block/<id>` and `block/<id>_active`), used by the bins.
+- `ShippedBlocks` follows template chains through Mekanized's `templates.yml` (`ShippedConfig.usesTemplate`) to know a block is a `machineengine:block/machine`.
 
 **Stage 4 — factory machines.** One factory with 36 rows `{kind, tier}`.
 
