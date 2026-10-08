@@ -89,6 +89,7 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - Removed from `config.yml`: `qio.drive-items`, `qio.drive-kinds`, `qio.importer-exporter-rate` (kept and ignored in old files).
   - **Kept in `config.yml`:** `qio.array-kinds`. It sets how many item slots the drive array's machine type has, fixed at registration, so it cannot change per block (structural, like the factory lanes).
   - `BlockNumbersTest#everyShippedDriveHoldsTheDefault` compares the shipped drive items with `QioDrives.DEFAULTS`.
+- **2026-10-08, Stage 4 (done; still to try in game).** The gauge dropper's `mekanized:gauge_dropper` behavior takes `capacity` (16,000 mB, `gear.yml`). `GaugeDropper.take` and `lore` get the capacity from the caller; the dropper behavior and the `mekanized:gear_lore` processor read it from the item. `BlockNumbersTest#theShippedGaugeDropperHoldsTheDefault` checks the shipped value.
 
 ## Stages
 
