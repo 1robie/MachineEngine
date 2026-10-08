@@ -8,6 +8,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * A value MachineEngine keeps for each player (D37), declared by an addon in its own namespace and
@@ -20,7 +21,7 @@ import java.util.Objects;
  * public static final PlayerDataKey<Long> LAST_TELEPORT = PlayerDataKey.session(Key.key("mymod", "last_teleport"), 0L);
  * }</pre>
  *
- * <p>Keys are immutable: {@link #resetOnDeath} and {@link #migratePdc} return a new key.</p>
+ * <p>Keys are immutable: {@link #resetOnDeath}, {@link #migratePdc} and {@link #display} return a new key.</p>
  */
 public final class PlayerDataKey<T> implements Keyed {
     private final Key key;
@@ -28,29 +29,31 @@ public final class PlayerDataKey<T> implements Keyed {
     private final T defaultValue;
     private final boolean resetOnDeath;
     private final @Nullable PdcMigration<T> pdcMigration;
+    private final Function<? super T, String> display;
 
     private PlayerDataKey(Key key, @Nullable VersionedCodec<T> codec, T defaultValue, boolean resetOnDeath,
-                          @Nullable PdcMigration<T> pdcMigration) {
+                          @Nullable PdcMigration<T> pdcMigration, Function<? super T, String> display) {
         this.key = Objects.requireNonNull(key, "key");
         this.codec = codec;
         this.defaultValue = Objects.requireNonNull(defaultValue, "defaultValue");
         this.resetOnDeath = resetOnDeath;
         this.pdcMigration = pdcMigration;
+        this.display = Objects.requireNonNull(display, "display");
     }
 
     /** A value saved with the player's data and loaded again when they join. */
     public static <T> @NotNull PlayerDataKey<T> persistent(@NotNull Key key, @NotNull VersionedCodec<T> codec, @NotNull T defaultValue) {
-        return new PlayerDataKey<>(key, Objects.requireNonNull(codec, "codec"), defaultValue, false, null);
+        return new PlayerDataKey<>(key, Objects.requireNonNull(codec, "codec"), defaultValue, false, null, String::valueOf);
     }
 
     /** A value kept while the player is online and forgotten when they leave; never saved. */
     public static <T> @NotNull PlayerDataKey<T> session(@NotNull Key key, @NotNull T defaultValue) {
-        return new PlayerDataKey<>(key, null, defaultValue, false, null);
+        return new PlayerDataKey<>(key, null, defaultValue, false, null, String::valueOf);
     }
 
     /** The value goes back to its default when the player dies. */
     public @NotNull PlayerDataKey<T> resetOnDeath() {
-        return new PlayerDataKey<>(this.key, this.codec, this.defaultValue, true, this.pdcMigration);
+        return new PlayerDataKey<>(this.key, this.codec, this.defaultValue, true, this.pdcMigration, this.display);
     }
 
     /**
@@ -60,7 +63,15 @@ public final class PlayerDataKey<T> implements Keyed {
      */
     public @NotNull PlayerDataKey<T> migratePdc(@NotNull String oldKey, @NotNull PersistentDataType<?, T> type) {
         if (this.codec == null) throw new IllegalStateException(this.key.asString() + " is a session key: nothing to migrate into");
-        return new PlayerDataKey<>(this.key, this.codec, this.defaultValue, this.resetOnDeath, new PdcMigration<>(oldKey, type));
+        return new PlayerDataKey<>(this.key, this.codec, this.defaultValue, this.resetOnDeath, new PdcMigration<>(oldKey, type), this.display);
+    }
+
+    /**
+     * How the value is shown in placeholders ({@code %zmenu_machineengine_player_<namespace>_<id>%}) and
+     * admin commands; {@code String.valueOf} by default.
+     */
+    public @NotNull PlayerDataKey<T> display(@NotNull Function<? super T, String> display) {
+        return new PlayerDataKey<>(this.key, this.codec, this.defaultValue, this.resetOnDeath, this.pdcMigration, display);
     }
 
     @Override
@@ -83,6 +94,11 @@ public final class PlayerDataKey<T> implements Keyed {
 
     public boolean isResetOnDeath() {
         return this.resetOnDeath;
+    }
+
+    /** {@code value} as {@link #display} shows it. */
+    public @NotNull String format(@NotNull T value) {
+        return this.display.apply(value);
     }
 
     public @Nullable PdcMigration<T> pdcMigration() {

@@ -11,14 +11,17 @@ import fr.maxlego08.menu.api.placeholder.LocalPlaceholder;
 import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.config.EngineConfig;
+import fr.robie.machineengine.api.player.MachinePlayer;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.machineengine.core.player.CorePlayers;
 import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
+import fr.robie.machineengine.paper.player.PlayerValues;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -30,6 +33,7 @@ import org.jetbrains.annotations.Nullable;
 import java.io.File;
 import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -48,7 +52,10 @@ import java.util.logging.Level;
  *       against the machine the player has open, in any zMenu button;</li>
  *   <li>button types {@code machineengine_slot}, {@code machineengine_cancel_process}, {@code machineengine_upgrades},
  *       {@code machineengine_data}, {@code machineengine_side} and {@code machineengine_menu} interact
- *       with the machine.</li>
+ *       with the machine;</li>
+ *   <li>placeholders {@code %zmenu_machineengine_player_<namespace>_<id>%} show the player's own data and
+ *       settings, and {@code machineengine_player_setting} buttons change a setting, in the generated
+ *       {@code player_settings.yml} menu ({@code /machinesettings}) or any other (D37).</li>
  * </ul>
  */
 public final class ZMenuMachineMenus implements MachineMenuService {
@@ -100,6 +107,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         buttons.register(new DataButton.Loader(plugin, menus));
         buttons.register(new SideButton.Loader(plugin, menus));
         buttons.register(new OpenMenuButton.Loader(plugin, menus));
+        buttons.register(new PlayerSettingButton.Loader(plugin));
         LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
         inventories.registerInventoryListener(menus.listener);
         menus.reload();
@@ -129,6 +137,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         if (!new File(this.plugin.getDataFolder(), DEFAULT_MENU_RESOURCE).exists()) {
             this.plugin.saveResource(DEFAULT_MENU_RESOURCE, false);
         }
+        CorePlayers players = PlayerSettingButton.players();
+        if (players != null) PlayerSettingsMenu.write(folder.toPath(), List.copyOf(players.settings()), this.plugin.getLogger());
         File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files == null) return;
         for (File file : files) {
@@ -159,6 +169,14 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.inventories.openInventory(player, menu);
         // zMenu may open on the player's scheduler (Folia): the old menu's close can come a tick later.
         this.scheduler.runLater(player, () -> this.switching.remove(id), () -> this.switching.remove(id), 2);
+        return true;
+    }
+
+    @Override
+    public boolean openPlayerSettings(@NotNull Player player) {
+        Inventory menu = this.menus.get(PlayerSettingsMenu.NAME);
+        if (menu == null) return false;
+        this.inventories.openInventory(player, menu);
         return true;
     }
 
@@ -270,6 +288,13 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     private volatile boolean topHolderFailed;
 
     private @Nullable String placeholder(OfflinePlayer player, String key) {
+        // player_<namespace>_<id>: the player's own data and settings (D37), in any menu.
+        if (key.startsWith("player_")) {
+            CorePlayers players = PlayerSettingButton.players();
+            MachinePlayer data = players == null ? null : players.find(player.getUniqueId()).orElse(null);
+            String value = data == null ? null : PlayerValues.placeholder(players, data, key.substring("player_".length()));
+            if (value != null) return value;
+        }
         LoadedMachine machine = machineOf(player);
         if (machine == null) return "";
         // data_<id>: a setting the machine type declares (machineengine_data buttons change them).

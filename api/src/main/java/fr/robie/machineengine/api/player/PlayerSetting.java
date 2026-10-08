@@ -64,7 +64,7 @@ public final class PlayerSetting<T> implements Keyed {
                     return value != null ? Result.ok(value)
                             : Result.<T>err(SerializationError.at("", "'" + text + "' is not " + expected));
                 }, formatter)).build();
-        this.data = PlayerDataKey.persistent(key, codec, defaultValue);
+        this.data = PlayerDataKey.persistent(key, codec, defaultValue).display(formatter);
     }
 
     /** On or off; a click in the menu toggles it. */

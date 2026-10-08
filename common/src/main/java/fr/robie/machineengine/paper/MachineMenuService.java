@@ -59,6 +59,11 @@ public interface MachineMenuService extends MachineMenus {
         }
     }
 
+    /** Opens the player settings menu ({@code player_settings}, D37) on the player's thread; {@code false} if there is none. */
+    default boolean openPlayerSettings(@NotNull Player player) {
+        return false;
+    }
+
     /** Reloads the menu files. */
     void reload();
 

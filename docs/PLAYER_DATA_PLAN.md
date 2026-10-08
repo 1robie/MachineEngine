@@ -118,7 +118,7 @@ Mekanized registers no command of its own for this; its settings appear in `/mac
 
 - Placeholders `%zmenu_machineengine_player_<namespace>_<id>%` (a key's value, formatted by its setting's `ConfigKey` when it has one) and `…_player_<namespace>_<id>_name%` (the translated name).
 - Button type `machineengine_player_setting` (`setting: mekanized:radiation_hud`): a click toggles a boolean, cycles a choice, or steps a number by `step:` (left adds, right removes), within its range.
-- The engine installs an editable `player_settings.yml` menu listing every registered unlocked setting, a page at a time.
+- The engine writes `player_settings.yml` with one button per registered setting (up to 28, in a bordered grid), rewritten at every start while its first line is MachineEngine's marker; an owner who edits it deletes that line. Names and lore use `<lang:setting.<namespace>.<id>>`.
 
 ### Mekanized
 
@@ -142,7 +142,7 @@ Each stage builds, passes `check`, and is committed on its own.
 1. **API and headless core.** *Done.* `api.player` types, the three registries, `Codecs.DOUBLE`, `MachinePlayer` implementation in `common` (`core.player`), the saved format and unknown-key passthrough. An in-memory backend in `test` (`MemoryPlayerStorage`, the headless default). Tests (`PlayerDataTest`): codec round trip, unknown keys kept, session keys never saved, defaults and locked settings, setting parsing and range through `ConfigKey`.
 2. **Paper lifecycle and the PDC backend.** *Done* (`paper.player.PaperPlayers`, `PdcPlayerStorage`; dev-checked on Paper 26.3 and 1.20.6: the storage is picked and listed, no errors). The listener (join, quit, death, save timer, disable), `players.storage` / `players.save-interval` / `players.settings` in `EngineConfig.SPEC`, PDC migrations. Headless dev-server check: the engine starts with `players.storage: pdc` and reports the backend.
 3. **File backend, addon backends, offline load.** *Done* (`FilePlayerStorage`, `FilePlayerStorageTest`; dev-checked on Paper 26.3 with `players.storage: machineengine:files`). A damaged file is moved aside (`<uuid>.dat.damaged-<time>`) and the player starts empty. `machineengine:files` with atomic writes and per-UUID ordering; `playerStorages().register`; `loadOffline`. Tests: write/read, a crash between temp file and move keeps the old file, a load waits for a pending write. Headless dev-server check with `players.storage: files`.
-4. **Commands, events and zMenu.** `/machinesettings`, `/machineengine player`, the placeholders, the button type and `player_settings.yml`, lang entries in the engine pack (D23).
+4. **Commands, events and zMenu.** *Done* (`PlayerSettingsCommand`, `PlayerAdminCommand`, `PlayerValues`, `PlayerSettingButton`, `PlayerSettingsMenu`; dev-checked on Paper 26.3 from the console; in-game clicks are the owner's check). `PlayerDataKey#display` formats a value for placeholders and admin output. The menu is rewritten at every start while its first line is MachineEngine's marker. `/machinesettings`, `/machineengine player`, the placeholders, the button type and `player_settings.yml`, lang entries in the engine pack (D23).
 5. **Mekanized.** The keys above; `PaperRadiation`, `SuitTicker` and `PaperAutomation` use them; the PDC code and the `UUID` fields go. The radiation HUD obeys `mekanized:radiation_hud`. Tests: dose migration from the old PDC key, dose reset on death, existing radiation tests unchanged.
 6. **Docs.** MEKANIZED_GUIDE (settings, placeholders), README (config keys, permissions), memory note.
 

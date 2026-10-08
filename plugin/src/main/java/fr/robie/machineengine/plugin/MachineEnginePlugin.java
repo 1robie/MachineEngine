@@ -29,6 +29,7 @@ import fr.robie.machineengine.paper.event.BukkitEventBridge;
 import fr.robie.machineengine.paper.player.FilePlayerStorage;
 import fr.robie.machineengine.paper.player.PaperPlayers;
 import fr.robie.machineengine.paper.player.PdcPlayerStorage;
+import fr.robie.machineengine.paper.player.PlayerSettingsCommand;
 import fr.robie.paperdispatch.manager.CommandManager;
 import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
 import net.kyori.adventure.text.Component;
@@ -156,6 +157,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         getServer().getPluginManager().registerEvents(this.host.leftClicks(), this);
         this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
         this.commandManager.trackCommand(this.commands);
+        this.commandManager.trackCommand(new PlayerSettingsCommand(this, () -> this.engine));
         this.commandManager.flushRegistrations();
     }
 

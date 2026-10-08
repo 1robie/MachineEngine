@@ -62,6 +62,10 @@ paper {
             description = "Open machine menus"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
         }
+        register("machineengine.settings") {
+            description = "See and change your own settings (/machinesettings)"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.TRUE
+        }
         register("machineengine.admin") {
             description = "MachineEngine admin commands"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP

@@ -16,6 +16,7 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.paper.player.PlayerAdminCommand;
 import fr.robie.paperdispatch.command.BaseCommand;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
@@ -46,7 +47,7 @@ import java.util.function.Supplier;
 @SuppressWarnings("UnstableApiUsage")
 public final class MachineEngineCommands extends BaseCommand<Plugin> {
     public static final String PERMISSION = "machineengine.admin";
-    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|placeholders|network|registry|reload>";
+    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|placeholders|network|registry|player|reload>";
 
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
@@ -72,6 +73,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
                 new PositionCommand(plugin, "purge", this::purge, null)));
         addSubCommand(new PositionCommand(plugin, "network", this::network, null));
         addSubCommand(new RegistryCommand(plugin, this.engine, this::registry));
+        addSubCommand(new PlayerAdminCommand(plugin, this.engine));
         addSubCommand(SubCommand.builder(plugin, "reload")
                 .addSubCommand(simple("config", dispatch -> reloadConfig(dispatch.getSender())))
                 .addSubCommand(simple("recipes", dispatch -> reload(dispatch.getSender(), Registries.RECIPE)))
