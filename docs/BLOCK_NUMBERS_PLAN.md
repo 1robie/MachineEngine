@@ -112,6 +112,11 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - Not shipped, but available to any block: `storages:` and `ports:` for every other machine (processing machines' energy buffers and tanks, factories' chemical tanks). Their recipes' energy and time are in the definitions already.
   - Stay in Java: factory lanes (the machine type's slots), the gas-burning generator's fuels (a table of Joules per fuel, recipe-like), creative blocks.
   - Tests: `BlockNumbersTest#everyShippedPortRateIsTheMachinesDefault` and the new options in `everyShippedOptionIsItsDefault`; `BlockOptionsTest#portRatesReplaceTheTypesAndInvalidOnesAreReported`; `EnergyItemsChainTest#aCubeChargesAtItsBlocksPortRate`.
+- **2026-10-08, dev-server checks (Paper 1.20.6, a copy of the owner's run folder in the worktree).** New admin check `/mekanized check-block-options <x y z world>`: a basic bin, basic energy cube, chargepad and basic universal cable in a row (placed if missing), and what their machines read.
+  1. Shipped values reach placed blocks: bin 4096, cube out rate 4000, chargepad 51200, cable network 8000/tick. No option warnings, no errors.
+  2. The installed `utility.yml` and `machines.yml` edited (5000, 7000, 12345, cable 3000), then `ce reload all`: blocks placed afterwards read the new values (cable network 3000/tick); the blocks already placed kept the old ones.
+  3. After a restart, the blocks placed before the edit read the new values. Mekanized kept the two edited files ("was edited: kept as is").
+  - So: `/ce reload` reaches new blocks only; a restart reaches all. The guide says so. Making loaded machines follow a reload would need the machine to drop its cached `BlockOptions` and the host to read the block's current definition (and transports to rejoin their networks); not done.
 
 ## Stages
 
