@@ -27,6 +27,14 @@ dependencyResolutionManagement {
         maven("https://repo.momirealms.net/releases/") {
             mavenContent { releasesOnly() }
         }
+        // Paper-Dispatch (D35).
+        maven("https://jitpack.io") {
+            mavenContent { includeGroup("com.github.1robie.paper-dispatch") }
+        }
+        // FoliaLib (D35).
+        maven("https://repo.tcoded.com/releases") {
+            mavenContent { includeGroup("com.tcoded") }
+        }
     }
 }
 

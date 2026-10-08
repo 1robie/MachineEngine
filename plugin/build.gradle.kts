@@ -27,7 +27,8 @@ dependencies {
     implementation(project(":nms:v1_20_6"))
     implementation(project(":nms:v26_3"))
     compileOnly(libs.zmenu.api)
-    devAddons(project(":mekanized"))
+    // The shaded jar: Mekanized bundles a relocated Paper-Dispatch (D35).
+    devAddons(project(":mekanized", "shadowRuntimeElements"))
 }
 
 paper {
@@ -78,10 +79,25 @@ tasks.shadowJar {
         exclude(dependency("net.kyori:.*"))
         exclude(dependency("org.jetbrains:annotations"))
     }
+    // Bundled libraries are relocated (D35): another plugin may bundle other versions of them.
+    relocate("fr.robie.paperdispatch", "fr.robie.machineengine.libs.paperdispatch")
+    relocate("com.tcoded.folialib", "fr.robie.machineengine.libs.folialib")
 }
 
 tasks.assemble {
     dependsOn(tasks.shadowJar)
+}
+
+val verifyRelocation = tasks.register<VerifyRelocation>("verifyRelocation") {
+    description = "Checks that the plugin jar holds no unrelocated bundled library (D35)."
+    group = "verification"
+    jar = tasks.shadowJar.flatMap { it.archiveFile }
+    packages = listOf("fr/robie/paperdispatch/", "com/tcoded/folialib/")
+    report = layout.buildDirectory.file("reports/relocation.txt")
+}
+
+tasks.check {
+    dependsOn(verifyRelocation)
 }
 
 // ---------------------------------------------------------------------------------------------

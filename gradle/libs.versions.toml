@@ -13,6 +13,11 @@ shadow = "9.6.1"
 plugin-yml = "0.9.0"
 run-paper = "3.1.0"
 zmenu = "1.1.1.9"
+# Shaded and relocated (D35).
+# main at 2fafd75 (removal namespace without PluginMeta#namespace, for 1.20.6): JitPack's main-SNAPSHOT
+# still serves an older build. Switch to the release tag once there is one.
+paper-dispatch = "2fafd75"
+folialib = "0.5.1"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
@@ -20,6 +25,8 @@ paper-api-baseline = { module = "io.papermc.paper:paper-api", version.ref = "pap
 asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
 zmenu-api = { module = "fr.maxlego08.menu:zmenu-api", version.ref = "zmenu" }
+paper-dispatch = { module = "com.github.1robie.paper-dispatch:paper-dispatch", version.ref = "paper-dispatch" }
+folialib = { module = "com.tcoded:FoliaLib", version.ref = "folialib" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

@@ -34,10 +34,16 @@ import java.util.zip.ZipFile
  * This task reads the compiled classes and checks every reference into [checkedPackages] against the
  * [baseline] API: the class exists and is a class or an interface as the call expects, and the method or
  * field exists with the same static-ness. It also checks that no class is newer than [maxClassVersion].
+ *
+ * [classes] may also hold jars: bundled libraries are checked the same way. A library may contain code that
+ * cannot run on the baseline as long as we never call it; those problems go in [allowed], exactly as the
+ * report prints them. An allowed problem of a class this task read that is no longer found fails too, so the
+ * list stays true when a library is upgraded; entries for classes it did not read are ignored, so one list
+ * serves every module.
  */
 @CacheableTask
 abstract class VerifyPaperBaseline : DefaultTask() {
-    /** Compiled class directories of the module. */
+    /** Compiled class directories of the module, or jars of bundled libraries. */
     @get:InputFiles
     @get:SkipWhenEmpty
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -55,6 +61,14 @@ abstract class VerifyPaperBaseline : DefaultTask() {
     @get:Input
     abstract val maxClassVersion: Property<Int>
 
+    /** Problems known to be unreachable from our code, exactly as reported. */
+    @get:Input
+    abstract val allowed: ListProperty<String>
+
+    init {
+        allowed.convention(emptyList())
+    }
+
     @get:OutputFile
     abstract val report: RegularFileProperty
 
@@ -63,16 +77,38 @@ abstract class VerifyPaperBaseline : DefaultTask() {
         val api = ApiIndex(baseline.files)
         val prefixes = checkedPackages.get()
         val problems = sortedSetOf<String>()
-        var count = 0
-        classes.files.filter { it.isDirectory }.forEach { directory ->
-            directory.walk().filter { it.isFile && it.name.endsWith(".class") && it.name != "module-info.class" }.forEach { file ->
-                count++
-                ClassReader(file.readBytes()).accept(Checker(api, prefixes, maxClassVersion.get(), problems), 0)
+        val checkedClasses = HashSet<String>()
+        fun check(name: String, bytes: () -> ByteArray) {
+            if (!name.endsWith(".class") || name.endsWith("module-info.class") || name.startsWith("META-INF/")) return
+            val reader = ClassReader(bytes())
+            checkedClasses += reader.className.replace('/', '.')
+            reader.accept(Checker(api, prefixes, maxClassVersion.get(), problems), 0)
+        }
+        classes.files.forEach { file ->
+            if (file.isDirectory) {
+                file.walk().filter { it.isFile }.forEach { check(it.relativeTo(file).invariantSeparatorsPath, it::readBytes) }
+            } else if (file.isFile && file.name.endsWith(".jar")) {
+                ZipFile(file).use { zip ->
+                    for (entry in zip.entries()) check(entry.name) { zip.getInputStream(entry).use { it.readBytes() } }
+                }
             }
         }
+        val allowedProblems = allowed.get().toSet()
         val output = report.get().asFile
+        // Entries for classes this task did not read belong to another module's libraries.
+        val stale = allowedProblems.filter { it.substringBefore(':') in checkedClasses && it !in problems }
+        if (stale.isNotEmpty()) {
+            output.writeText(stale.joinToString("\n", postfix = "\n"))
+            throw GradleException(
+                "${stale.size} allowed baseline problem(s) are no longer found; remove them from the allow-list:\n" +
+                        stale.joinToString("\n") { "  $it" }
+            )
+        }
+        val allowedFound = problems.count { it in allowedProblems }
+        problems.removeAll(allowedProblems)
         if (problems.isEmpty()) {
-            output.writeText("$count classes match the baseline Paper API.\n")
+            val note = if (allowedFound == 0) "" else " ($allowedFound known problem(s) allowed)"
+            output.writeText("${checkedClasses.size} classes match the baseline Paper API$note.\n")
             return
         }
         output.writeText(problems.joinToString("\n", postfix = "\n"))
