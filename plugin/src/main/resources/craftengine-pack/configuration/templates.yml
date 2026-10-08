@@ -13,3 +13,19 @@ templates:
             item: ${__NAMESPACE__}:${__ID__}
         functions:
           - type: machineengine:keep_contents
+
+  # A block that is a MachineEngine machine of the same id, kept with its contents when broken.
+  # Use it at the top of the block; keys written next to it are merged in, so a block adds its own
+  # behavior options (D34), settings and states:
+  #   mekanized:digital_miner:
+  #     template: machineengine:block/machine
+  #     behavior:
+  #       options: { energy-per-block: 2000 }
+  # A block whose machine type has another id adds `behavior: { machine: <id> }`.
+  machineengine:block/machine:
+    behavior:
+      type: machineengine:machine
+      machine: ${__NAMESPACE__}:${__ID__}
+      keep_contents: true
+    loot:
+      template: machineengine:loot_table/keep_contents

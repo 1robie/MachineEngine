@@ -54,14 +54,14 @@ Owner, 2026-10-08:
 ## Design
 
 **Engine templates (`machineengine:`):**
-- `machineengine:block/machine`: the machine behavior with `machine: ${machine:-"${__NAMESPACE__}:${__ID__}"}`, `keep_contents: ${keep_contents:-true}` and the keep-contents loot.
+- `machineengine:block/machine` (done, Stage 1): the machine behavior with `machine: ${__NAMESPACE__}:${__ID__}`, `keep_contents: true` and the keep-contents loot. Literal values, not `${…:-default}` arguments, so they keep their YAML type; a block with another machine id writes `behavior: {machine: …}` next to the template.
 - `machineengine:block/transport`: the transport behavior, `loot: self`, the shared invisible state (`auto_state: {type: sapling, id: ${state_group}}`).
 - `machineengine:block_state/facing`, `…/active`, `…/facing_active`: solid states rotated by `facing`, with model `${model:-"${__NAMESPACE__}:block/${__ID__}"}` and active model `${active_model:-"${model}_active"}`.
 - `machineengine:block_state/display_rendered`, `…/display_rendered_facing`: one appearance with `auto_state: {type: ${state_type:-leaves}, id: ${display_state}}`. The facing variant maps all four facings to it. The shared state id stays the particle texture's id, as today ([[craftengine-visual-state-pools]]).
 
 Each one gets a comment in `templates.yml` (arguments and an example) like `keep_contents` has, because other addons will use them.
 
-**Mekanized templates (`mekanized:`):** `mekanized:settings/machine` (`shape: solid | transparent`), `…/storage_block`, `…/blast_proof`. `mekanized:item/block_item` (name from `lang:block.<ns>.<id>`, model `block/<id>` by default, `block_item` of the same id) and `mekanized:item/named` (name from `lang:item.<ns>.<id>`).
+**Mekanized templates (`mekanized:`):** `mekanized:settings/machine`, `…/transparent_machine` (machines drawn by display entities, and transports), `…/storage_block` (done, Stage 1; the two blast-proof personal storage blocks use `overrides: {resistance: 3600000.0}` on the machine template, no template of their own). `mekanized:item/block_item` (name from `lang:block.<ns>.<id>`, model `block/<id>` by default, `block_item` of the same id) and `mekanized:item/named` (name from `lang:item.<ns>.<id>`).
 
 **Factories**, in the file that holds the family today. An example:
 ```yaml
@@ -107,7 +107,7 @@ Each stage builds, passes the tests and matches the snapshot on the dev server, 
 
 **Stage 0 — the snapshot. Done (2026-10-08).** `ceSnapshot` and the reference from today's files: 200 blocks, 958 items, no warnings. Two runs give the same result, and a changed hardness is reported. The test loader (`ShippedConfig`, used by `ShippedBlocks` and `ShippedItems`) reads factories (`ShippedConfigTest`).
 
-**Stage 1 — templates.** The engine and Mekanized `templates.yml`. Mekanized's file is installed with replace and listed by `contentManifest`. Then the settings, loot and machine behavior on today's entries switch to the templates (the 190 settings overrides first). This needs no factory and proves the templates load across packs.
+**Stage 1 — templates. Done (2026-10-08).** The Mekanized `templates.yml` (installed with replace at every start, `MekanizedPlugin.TEMPLATES`) with the three settings templates, and `machineengine:block/machine` in the engine's. The 190 settings overrides and the 145 machines' behavior and loot use them: −2,629 / +335 lines, `ceSnapshot` matches. `ShippedBlocks` fills in what `machineengine:block/machine` gives (type, the block's id, `keep_contents`), since `BlockNumbersTest` needs the machine id. Each later template is added with the stage that first uses it, so none ships untested.
 
 **Stage 2 — transports.** 5 factories, 20 blocks, 340 items. This is the biggest saving and has the simplest shape.
 
