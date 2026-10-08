@@ -83,6 +83,12 @@ Multiblock physics goes in the multiblock type in either case: Mekanized's types
   - The stabilizer's and barrel's menus no longer print their energy per chunk and decay rate, which can now differ per block.
   - `BlockNumbersTest#everyShippedOptionIsItsDefault` checks every shipped option against its Java default, and that no block has options the test does not know.
   - Found on the way: many other machines take numbers as behavior arguments (energy, ticks, capacities passed to factories). A later stage could turn them into options the same way; nothing changes for them yet.
+- **2026-10-08, Stage 3 (done; still to try in game).**
+  - The drives' sizes are item config (D32): the item behavior `mekanized:qio_drive` (`items`, `kinds`) on the four drive items. Machine code asks `QioDrives.of(item)`; on Paper the lookup reads the item's CraftEngine behavior (`GearBehaviors.options(Key, Class)`), so any item with the behavior is a drive. Without a platform lookup (headless tests) `QioDrives.DEFAULTS` holds Mekanism's numbers.
+  - The importer and exporter have the block option `items-per-second` (`AutomationMachines.IO_RATE`).
+  - Removed from `config.yml`: `qio.drive-items`, `qio.drive-kinds`, `qio.importer-exporter-rate` (kept and ignored in old files).
+  - **Kept in `config.yml`:** `qio.array-kinds`. It sets how many item slots the drive array's machine type has, fixed at registration, so it cannot change per block (structural, like the factory lanes).
+  - `BlockNumbersTest#everyShippedDriveHoldsTheDefault` compares the shipped drive items with `QioDrives.DEFAULTS`.
 
 ## Stages
 
@@ -91,7 +97,7 @@ Each stage is one or more commits that build and pass `./gradlew check`. No game
 - **Stage 0: engine support.** `options:` (and `storages:` capacity overrides, if decision 1) on `machineengine:machine`, `rate:` on `machineengine:transport`, read through a typed `BlockOptions` the machine behavior gets at bind time (`ConfigKey`-like: default, range, clamped, reported when invalid). Headless tests with a fake block config.
 - **Stage 1: tiered capacities and rates.** Bins, thermodynamic conductors, chargepad, universal cable, pressurized tube, mechanical pipe, logistical transporter. Removes `transport.*` from `MekanizedConfig`.
 - **Stage 2: single machines.** Nutritional liquifier, electric pump, fuelwood heater, seismic vibrator, lasers, radioactive waste barrel, digital miner, dimensional stabilizer. Removes `radiation.barrel-*` and the miner's and stabilizer's energy and ticks; their radius and scan limits stay world rules.
-- **Stage 3: QIO.** Drive items and kinds go in each drive's item config (D32, `mekanized:qio_drive` item behavior); array kinds and importer/exporter rate on their blocks. Removes `qio.*`.
+- **Stage 3: QIO.** Drive items and kinds go in each drive's item config (D32, `mekanized:qio_drive` item behavior); importer/exporter rate on their blocks. Array kinds stay (structural).
 - **Stage 4: gauge dropper capacity** in its item config (D32), with the other dropper data already in `ItemData`.
 - **Stage 5: multiblock physics.** Induction cells and providers, dynamic tank and evaporation per-block amounts, boiler, fission, fusion, SPS, turbine numbers as options on their multiblock types. Removes `dynamic-tank.*`, `thermal-evaporation.*`.
 - **Stage 6: clean-up.** `MekanizedConfig` keeps only radiation and teleporter; `MEKANIZED_GUIDE.md` lists where each number now lives; decision log entry.
