@@ -26,6 +26,7 @@ import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.machineengine.paper.player.FilePlayerStorage;
 import fr.robie.machineengine.paper.player.PaperPlayers;
 import fr.robie.machineengine.paper.player.PdcPlayerStorage;
 import fr.robie.paperdispatch.manager.CommandManager;
@@ -132,6 +133,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         builder.itemTags(items);
         // Where player data can be saved (D37); players.storage picks one.
         builder.playerStorage(PdcPlayerStorage.TYPE);
+        builder.playerStorage(FilePlayerStorage.TYPE);
         CoreMachineEngine started = builder.start();
         this.engine = started;
         items.attach(() -> this.engine);
