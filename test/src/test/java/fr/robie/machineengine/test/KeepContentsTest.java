@@ -12,7 +12,7 @@ import fr.robie.machineengine.api.process.ProcessBinding;
 import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.core.data.DataBinary;
+import fr.robie.machineengine.api.data.DataBinary;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.core.machine.LoadedMachine;

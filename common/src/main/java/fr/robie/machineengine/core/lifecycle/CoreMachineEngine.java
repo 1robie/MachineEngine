@@ -16,6 +16,8 @@ import fr.robie.machineengine.api.item.Items;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineInstance;
+import fr.robie.machineengine.api.player.PlayerDataStorage;
+import fr.robie.machineengine.api.player.PlayerEvents;
 import fr.robie.machineengine.api.registry.RegistrationException;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
@@ -33,6 +35,7 @@ import fr.robie.machineengine.api.version.Version;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.event.CoreEventBus;
 import fr.robie.machineengine.core.machine.CoreMachines;
+import fr.robie.machineengine.core.player.CorePlayers;
 import fr.robie.machineengine.core.registry.RegistrySet;
 import fr.robie.machineengine.core.registry.SimpleRegistry;
 import fr.robie.machineengine.core.resource.BuiltInValidators;
@@ -74,6 +77,7 @@ public final class CoreMachineEngine implements MachineEngine {
     private ResourceConverterLookup converters;
     private ResourceCodecs resourceCodecs;
     private CoreMachines machines;
+    private CorePlayers players;
     private volatile Function<WorldPosition,
             MachineInstance> machineLookup = position -> null;
 
@@ -84,14 +88,16 @@ public final class CoreMachineEngine implements MachineEngine {
     }
 
     static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger) {
-        return start(registrations, apiVersion, logger, ItemTagSource.NONE);
+        return start(registrations, apiVersion, logger, ItemTagSource.NONE, List.of());
     }
 
     static CoreMachineEngine start(List<AddonRegistration> registrations, Version apiVersion, Logger logger,
-                                   ItemTagSource itemTags) {
+                                   ItemTagSource itemTags, List<PlayerDataStorage.Type> playerStorages) {
         CoreMachineEngine engine = new CoreMachineEngine(logger);
         engine.itemTagSource = itemTags;
         engine.createBuiltInRegistries();
+        // The platform's player data storages (D37), before addons so none can take their keys.
+        playerStorages.forEach(storage -> engine.registries.staticRegistry(Registries.PLAYER_STORAGE).register(AddonId.MACHINE_ENGINE, storage));
         engine.register(registrations, apiVersion);
         engine.validate();
         engine.freeze();
@@ -118,6 +124,7 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
                 Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
                 Registries.MULTIBLOCK_TYPE, Registries.BEHAVIOR_TYPE,
+                Registries.PLAYER_DATA, Registries.PLAYER_SETTING, Registries.PLAYER_STORAGE,
                 Registries.RECIPE, Registries.RESOURCE_TAG, Registries.ITEM_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
@@ -147,7 +154,7 @@ public final class CoreMachineEngine implements MachineEngine {
         for (EventType<?> event : List.of(MachineEvents.MACHINE_CREATE, MachineEvents.MACHINE_LOAD, MachineEvents.MACHINE_UNLOAD,
                 MachineEvents.MACHINE_REMOVE, MachineEvents.PROCESS_START, MachineEvents.PROCESS_COMPLETE,
                 MachineEvents.UPGRADE_CHANGE, MachineEvents.RESOURCES_CHANGED,
-                EngineEvents.REGISTRIES_FROZEN, EngineEvents.REGISTRY_RELOADED)) {
+                EngineEvents.REGISTRIES_FROZEN, EngineEvents.REGISTRY_RELOADED, PlayerEvents.SETTING_CHANGED)) {
             this.registries.staticRegistry(Registries.EVENT_TYPE).register(AddonId.MACHINE_ENGINE, event);
         }
     }
@@ -251,6 +258,10 @@ public final class CoreMachineEngine implements MachineEngine {
         this.converters = new CoreConverterLookup(this.registries.registry(Registries.RESOURCE_CONVERTER));
         this.resourceCodecs = new ResourceCodecs(this.registries);
         this.machines = new CoreMachines(this.registries, this.transactions, this::tags, this.events, this.resourceCodecs, this.logger);
+        this.players = new CorePlayers(this.registries, this.events, MachineEngine::config, this.logger);
+        for (String problem : this.players.problems()) {
+            this.startupDiagnostics.add(Diagnostic.warning(DiagnosticCodes.DUPLICATE_KEY, problem).build());
+        }
         this.phase = LifecyclePhase.FROZEN;
     }
 
@@ -431,6 +442,11 @@ public final class CoreMachineEngine implements MachineEngine {
     public void setMachineLookup(@NotNull Function<WorldPosition,
             MachineInstance> lookup) {
         this.machineLookup = lookup;
+    }
+
+    @Override
+    public @NotNull CorePlayers players() {
+        return this.players;
     }
 
     /** Machine placement, loading and persistence, for hosts. */

@@ -9,6 +9,7 @@ import fr.robie.machineengine.api.event.EventBus;
 import fr.robie.machineengine.api.lifecycle.LifecyclePhase;
 import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.platform.Scheduler;
+import fr.robie.machineengine.api.player.MachinePlayers;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverterLookup;
@@ -107,4 +108,10 @@ public interface MachineEngine {
      */
     @NotNull Optional<MachineInstance> machineAt(
             @NotNull WorldPosition position);
+
+    /**
+     * The data MachineEngine and addons keep per player (D37). Headless (tests) it holds players the test
+     * joins itself, saved in memory.
+     */
+    @NotNull MachinePlayers players();
 }

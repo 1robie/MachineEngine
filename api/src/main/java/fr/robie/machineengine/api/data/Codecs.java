@@ -2,6 +2,7 @@ package fr.robie.machineengine.api.data;
 
 import fr.robie.machineengine.api.data.DataValue.DataBool;
 import fr.robie.machineengine.api.data.DataValue.DataBytes;
+import fr.robie.machineengine.api.data.DataValue.DataDouble;
 import fr.robie.machineengine.api.data.DataValue.DataList;
 import fr.robie.machineengine.api.data.DataValue.DataLong;
 import fr.robie.machineengine.api.data.DataValue.DataString;
@@ -29,7 +30,12 @@ public final class Codecs {
                     : Result.ok(number.intValue()),
             Integer::longValue);
 
-    public static final StorageCodec<Boolean> BOOL = StorageCodec.of(DataValue::of,
+    /** Decimals, never for amounts (D10); a whole number decodes too. */
+    public static final StorageCodec<Double> DOUBLE = StorageCodec.of(DataValue::of,
+            data -> data instanceof DataDouble number ? Result.ok(number.value())
+                    : data instanceof DataLong number ? Result.ok((double) number.value()) : wrongKind("decimal", data));
+
+    public static final StorageCodec<Boolean> BOOL =StorageCodec.of(DataValue::of,
             data -> data instanceof DataBool bool ? Result.ok(bool.value()) : wrongKind("boolean", data));
 
     public static final StorageCodec<byte[]> BYTES = StorageCodec.of(DataBytes::new,

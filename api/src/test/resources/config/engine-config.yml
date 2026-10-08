@@ -24,6 +24,23 @@ placeholders:
   # (machines whose addon is not installed). Breaking one destroys its data.
   allow-breaking: false
 
+players:
+  # Where the data addons keep per player (radiation dose, settings, ...) is saved:
+  #   machineengine:pdc    with the player's own data file (world/playerdata); admins cannot edit offline players
+  #   machineengine:files  plugins/MachineEngine/players/, one file per player; works for offline players
+  # Addons may add other storages. Switching does not move existing data. Restart to apply.
+  storage: machineengine:pdc
+  # Seconds between saves of changed player data. Data is also saved when a player leaves and when the server stops.
+  save-interval: 60
+  # Seconds a joining player waits for their data (storages other than machineengine:pdc).
+  # When it takes longer, the player is refused with a message rather than let in without their data.
+  load-timeout: 5
+  # Default value of player settings (/machinesettings) for players who did not choose, e.g.
+  #   "mekanized:radiation_hud": false
+  setting-defaults: {}
+  # Player settings players may not change: they keep the value of setting-defaults (or the built-in one).
+  locked-settings: []
+
 # Resources MachineEngine provides to every addon and definition:
 # machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.
 # Restart to apply.

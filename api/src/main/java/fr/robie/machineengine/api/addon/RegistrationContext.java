@@ -11,6 +11,9 @@ import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.multiblock.MultiblockType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
+import fr.robie.machineengine.api.player.PlayerDataKey;
+import fr.robie.machineengine.api.player.PlayerDataStorage;
+import fr.robie.machineengine.api.player.PlayerSetting;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.registry.RegistrationException;
@@ -131,6 +134,21 @@ public interface RegistrationContext {
 
     default @NotNull WritableRegistry<BehaviorType> behaviorTypes() {
         return registry(Registries.BEHAVIOR_TYPE);
+    }
+
+    /** Values kept per player (D37). */
+    default @NotNull WritableRegistry<PlayerDataKey<?>> playerData() {
+        return registry(Registries.PLAYER_DATA);
+    }
+
+    /** Per-player values players change themselves (D37). */
+    default @NotNull WritableRegistry<PlayerSetting<?>> playerSettings() {
+        return registry(Registries.PLAYER_SETTING);
+    }
+
+    /** Places player data can be saved, for {@code players.storage} (D37). */
+    default @NotNull WritableRegistry<PlayerDataStorage.Type> playerStorages() {
+        return registry(Registries.PLAYER_STORAGE);
     }
 
     default void recipes(@NotNull ReloadableProvider<Recipe> provider) {

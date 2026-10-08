@@ -6,7 +6,7 @@ import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.core.data.DataBinary;
+import fr.robie.machineengine.api.data.DataBinary;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;

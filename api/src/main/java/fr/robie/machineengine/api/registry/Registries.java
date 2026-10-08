@@ -10,6 +10,9 @@ import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.multiblock.MultiblockType;
 import fr.robie.machineengine.api.network.NetworkType;
 import fr.robie.machineengine.api.network.TransportType;
+import fr.robie.machineengine.api.player.PlayerDataKey;
+import fr.robie.machineengine.api.player.PlayerDataStorage;
+import fr.robie.machineengine.api.player.PlayerSetting;
 import fr.robie.machineengine.api.recipe.Recipe;
 import fr.robie.machineengine.api.recipe.RecipeType;
 import fr.robie.machineengine.api.resource.ResourceCategory;
@@ -58,6 +61,18 @@ public final class Registries {
     /** Behaviors data-driven machine definitions can use by key (§29). */
     public static final RegistryType<BehaviorType> BEHAVIOR_TYPE =
             RegistryType.createStatic(MachineEngineKeys.key("behavior_type"), BehaviorType.class);
+
+    /** Values kept per player (D37). */
+    public static final RegistryType<PlayerDataKey<?>> PLAYER_DATA =
+            RegistryType.createStatic(MachineEngineKeys.key("player_data"), PlayerDataKey.class);
+
+    /** Per-player values players change themselves (D37); each one's {@link PlayerSetting#data()} is a player data key too. */
+    public static final RegistryType<PlayerSetting<?>> PLAYER_SETTING =
+            RegistryType.createStatic(MachineEngineKeys.key("player_setting"), PlayerSetting.class);
+
+    /** Where player data can be saved, chosen with {@code players.storage} (D37). */
+    public static final RegistryType<PlayerDataStorage.Type> PLAYER_STORAGE =
+            RegistryType.createStatic(MachineEngineKeys.key("player_storage"), PlayerDataStorage.Type.class);
 
     /** Recipes are reloadable (D5). */
     public static final RegistryType<Recipe> RECIPE =

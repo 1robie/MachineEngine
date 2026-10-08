@@ -3,6 +3,7 @@ package fr.robie.machineengine.core.lifecycle;
 import fr.robie.machineengine.api.MachineEngineApi;
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.definition.DefinitionFile;
+import fr.robie.machineengine.api.player.PlayerDataStorage;
 import fr.robie.machineengine.api.version.Version;
 import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.resource.ItemTagSource;
@@ -27,10 +28,17 @@ public final class MachineEngineBuilder {
     private DefinitionCompiler.ItemResolver items =
             DefinitionCompiler.ItemResolver.NONE;
     private ItemTagSource itemTags = ItemTagSource.NONE;
+    private final List<PlayerDataStorage.Type> playerStorages = new ArrayList<>();
 
     /** The platform's item tags (vanilla and CraftEngine tags on Paper), consulted after addon item tags. */
     public @NotNull MachineEngineBuilder itemTags(@NotNull ItemTagSource source) {
         this.itemTags = Objects.requireNonNull(source);
+        return this;
+    }
+
+    /** A player data storage the platform provides (D37), registered by MachineEngine itself. */
+    public @NotNull MachineEngineBuilder playerStorage(@NotNull PlayerDataStorage.Type storage) {
+        this.playerStorages.add(Objects.requireNonNull(storage));
         return this;
     }
 
@@ -70,6 +78,6 @@ public final class MachineEngineBuilder {
             all.add(DefinitionCompiler.registration(this.definitions, this.items,
                     this.registrations.stream().map(AddonRegistration::addon).toList(), this.apiVersion));
         }
-        return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger, this.itemTags);
+        return CoreMachineEngine.start(List.copyOf(all), this.apiVersion, this.logger, this.itemTags, List.copyOf(this.playerStorages));
     }
 }

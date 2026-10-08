@@ -3,6 +3,7 @@ package fr.robie.machineengine.api.config;
 import fr.robie.machineengine.api.resource.Energy;
 import fr.robie.machineengine.api.resource.Fluids;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,6 +31,29 @@ public final class EngineConfig {
             .comment("Whether players without machineengine.admin.breakplaceholders may break placeholder machines",
                     "(machines whose addon is not installed). Breaking one destroys its data.");
 
+    public static final ConfigKey<String> PLAYER_STORAGE = ConfigKey.string("players.storage", "machineengine:pdc")
+            .comment("Where the data addons keep per player (radiation dose, settings, ...) is saved:",
+                    "  machineengine:pdc    with the player's own data file (world/playerdata); admins cannot edit offline players",
+                    "  machineengine:files  plugins/MachineEngine/players/, one file per player; works for offline players",
+                    "Addons may add other storages. Switching does not move existing data. Restart to apply.")
+            .restartOnly();
+
+    public static final ConfigKey<Integer> PLAYER_SAVE_INTERVAL = ConfigKey.integer("players.save-interval", 60, 5, 3600)
+            .comment("Seconds between saves of changed player data. Data is also saved when a player leaves and when the server stops.")
+            .clamped();
+
+    public static final ConfigKey<Integer> PLAYER_LOAD_TIMEOUT = ConfigKey.integer("players.load-timeout", 5, 1, 60)
+            .comment("Seconds a joining player waits for their data (storages other than machineengine:pdc).",
+                    "When it takes longer, the player is refused with a message rather than let in without their data.")
+            .clamped();
+
+    public static final ConfigKey<Map<String, String>> PLAYER_SETTING_DEFAULTS = ConfigKey.map("players.setting-defaults", Map.of())
+            .comment("Default value of player settings (/machinesettings) for players who did not choose, e.g.",
+                    "  \"mekanized:radiation_hud\": false");
+
+    public static final ConfigKey<List<String>> PLAYER_LOCKED_SETTINGS = ConfigKey.strings("players.locked-settings", List.of())
+            .comment("Player settings players may not change: they keep the value of setting-defaults (or the built-in one).");
+
     public static final ConfigSpec SPEC = ConfigSpec.builder()
             .header("MachineEngine configuration.",
                     "Missing settings are added with their defaults when the server starts and on /machineengine reload config.")
@@ -38,6 +62,11 @@ public final class EngineConfig {
             .key(MENUS_BY_TYPE)
             .key(BUKKIT_EVENT_BRIDGE)
             .key(ALLOW_BREAKING_PLACEHOLDERS)
+            .key(PLAYER_STORAGE)
+            .key(PLAYER_SAVE_INTERVAL)
+            .key(PLAYER_LOAD_TIMEOUT)
+            .key(PLAYER_SETTING_DEFAULTS)
+            .key(PLAYER_LOCKED_SETTINGS)
             .section("resources", "Resources MachineEngine provides to every addon and definition:",
                     "machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.",
                     "Restart to apply.")

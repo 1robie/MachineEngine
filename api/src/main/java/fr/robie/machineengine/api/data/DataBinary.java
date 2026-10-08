@@ -1,7 +1,5 @@
-package fr.robie.machineengine.core.data;
+package fr.robie.machineengine.api.data;
 
-import fr.robie.machineengine.api.data.DataMap;
-import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.data.DataValue.DataBool;
 import fr.robie.machineengine.api.data.DataValue.DataBytes;
 import fr.robie.machineengine.api.data.DataValue.DataDouble;
@@ -25,7 +23,7 @@ import java.util.zip.InflaterInputStream;
 
 /**
  * A compact, compressed binary form of {@link DataValue} trees, for platforms that store raw bytes
- * (e.g. machine contents kept in an item, §20.5). Platform-neutral and versioned.
+ * (e.g. machine contents kept in an item, §20.5, or player data, D37). Platform-neutral and versioned.
  */
 public final class DataBinary {
     private static final int VERSION = 1;
