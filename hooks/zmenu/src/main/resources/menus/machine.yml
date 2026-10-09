@@ -3,10 +3,18 @@
 #
 # Machine placeholders (any zMenu button, name or lore): %zmenu_machineengine_<key>%
 #   type, type_namespace, type_value, state, last_wake, error, facing, x, y, z, world
-#   storage_<id>_amount | _capacity | _free | _percent | _bar | _resource
-#   storage_<id>_slot_<n>_amount | _capacity | _resource      (n starts at 1)
-#   process_active | _recipe | _status | _progress | _duration | _remaining | _remaining_seconds | _percent | _bar
+#   storage_<id>_amount | _capacity | _free | _percent | _bar | _resource | _name | _color | _cell_<k>
+#   storage_<id>_slot_<n>_amount | _capacity | _resource | _name | _color | _cell_<k>      (n starts at 1)
+#   process_active | _recipe | _status | _progress | _duration | _remaining | _remaining_seconds | _percent | _bar | _cell_<k>
 #   upgrades, upgrade_<namespace>_<value>, escrow
+#
+# Placeholders work in a button's material too, which is how textured fill bars are drawn: a bar
+# covers 3 slots, cell 0 at the bottom (or left), and _cell_<k> (k = 0, 1, 2) is that cell's level
+# (0 to 17, or 18 for the middle cell). _color is the resource's color as #RRGGBB, for the dyed-color
+# component of tinted bars. With Mekanized's items, for example:
+#   material: "craftengine:mekanized:gui/bar/chemical/0/%zmenu_machineengine_storage_tank_cell_0%"
+#   components:
+#     dyed-color: "%zmenu_machineengine_storage_tank_color%"
 #
 # MachineEngine button types:
 #   machineengine_slot            shows a storage slot; click to put the cursor item in or take items out

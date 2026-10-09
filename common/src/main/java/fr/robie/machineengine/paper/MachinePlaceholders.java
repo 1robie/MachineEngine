@@ -1,5 +1,6 @@
 package fr.robie.machineengine.paper;
 
+import fr.robie.machineengine.api.paper.ResourceColors;
 import fr.robie.machineengine.api.paper.ResourceNames;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.process.ProcessView;
@@ -19,14 +20,16 @@ import java.util.Locale;
  *
  * <pre>
  * type  type_namespace  type_value  placeholder  state  last_wake  error  facing  x  y  z  world
- * storage_&lt;id&gt;_amount  _capacity  _percent  _bar  _resource  _free
- * storage_&lt;id&gt;_slot_&lt;n&gt;_amount  _capacity  _resource          (n starts at 1)
+ * storage_&lt;id&gt;_amount  _capacity  _percent  _bar  _resource  _name  _free  _color  _cell_&lt;k&gt;
+ * storage_&lt;id&gt;_slot_&lt;n&gt;_amount  _capacity  _resource  _name  _color  _cell_&lt;k&gt;   (n starts at 1)
  * process_active  process_recipe  process_status  process_progress  process_duration
- * process_remaining  process_remaining_seconds  process_percent  process_bar
+ * process_remaining  process_remaining_seconds  process_percent  process_bar  process_cell_&lt;k&gt;
  * upgrades  upgrade_&lt;namespace&gt;_&lt;value&gt;  escrow
  * </pre>
  *
- * Bars are 10 characters of {@code █} and {@code ░}; percents are whole numbers.
+ * Bars are 10 characters of {@code █} and {@code ░}; percents are whole numbers. For textured menus,
+ * {@code _cell_<k>} is the level of cell k (0 to 2) of a 3-slot fill bar ({@link BarCells}), and
+ * {@code _color} the resource's color as {@code #RRGGBB} ({@link ResourceColors}).
  */
 public final class MachinePlaceholders {
     private static final int BAR_LENGTH = 10;
@@ -72,7 +75,7 @@ public final class MachinePlaceholders {
                 case "recipe", "status" -> "";
                 case "progress", "duration", "remaining", "remaining_seconds", "percent" -> "0";
                 case "bar" -> bar(0, 1);
-                default -> null;
+                default -> key.startsWith("cell_") ? cell(0, 1, key) : null;
             };
         }
         return switch (key) {
@@ -84,7 +87,7 @@ public final class MachinePlaceholders {
             case "remaining_seconds" -> Long.toString((process.remaining() + 19) / 20);
             case "percent" -> Long.toString(percent(process.progress(), process.duration()));
             case "bar" -> bar(process.progress(), process.duration());
-            default -> null;
+            default -> key.startsWith("cell_") ? cell(process.progress(), process.duration(), key) : null;
         };
     }
 
@@ -122,7 +125,9 @@ public final class MachinePlaceholders {
                         .map(view -> describe(view)).orElse("");
                 case "name" -> ResourceNames.of(slots.stream().filter(view -> !view.isEmpty()).findFirst()
                         .map(StorageView::variant).orElse(null));
-                default -> null;
+                case "color" -> ResourceColors.hex(ResourceColors.of(slots.stream().filter(view -> !view.isEmpty()).findFirst()
+                        .map(StorageView::variant).orElse(null)));
+                default -> field.startsWith("cell_") ? cell(amount, capacity, field) : null;
             };
         }
         return null;
@@ -134,8 +139,21 @@ public final class MachinePlaceholders {
             case "capacity" -> Long.toString(slot.capacity());
             case "resource" -> slot.isEmpty() ? "" : describe(slot);
             case "name" -> ResourceNames.of(slot.isEmpty() ? null : slot.variant());
-            default -> null;
+            case "color" -> ResourceColors.hex(ResourceColors.of(slot.isEmpty() ? null : slot.variant()));
+            default -> field.startsWith("cell_") ? cell(slot.amount(), slot.capacity(), field) : null;
         };
+    }
+
+    /** {@code cell_<k>}: the level of cell k of a fill bar, or {@code null} for a bad cell. */
+    private static @Nullable String cell(long value, long total, String key) {
+        int cell;
+        try {
+            cell = Integer.parseInt(key.substring("cell_".length()));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        int level = BarCells.level(value, total, cell);
+        return level < 0 ? null : Integer.toString(level);
     }
 
     private static String describe(StorageView view) {

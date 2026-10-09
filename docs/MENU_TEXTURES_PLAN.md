@@ -27,15 +27,13 @@ This plan gives the menus Mekanism's look: a textured panel drawn over the chest
 
 Server owners can move a slot's picture by editing the title, without drawing PNGs. `MenuYaml` writes the title from the buttons it places, so the Java builders stay the single source.
 
-**Live widgets as items.** New options on the button types, in `hooks:zmenu`:
+**Live widgets as items, chosen by placeholders.** zMenu resolves placeholders in a button's `material` before it asks the CraftEngine loader for the item (`ZMenuItemStack#resolveCustomItem`), and its `dyed-color` component takes placeholders too. So no new button type is needed (decided in stage 3; the first draft had `machineengine_bar`, `empty-item` and `icons:`):
 
-- `machineengine_slot`: `empty-item` — the item shown when the slot is empty (an invisible model with the slot's name as tooltip), so the slot texture under it shows.
-- `machineengine_bar` (new): a source (`storage: <id>` with optional `storage-slot`, or `process`), a `shape` (item prefix, e.g. `mekanized:gui/bar/tall`), and `cells` (slots, from empty end to full end). Each cell shows `<shape>/<level>`, dyed with the resource's color unless the button sets `color:`; name and lore keep the placeholders. Progress is a bar with `process` as source. See Fill bars below.
-- `machineengine_data` and `machineengine_side`: `icons:` — one item per value (`ignored: mekanized:gui/redstone/ignored`, `input: mekanized:gui/side/input`, …), falling back to `item:`.
+- a fill bar is 3 plain buttons, one per cell: `material: "craftengine:mekanized:gui/bar/<shape>/<k>/%zmenu_machineengine_storage_<id>_cell_<k>%"`, with `components: {dyed-color: "%zmenu_machineengine_storage_<id>_color%"}` on tinted shapes; progress uses `process_cell_<k>`;
+- an empty machine slot shows `material: craftengine:mekanized:gui/empty` (its name is the tooltip);
+- a setting shows its value's icon: `craftengine:mekanized:gui/icon/redstone_%zmenu_machineengine_data_redstone%`, `craftengine:mekanized:gui/side/%zmenu_machineengine_side_<group>_<side>%` (the icons are named after the values).
 
-Items are CE item ids, made with `CraftEngineItemBridge`; an unknown id falls back to the button's `item:` and is logged once.
-
-**Bar items are generated.** 17 models per shape (fill 0..16 px, from one parent with a cropped UV, like the cable shapes of D38) give `mekanized:gui/bar/<shape>/<level>` with a CE template; colors come from tint, not from more textures.
+**Bar items are generated.** One model per cell and level (written by a script, see stage 2) gives `mekanized:gui/bar/<shape>/<cell>/<level>` through a CE template; colors come from tint, not from more textures.
 
 **Fill bars for every storage.** Every amount a menu shows gets a bar that fills, like Mekanism: energy, the metallurgic infuser's infuse tank (redstone, carbon, …), the osmium compressor's osmium, oxygen, every chemical and fluid tank, heat. Mekanism's three shapes:
 
@@ -45,9 +43,9 @@ Items are CE item ids, made with `CraftEngineItemBridge`; an unknown id falls ba
 | power bar | 6 px wide, 3 rows tall | same cells, model on the left 6 px of the slot | energy |
 | horizontal bar | 3 cells wide | 1 row × 3 columns | process progress, heat, small buffers |
 
-- The frame is a title glyph (static); the fill is one item per cell (live). A cell shows level 0..16 of its own share: with `total = cells × 16`, `level = ceil(amount / capacity × total)` when not empty (1 mB shows 1 px), 0 when empty, and cell `i` shows `clamp(level - 16 i, 0, 16)`.
+- The frame is a title glyph (static); the fill is one item per cell (live). Each cell shows its own share of the 52 px (the bar rule in stage 2; 1 mB shows 1 px, only a full tank looks full).
 - **One model set per shape, colored by tint.** The fill texture is gray-scale; the cell item is dyed with the resource's color (`minecraft:dyed_color` with `tintindex 0`; CE maps it for 1.20.6 and 1.21.4+). Redstone is red, carbon black, oxygen light blue, energy Mekanism's green, without a texture per resource. Fluids use their own still texture where tint is not enough (water is tinted, lava has its own).
-- **Colors come from the resource.** Resources have no color today. Add an optional `color` to resource definitions (chemicals, fluids, energy, heat) in Mekanized's `chemicals.txt` / `fluids.txt` (Mekanism's tint values), with a gray default; the bar button reads it from the storage's current resource, so a tank shows the color of what it holds.
+- **Colors come from the resource.** Resources have no color today. Add an optional `color` to resource definitions (chemicals, fluids, energy, heat) in Mekanized's `chemicals.txt` / `fluids.txt` (Mekanism's tint values), with a gray default; the `_color` placeholder reads it from the storage's current resource, so a tank shows the color of what it holds.
 - **Hover keeps the numbers.** Each cell has the bar's name and lore (resource name, amount / capacity), so hovering any cell reads like Mekanism's tooltip.
 
 **Side configuration and redstone control (Mekanism style).**
@@ -60,7 +58,7 @@ Items are CE item ids, made with `CraftEngineItemBridge`; an unknown id falls ba
 
 ### Stage 0: spike (prove the technique on one menu). Done (2026-10-09), checked in game by the owner on Folia 26.2.
 
-**Result:** panel, colored slot frames and gauge frame line up with the chest grid at the computed positions (glyph top = `13 - ascent`, advance = width + 1, `<white><shift:-8>` before the panel); zMenu passes `<image>` and `<shift>` through and CE replaces them; the empty-slot item shows the slot texture and inserting still works; the CE items in buttons do not flicker and keep their tooltips. The energy and progress test items are fixed pictures (half full), so they do not follow the machine: that is stage 3's `machineengine_bar`. Still to check: a 1.20.6 client, and 3- and 6-row panels.
+**Result:** panel, colored slot frames and gauge frame line up with the chest grid at the computed positions (glyph top = `13 - ascent`, advance = width + 1, `<white><shift:-8>` before the panel); zMenu passes `<image>` and `<shift>` through and CE replaces them; the empty-slot item shows the slot texture and inserting still works; the CE items in buttons do not flicker and keep their tooltips. The energy and progress test items are fixed pictures (half full), so they do not follow the machine: that is stage 3 (placeholders). Still to check: a 1.20.6 client, and 3- and 6-row panels.
 
 On the crusher, by hand: a panel glyph and two slot glyphs in the title, one gauge cell and an invisible empty-slot item. No Java: zMenu 1.1.1.9 loads CraftEngine items itself (`material: craftengine:<id>`, its `CraftEngineLoader`), so the spike menu only uses YAML.
 
@@ -86,7 +84,7 @@ Stop and report if any of these fails.
 - `panel/panel_{3,4,5,6}.png`: Mekanism's `sprites/base` at the chest screen size (176 × (114 + 18 rows)) with the player inventory slots (`slot/normal`), written by `mekanized/tools/compose_menu_textures.py` (then `compose_menu_panels.py`) (run by hand, not a build step).
 - The spike's own composed slot textures (`textures/font/gui/`) are removed; `gui.yml` points at `panel/panel_5` and `slot/{input,output,normal}`.
 
-### Stage 2: CE configuration for the GUI. Done (2026-10-09); waiting for the owner's look in game (demo menu).
+### Stage 2: CE configuration for the GUI. Done (2026-10-09), checked in game by the owner: bars continuous across slots, aligned with their frames, animated chemical texture shows, icons fill their slots.
 
 - `mekanized/tools/compose_menu_textures.py` (was `compose_menu_panels.py`, run by hand) writes the panels, the bar frames (`gui/frame/`), the fills that are not a Mekanism texture as is (`gui/fill/`: the progress arrow stretched to 52 px, gauge ticks, a white strip for tinted horizontal bars), the side mode squares (`gui/side/`), the 312 bar models (`models/gui/bar/<shape>/<cell>_<level>.json`) and the icon parents (`models/gui/icon_{18,14}.json`).
 - Templates (`templates.yml`): `mekanized:gui/glyph` (an image: `file`, `ascent`, `height`), `mekanized:item/gui_bar` (`shape`, `cell`, `level`; material `leather_horse_armor` and a `dye` tint, so `dyed_color` colors the tinted faces on 1.20.6 and 26.x), `mekanized:item/gui_icon` (`texture`, `size` 18 or 14).
@@ -97,11 +95,16 @@ Stop and report if any of these fails.
 - Checked: `:plugin:ceSnapshot` (331 new items, nothing changed, accepted); the Folia 26.2 dev server builds and validates the pack with no new warning; the font has the 94 glyphs; CE writes `oversized_in_gui: true` on the bar items and adds the GUI textures to the atlases (`fix-atlas`).
 - Demo: a hand-written `mekanized_crusher.yml` in the Folia 26.2 dev server shows a chemical gauge, the progress arrow, the energy bar, the power slot with its overlay, and three icons, at fixed levels. zMenu cannot set `dyed_color`, so tinted bars show their default (white on 26.x, leather brown on 1.20.6) until stage 3.
 
-### Stage 3: engine button types and resource colors.
+### Stage 3: placeholders and resource colors. Done (2026-10-09); waiting for the owner's look in game (demo menu).
 
-- `hooks:zmenu`: `empty-item`, `machineengine_bar`, `icons:`; the level math (amount → per-cell level, rounding so 1 mB shows 1 px and full shows full) in a plain class with unit tests.
-- Optional `color` on resources (API and definitions), Mekanism's tints in `chemicals.txt` / `fluids.txt`; a test that every Mekanized chemical has one.
-- Document the new keys in `menus/machine.yml`'s header comment.
+- No new button type: placeholders in `material` and `dyed-color` do it (see Design).
+- `MachinePlaceholders` (common): `storage_<id>_cell_<k>`, `storage_<id>_slot_<n>_cell_<k>`, `process_cell_<k>` (level of cell k of a 3-slot bar) and `storage_<id>_color`, `storage_<id>_slot_<n>_color` (`#RRGGBB`). The level rule is `BarCells`: filled px = `floor(value / total × 52)`, at least 1 when not empty, 52 only when full (so a nearly full tank does not look full). Tests: `BarCellsTest`, `MachinePlaceholdersTest`.
+- `api.paper.ResourceColors`, like `ResourceNames`: addons register a colorer; MachineEngine colors water (`#3F76E4`) and lava; the rest is white.
+- Mekanized: `chemicals.txt` and `fluids.txt` get a second column, Mekanism's tint at `4718860` (`ChemicalConstants`, `MekanismChemicals`, `GeneratorsChemicals`, `PrimaryResource` for slurries, `EnumColor` for pigments, `MekanismFluids`, `GeneratorsFluids`); heat is `#FF7E1F`. `MekanizedContent.color` and a colorer registered next to the namer; `EngineResourcesTest` checks every chemical and Mekanized fluid has one.
+- Level-0 items (`gui/bar/<shape>/<cell>/0`, an empty model) so every placeholder value names an item; `:plugin:ceSnapshot` accepts the 18.
+- The placeholders and the bar recipe are documented in `menus/machine.yml`'s header.
+- Tinted bar buttons need `flags: [HIDE_DYE, HIDE_ATTRIBUTES]` so the tooltip does not list the dye or horse armor stats (stage 4 writes them).
+- Demo: the Folia 26.2 crusher menu's bars are live (energy bar, progress arrow, and a tall gauge on the energy buffer dyed `#B30505` to check the tint).
 
 ### Stage 4: Mekanized layouts.
 
