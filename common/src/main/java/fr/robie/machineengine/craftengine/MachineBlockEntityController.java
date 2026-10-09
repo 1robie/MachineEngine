@@ -240,6 +240,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
         }
         syncTicker();
         refreshDisplay();
+        // Transports next to it may have loaded first and drawn no arm toward it.
+        host.machineSidesChanged(at);
     }
 
     @Override
@@ -319,6 +321,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
         MachineInstanceImpl instance = instance();
         if (instance != null) instance.setFacing(this.behavior.facing(newState));
         refreshDisplay();
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        if (host != null && this.position != null) host.machineSidesChanged(this.position);
     }
 
     @Override

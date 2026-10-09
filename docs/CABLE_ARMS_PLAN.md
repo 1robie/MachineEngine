@@ -68,5 +68,5 @@ The questions were:
 
 ## Not in this plan (noticed on the way)
 
-- **Stale arms.** Arms are redrawn on a neighbor block update, on load and when the configurator cycles a side. A machine's port side-config change (`MachineInstanceImpl` → `networks().machineChanged`) does not redraw the cables next to it, so they can show a wrong arm until the next block update.
+- **Stale arms. Fixed (2026-10-09).** Arms were redrawn only on a neighbor block update, on load and when the configurator cycled a side, so a machine's port change left the cables next to it showing a wrong arm. Now `CraftEngineMachineHost#machineSidesChanged` redraws the transports around a machine when its ports change (`portsChanged`), when it turns, and when it loads. Checked in game by the owner.
 - **Hitbox.** Transports take the spruce sapling's outline (about 2..14 × 0..12) and have no collision, so the outline does not match the thin cable and players walk through cables.

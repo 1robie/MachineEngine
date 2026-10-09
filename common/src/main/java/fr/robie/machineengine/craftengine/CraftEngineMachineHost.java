@@ -324,6 +324,17 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         this.transports.remove(position, controller);
     }
 
+    /**
+     * The machine at {@code position} loaded, turned or changed its ports: the transports next to it
+     * redraw their arms toward it. A block update only reaches them when the block itself changes.
+     */
+    void machineSidesChanged(WorldPosition position) {
+        for (var side : fr.robie.machineengine.api.world.Direction.values()) {
+            TransportBlockBehavior.Controller transport = this.transports.get(position.relative(side));
+            if (transport != null) transport.scheduleRefresh();
+        }
+    }
+
     @Override
     public @Nullable TransportSideMode cycleTransportSide(@NotNull WorldPosition position,
                                                                                           @NotNull fr.robie.machineengine.api.world.Direction side) {
@@ -503,6 +514,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     @Override
     public void portsChanged(@NotNull MachineInstanceImpl machine) {
         withController(machine.position(), MachineBlockEntityController::refreshSides);
+        machineSidesChanged(machine.position());
     }
 
     @Override
