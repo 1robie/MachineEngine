@@ -82,14 +82,20 @@ Stop and report if any of these fails.
   - top-level icons: side config groups (`items`, `energy`, `chemicals`, `fluids`, `heat`), `configuration`, `transporter_config`, `redstone_control_{disabled,high,low}`, `upgrade`, `frequency`, security, teleporter states, `container_edit_mode_*`, `gas_mode_*`, arrows, …;
   - `generators/` from `mekanismgenerators/gui/` (7: fuel, sees_sun, no_sun, wind, state_holder, `button/reactor_logic`).
 - Left out (not menus): `hud/`, `radial/`, `mode/`, `icons/` (cable icons), the 256 × 256 `compass` and `warning*`, `slot/slots*.png` sheets, sliders, scroll bars, color picker, module and upgrade selection.
-- Gauge frames and colored slot frames reuse the nine-slice sprites already in `sprites/gauge/` (D31 import).
-- `panel/panel_{3,4,5,6}.png`: Mekanism's `sprites/base` at the chest screen size (176 × (114 + 18 rows)) with the player inventory slots (`slot/normal`), written by `mekanized/tools/compose_menu_panels.py` (run by hand, not a build step).
+- Gauge frames reuse the nine-slice sprite `sprites/gauge/normal` (D31 import).
+- `panel/panel_{3,4,5,6}.png`: Mekanism's `sprites/base` at the chest screen size (176 × (114 + 18 rows)) with the player inventory slots (`slot/normal`), written by `mekanized/tools/compose_menu_textures.py` (then `compose_menu_panels.py`) (run by hand, not a build step).
 - The spike's own composed slot textures (`textures/font/gui/`) are removed; `gui.yml` points at `panel/panel_5` and `slot/{input,output,normal}`.
 
-### Stage 2: CE configuration for the GUI.
+### Stage 2: CE configuration for the GUI. Done (2026-10-09); waiting for the owner's look in game (demo menu).
 
-- `pack/configuration/gui.yml` (Mekanized): `images:` (panels, slot kinds × rows, static decorations) and `items:` (invisible item, gauge and progress levels, side mode, redstone and tab icons), with templates in `templates.yml`.
-- Run `:plugin:ceSnapshot` and accept the new entries.
+- `mekanized/tools/compose_menu_textures.py` (was `compose_menu_panels.py`, run by hand) writes the panels, the bar frames (`gui/frame/`), the fills that are not a Mekanism texture as is (`gui/fill/`: the progress arrow stretched to 52 px, gauge ticks, a white strip for tinted horizontal bars), the side mode squares (`gui/side/`), the 312 bar models (`models/gui/bar/<shape>/<cell>_<level>.json`) and the icon parents (`models/gui/icon_{18,14}.json`).
+- Templates (`templates.yml`): `mekanized:gui/glyph` (an image: `file`, `ascent`, `height`), `mekanized:item/gui_bar` (`shape`, `cell`, `level`; material `leather_horse_armor` and a `dye` tint, so `dyed_color` colors the tinted faces on 1.20.6 and 26.x), `mekanized:item/gui_icon` (`texture`, `size` 18 or 14).
+- `pack/configuration/gui.yml`:
+  - images (font `mekanized:gui`): `gui/panel_{3,4,5,6}`, and per chest row r (factory `menu_rows`, ascent `-4 - 18 r`): `gui/<kind>_r<r>` for `slot_{normal,input,input_2,output,output_2,extra,power}`, `overlay_{power,input,output,upgrade}`, `frame_power_horizontal`, `frame_progress` (54 wide), `frame_tall_gauge`, `frame_power_vertical` (54 tall, rows r..r+2). 94 glyphs.
+  - items: `gui/empty`; `gui/icon/{redstone_ignored,redstone_high,redstone_low,configuration,transporter_config,upgrade,items,energy,chemicals,fluids,heat}` (18 px), `gui/icon/{auto_eject,back,clear_sides}` (14 px); `gui/side/{none,input,output,both}`; `gui/bar/<shape>/<cell>/<level>` for shapes `chemical`, `fluid` (tall gauge: Mekanism's animated infuse texture and vanilla water, tinted, with ticks), `energy` (vertical power bar), `energy_horizontal`, `heat` (tinted), `progress` (arrow) — cells 0 and 2 levels 1–17, cell 1 levels 1–18 (factories `menu_bar_cells`, `menu_bar_middle`).
+- **Bar rule** (stage 3 uses it): a bar spans 3 slots and 52 fill px. With `F` filled px, cell `k` (0 = bottom or left) shows level `clamp(F - a_k, 0, b_k - a_k)` with `a_k = max(0, 18k - 1)`, `b_k = min(52, 18k + 17)`; level 0 is `gui/empty`. Cells draw 1 px past their item area so the fill crosses the gaps between slots.
+- Checked: `:plugin:ceSnapshot` (331 new items, nothing changed, accepted); the Folia 26.2 dev server builds and validates the pack with no new warning; the font has the 94 glyphs; CE writes `oversized_in_gui: true` on the bar items and adds the GUI textures to the atlases (`fix-atlas`).
+- Demo: a hand-written `mekanized_crusher.yml` in the Folia 26.2 dev server shows a chemical gauge, the progress arrow, the energy bar, the power slot with its overlay, and three icons, at fixed levels. zMenu cannot set `dyed_color`, so tinted bars show their default (white on 26.x, leather brown on 1.20.6) until stage 3.
 
 ### Stage 3: engine button types and resource colors.
 
