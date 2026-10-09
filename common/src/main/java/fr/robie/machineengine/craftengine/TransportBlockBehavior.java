@@ -42,13 +42,16 @@ import java.util.function.Consumer;
  * behavior:
  *   type: machineengine:transport
  *   transport: mymod:copper_cable
- *   connection_items: mymod:cable_part/copper   # optional: arm models <prefix>/<direction>
+ *   connection_items: mymod:cable_part/copper   # optional: models <prefix>/center, arm, arm_pull, arm_push
  *   rate: 8000                                  # optional: per tick, replacing the transport type's (D34)
  * }</pre>
  *
  * With {@code connection_items}, the block shows its center piece and an arm toward each connected
  * side (same network, or a machine port carrying what the transport does), as display entities:
  * one block state, however the cable connects.
+ * The arm item points north and is turned to each side; pull and push sides use {@code arm_pull} and
+ * {@code arm_push}. A prefix without {@code arm} items may instead name one item per side,
+ * {@code <prefix>/<direction>} (with {@code _pull} / {@code _push}).
  */
 public final class TransportBlockBehavior extends BukkitBlockBehavior implements EntityBlock {
     public static final BlockBehaviorFactory<TransportBlockBehavior> FACTORY =

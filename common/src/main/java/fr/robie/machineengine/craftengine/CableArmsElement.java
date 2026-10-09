@@ -4,6 +4,7 @@ import fr.robie.machineengine.api.world.Direction;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.bukkit.entity.data.DisplayData;
+import net.momirealms.craftengine.bukkit.item.BukkitItemDefinition;
 import net.momirealms.craftengine.bukkit.util.EntityUtils;
 import net.momirealms.craftengine.core.block.entity.render.element.BlockEntityElement;
 import net.momirealms.craftengine.core.entity.display.ItemDisplayContext;
@@ -17,6 +18,7 @@ import net.momirealms.craftengine.proxy.minecraft.network.protocol.game.Clientbo
 import net.momirealms.craftengine.proxy.minecraft.world.entity.EntityTypesProxy;
 import net.momirealms.craftengine.proxy.minecraft.world.phys.Vec3Proxy;
 import org.jetbrains.annotations.NotNull;
+import org.joml.Quaternionf;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -29,10 +31,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * The arms of a cable or pipe toward its connected sides: one item display entity per side, sent to
- * the players who see the block (client-side only, like CraftEngine's drawer). The block itself shows
- * the center piece; arm models are CraftEngine items {@code <prefix>/<direction>} (e.g.
- * {@code mekanized:cable_part/basic_universal_cable/north}), and {@code <prefix>/<direction>_pull} /
- * {@code _push} on sides set to pull or push, if those items exist.
+ * the players who see the block (client-side only, like CraftEngine's drawer), plus a center piece
+ * {@code <prefix>/center}. Arms are the item {@code <prefix>/arm} turned to each side, or else one item
+ * per side {@code <prefix>/<direction>} (e.g.
+ * {@code mekanized:cable_part/basic_universal_cable/north}); {@code _pull} / {@code _push} variants
+ * are used on sides set to pull or push, if those items exist.
  */
 final class CableArmsElement implements BlockEntityElement {
     private static final Direction[] DIRECTIONS = Direction.values();
@@ -117,19 +120,56 @@ final class CableArmsElement implements BlockEntityElement {
         String kind = this.kinds.getOrDefault(direction, "");
         Object cached = this.data.get(direction.name() + kind);
         if (cached != null) return cached;
-        // Item displays draw their item turned 180 degrees around Y: the north arm model points south.
-        Direction model = direction.isHorizontal() ? direction.opposite() : direction;
-        String base = this.itemPrefix + "/" + model.name().toLowerCase(Locale.ROOT);
-        var definition = CraftEngineItems.byId(Key.of(base + kind));
-        if (definition == null) definition = CraftEngineItems.byId(Key.of(base)); // no pull/push model
+        // One arm model pointing north, turned to the side; else one model per side (older packs, addons).
+        Quaternionf turn = null;
+        var definition = item(this.itemPrefix + "/arm", kind);
+        if (definition != null) {
+            turn = turn(direction);
+        } else {
+            // Item displays draw their item turned 180 degrees around Y: the north arm model points south.
+            Direction model = direction.isHorizontal() ? direction.opposite() : direction;
+            definition = item(this.itemPrefix + "/" + model.name().toLowerCase(Locale.ROOT), kind);
+        }
         if (definition == null) return null;
         Object stack = definition.buildItem(ItemBuildContext.empty()).minecraftItem();
+        Quaternionf finalTurn = turn;
         Object packet = ClientboundSetEntityDataPacketProxy.INSTANCE.newInstance(this.ids[direction.ordinal()], new ArrayList<>() {{
             DisplayData.ItemDisplayData.ItemStack.addEntityData(stack, this);
             DisplayData.ItemDisplayData.ItemTransform.addEntityData(ItemDisplayContext.NONE.id(), this);
+            if (finalTurn != null) DisplayData.LeftRotation.addEntityData(finalTurn, this);
         }});
         this.data.put(direction.name() + kind, packet);
         return packet;
+    }
+
+    /** The item {@code <base><kind>}, or {@code <base>} when there is no pull/push model. */
+    private static BukkitItemDefinition item(String base, String kind) {
+        var definition = CraftEngineItems.byId(Key.of(base + kind));
+        return definition != null ? definition : CraftEngineItems.byId(Key.of(base));
+    }
+
+    /** The turn taking the arm model to each side, by {@link Direction#ordinal()}: see {@link #turn}. */
+    private static final Quaternionf[] TURNS = new Quaternionf[DIRECTIONS.length];
+
+    static {
+        for (Direction direction : DIRECTIONS) {
+            TURNS[direction.ordinal()] = switch (direction) {
+                case SOUTH -> new Quaternionf();
+                case NORTH -> new Quaternionf().rotateY((float) Math.PI);
+                case EAST -> new Quaternionf().rotateY((float) (Math.PI / 2));
+                case WEST -> new Quaternionf().rotateY((float) (-Math.PI / 2));
+                case UP -> new Quaternionf().rotateX((float) (-Math.PI / 2));
+                case DOWN -> new Quaternionf().rotateX((float) (Math.PI / 2));
+            };
+        }
+    }
+
+    /**
+     * The turn taking the arm model to a side. The display draws the north arm pointing south (+Z),
+     * so this turns +Z to the side. Shared: never change the returned quaternion.
+     */
+    static Quaternionf turn(Direction direction) {
+        return TURNS[direction.ordinal()];
     }
 
     /** The center piece: the item {@code <prefix>/center}. */
