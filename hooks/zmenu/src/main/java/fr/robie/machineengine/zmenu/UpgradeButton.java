@@ -23,8 +23,8 @@ import java.util.List;
 /**
  * {@code type: machineengine_upgrades}: the machine's upgrade tab. Clicking with an upgrade on the cursor
  * installs as many as the machine takes (right-click: one), through the machine's {@code upgrade} action
- * (D40). Clicking with an empty hand opens the machine's upgrades menu, {@code <its menu>_upgrades}; a
- * machine without one has its last installed upgrade taken back as an item. Show the installed upgrades
+ * (D40). Clicking with an empty hand opens the upgrades menu: {@code menu: <file name>}, else
+ * {@code <the machine's menu>_upgrades}; when there is none, the last installed upgrade comes back as an item. Show the installed upgrades
  * with {@code %zmenu_machineengine_upgrades%}.
  *
  * <pre>{@code
@@ -36,9 +36,11 @@ import java.util.List;
  */
 final class UpgradeButton extends Button {
     private final ZMenuMachineMenus menus;
+    private final @Nullable String menu;
 
-    private UpgradeButton(ZMenuMachineMenus menus) {
+    private UpgradeButton(ZMenuMachineMenus menus, @Nullable String menu) {
         this.menus = menus;
+        this.menu = menu;
     }
 
     @Override
@@ -60,7 +62,8 @@ final class UpgradeButton extends Button {
             ActionButton.finish(this.menus, player, machine, outcome);
             return;
         }
-        if (this.menus.open(player, machine, this.menus.menuName(machine.type().key()) + "_upgrades")) return;
+        String upgradesMenu = this.menu != null ? this.menu : this.menus.menuName(machine.type().key()) + "_upgrades";
+        if (this.menus.open(player, machine, upgradesMenu)) return;
         List<InstalledUpgrade> upgrades = machine.upgrades();
         if (upgrades.isEmpty()) return;
         ActionButton.finish(this.menus, player, machine, UpgradeActions.take(machine, upgrades.getLast().type(), 1));
@@ -76,7 +79,7 @@ final class UpgradeButton extends Button {
 
         @Override
         public @Nullable Button load(@NotNull YamlConfiguration configuration, @NotNull String path, @NotNull DefaultButtonValue defaultButtonValue) {
-            return new UpgradeButton(this.menus);
+            return new UpgradeButton(this.menus, configuration.getString(path + "menu"));
         }
     }
 }

@@ -123,11 +123,13 @@ Each stage ends with `./gradlew check` green and, from stage 2, a headless dev-s
 - Mekanized: the six upgrade items have `machineengine:upgrade`. New console check `mekanized check-upgrades <x y z> world`.
 - Tests: `UpgradeActionsTest` (install with leftovers, right-click one, shift-click insert, each refusal, rows, take one/all, no item stays in, a type's own action wins). Dev check on Paper 26.3 and 1.20.6: 8 of 10 installed, listed 8/8, 8 given back, 3 rows, filter refused with its reason; no fallback warnings, no errors.
 
-### Stage 3: upgrades menu (Mekanized)
+### Stage 3: upgrades menu (Mekanized). Done (2026-10-09); waiting for the owner's look in game
 
-- `MenuYaml.upgrades(machine)` writes `mekanized_<machine>_upgrades.yml`: one row per accepted type, the input slot, a back tab. The upgrade tab of every powered menu opens it.
-- Textures: upgrade row background and count glyphs (D39 widgets); Mekanism's `upgrade` selection sprites, which stage 0 of the textures plan left out.
-- Dev check: install, take one, take all, shift-click from the inventory, refusal messages, on 1.20.6 and 26.3.
+- One menu for every machine, `mekanized_upgrades.yml` (`UpgradeMenu`), instead of one file per machine: its rows are the machine's `upgrades` list, so each machine shows its own (as the shared side configuration menus do). Back on the top left, the upgrade tab marked on the top right, one row per registered upgrade across row 2 (6; a machine shows 3 or 4, the rest are hidden and leave an empty frame), the input slot below.
+- A row shows the upgrade's own item (`craftengine:%…_item%`, redrawn live), its translated name and `count/max`. Click: take one out; shift-click: all; click with upgrades: install. The input slot takes a click with upgrades (right-click: one) or a shift-click from the player's inventory.
+- `machineengine_upgrades` got `menu: <file name>`; every Mekanized upgrade tab opens `mekanized_upgrades` (empty hand) or installs (with upgrades), with new lore.
+- Not done: Mekanism's upgrade selection sprites and count glyphs (the plain slot frames are used), and each upgrade's effect in the lore (the engine list has no description field).
+- Tests: `UpgradeMenuTest` (every tab is on a machine with upgrade slots and opens the menu, enough rows for every machine, rows run the action, no overlap); `MenuConsistencyTest` checks its title images. Dev check on Paper 26.3 and 1.20.6: the menu loads with no zMenu error, machine menus point their tab at it, `check-upgrades` passes. Clicking needs a player: the owner checks install, take one, take all, shift-click from the inventory and the refusal messages.
 
 ### Stage 4: module levels and rules (Mekanized)
 
