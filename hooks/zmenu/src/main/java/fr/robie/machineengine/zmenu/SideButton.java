@@ -123,15 +123,22 @@ final class SideButton extends Button {
         return in && out ? State.BOTH : in ? State.INPUT : out ? State.OUTPUT : State.NONE;
     }
 
-    /** {@code side_<group>_<side>}: the state's name, or {@code null} if not such a key. */
+    /**
+     * {@code side_<group>_<side>}: the state's name, or {@code null} if not such a key;
+     * {@code side_<group>_<side>_mode}: the state as an id ({@code input}, {@code output}, {@code both},
+     * {@code none}), e.g. to name an icon item.
+     */
     static @Nullable String placeholder(MachineInstanceImpl machine, String key) {
         if (!key.startsWith("side_")) return null;
         String rest = key.substring("side_".length());
+        boolean mode = rest.endsWith("_mode");
+        if (mode) rest = rest.substring(0, rest.length() - "_mode".length());
         int split = rest.lastIndexOf('_');
         if (split <= 0) return null;
         RelativeSide side = parseSide(rest.substring(split + 1));
         if (side == null) return null;
         String group = rest.substring(0, split);
+        if (mode) return (hasGroup(machine.type(), group) ? state(machine, group, side) : State.NONE).name().toLowerCase(Locale.ROOT);
         return hasGroup(machine.type(), group) ? state(machine, group, side).label : "-";
     }
 

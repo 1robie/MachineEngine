@@ -121,10 +121,13 @@ Stop and report if any of these fails.
 - `MenuYaml`: a `Layout` that records each placed slot kind and decoration and writes the title; `slot`, `tank`, `chemical`, `heat`, `energyDisplay` and the progress button switch to bars (tall gauge for tanks, power bar for energy, horizontal bar for progress and heat). Layouts move to Mekanism's: energy bar on the right, tanks on the left, progress between input and output.
 - Convert family by family, checking each in game: processing and generators first, then chemistry, logistics, loaders and buffers, reaction and pigment, utility, automation, multiblocks, reactors. `MenuConsistencyTest` checks every title glyph exists and no two buttons share a slot.
 
-### Stage 5: side configuration, redstone control, upgrades.
+### Stage 5: side configuration, redstone control, upgrades. Done (2026-10-09); waiting for the owner's look.
 
-- `SideMenus` rewritten as in Design; slot colors in the machine menus from the side config roles.
-- `redstoneControl` with icons; the upgrade button with the tab icon.
+- `SideMenus` on `MenuLayout`, one menu per port group as before: back (Mekanism's back icon) top left, the group tabs (Mekanism's items, energy, chemicals, fluids, heat icons; the open one on a yellow frame, `MenuLayout.frame`), auto-eject (its icon) top right, the six sides as an unfolded cube on slot frames, each Mekanism's colored square for its mode (`gui/side/%zmenu_machineengine_side_<group>_<side>_mode%`: none gray, input red, output blue, both purple), a legend bottom right. The window is named "Side configuration: <group>" (`MenuLayout.name`).
+- `SideButton`: new placeholder `side_<group>_<side>_mode` (`input`, `output`, `both`, `none`), the state as an id for item names.
+- Slot colors in the machine menus come from their roles (stage 4: input red, output blue, extra yellow, energy green), not from the live side configuration.
+- Redstone control and upgrades: done in stage 4 (`MenuLayout.redstone`, `upgrades`: icon tabs). Only the lasers have redstone control (`UtilityMachines.REDSTONE`); giving it to other machines is gameplay, not this plan.
+- `MenuConsistencyTest` checks the side menus' titles too.
 
 ### Stage 6: docs.
 
