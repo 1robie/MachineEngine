@@ -52,8 +52,8 @@ import java.util.logging.Level;
  *   <li>placeholders {@code %zmenu_machineengine_<key>%} ({@link MachinePlaceholders}) resolve
  *       against the machine the player has open, in any zMenu button;</li>
  *   <li>button types {@code machineengine_slot}, {@code machineengine_cancel_process}, {@code machineengine_upgrades},
- *       {@code machineengine_data}, {@code machineengine_side} and {@code machineengine_menu} interact
- *       with the machine;</li>
+ *       {@code machineengine_data}, {@code machineengine_side}, {@code machineengine_menu} and
+ *       {@code machineengine_action} (the machine type's own actions and lists, D40) interact with the machine;</li>
  *   <li>placeholders {@code %zmenu_machineengine_player_<namespace>_<id>%} show the player's own data and
  *       settings, and {@code machineengine_player_setting} buttons change a setting, in the generated
  *       {@code player_settings.yml} menu ({@code /machinesettings}) or any other (D37).</li>
@@ -110,6 +110,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         buttons.register(new DataButton.Loader(plugin, menus));
         buttons.register(new SideButton.Loader(plugin, menus));
         buttons.register(new OpenMenuButton.Loader(plugin, menus));
+        buttons.register(new ActionButton.Loader(plugin, menus));
         buttons.register(new PlayerSettingButton.Loader(plugin));
         LocalPlaceholder.getInstance().register(PLACEHOLDER_PREFIX, menus::placeholder);
         inventories.registerInventoryListener(menus.listener);
@@ -359,6 +360,12 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         if (key.startsWith("data_") && machine.instance() != null) {
             var data = DataButton.key(machine.instance(), key.substring("data_".length()));
             if (data != null) return String.valueOf(machine.instance().context().get(data));
+        }
+        // list_<id>_size, list_<id>_<index>_<field>: the rows of a list the machine type declares (D40).
+        if (key.startsWith("list_") && machine.instance() != null) {
+            MachineInstanceImpl instance = machine.instance();
+            String row = MachinePlaceholders.list(instance.type().lists().keySet(), instance::list, key);
+            if (row != null) return row;
         }
         return MachinePlaceholders.resolve(machine.inspect(), key);
     }

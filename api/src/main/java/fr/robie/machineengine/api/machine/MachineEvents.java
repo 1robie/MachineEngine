@@ -23,6 +23,8 @@ public final class MachineEvents {
     public static final EventType<Process> PROCESS_COMPLETE = EventType.of(MachineEngineKeys.key("process_complete"), Process.class);
     /** Upgrades were installed or removed. */
     public static final EventType<Upgrade> UPGRADE_CHANGE = EventType.of(MachineEngineKeys.key("upgrade_change"), Upgrade.class);
+    /** A menu action did something (D40); refused actions post nothing. */
+    public static final EventType<Action> ACTION = EventType.of(MachineEngineKeys.key("machine_action"), Action.class);
     /**
      * What went in and out of a machine's storages, summed per resource: at most one event per machine
      * per tick, after the changes, and only built while someone listens (no per-transfer events, §26).
@@ -41,6 +43,11 @@ public final class MachineEvents {
     /** @param previous how many were installed before; {@code current} how many now (0: removed) */
     public record Upgrade(@NotNull MachineInstance machine, @NotNull UpgradeType upgrade,
                           int previous, int current) {
+    }
+
+    /** @param action the action's id in the machine's type */
+    public record Action(@NotNull MachineInstance machine, @NotNull String action, @NotNull MachineAction.Click click,
+                         @NotNull MachineAction.Outcome outcome) {
     }
 
     /** Amounts inserted and extracted since the last event of this machine. */

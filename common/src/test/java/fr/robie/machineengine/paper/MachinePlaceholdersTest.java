@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -93,5 +94,24 @@ class MachinePlaceholdersTest {
         assertNull(MachinePlaceholders.resolve(MACHINE, "storage_input_slot_9_amount"));
         assertNull(MachinePlaceholders.resolve(MACHINE, "storage_input_cell_3"));
         assertNull(MachinePlaceholders.resolve(MACHINE, "process_cell_x"));
+    }
+
+    @Test
+    void resolvesListRows() {
+        Map<String, List<Map<String, String>>> lists = Map.of(
+                "mods", List.of(Map.of("id", "jetpack", "level", "2"), Map.of("id", "magnet", "level", "1")),
+                "mods_extra", List.of(Map.of("id", "extra")));
+        Function<String, List<Map<String, String>>> rows = lists::get;
+        Set<String> ids = lists.keySet();
+        assertEquals("2", MachinePlaceholders.list(ids, rows, "list_mods_size"));
+        assertEquals("jetpack", MachinePlaceholders.list(ids, rows, "list_mods_0_id"));
+        assertEquals("1", MachinePlaceholders.list(ids, rows, "list_mods_1_level"));
+        assertEquals("", MachinePlaceholders.list(ids, rows, "list_mods_2_id"), "past the end");
+        assertEquals("", MachinePlaceholders.list(ids, rows, "list_mods_0_missing"), "a field the row lacks");
+        assertEquals("extra", MachinePlaceholders.list(ids, rows, "list_mods_extra_0_id"), "the longest id wins");
+        assertEquals("1", MachinePlaceholders.list(ids, rows, "list_mods_extra_size"));
+        assertNull(MachinePlaceholders.list(ids, rows, "list_other_0_id"));
+        assertNull(MachinePlaceholders.list(ids, rows, "list_mods_x_id"));
+        assertNull(MachinePlaceholders.list(ids, rows, "storage_input_amount"));
     }
 }

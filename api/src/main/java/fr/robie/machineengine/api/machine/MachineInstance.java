@@ -12,6 +12,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -53,6 +54,16 @@ public interface MachineInstance {
 
     /** Removes up to {@code count} units; returns how many were removed. */
     int removeUpgrade(@NotNull UpgradeType type, int count);
+
+    /**
+     * Runs one of the type's menu actions (D40, {@link MachineType#action}). Owner thread. An unknown id, a
+     * machine no longer valid, or an action that throws is refused; a run that did something posts
+     * {@link MachineEvents#ACTION}.
+     */
+    @NotNull MachineAction.Outcome runAction(@NotNull String id, @NotNull MachineAction.Click click);
+
+    /** The rows of one of the type's lists (D40, {@link MachineType#list}); empty for an unknown id. */
+    @NotNull List<Map<String, String>> list(@NotNull String id);
 
     /** Signals an external event (owner thread). Wakes the machine if its state accepts it. */
     void wake(@NotNull WakeReason reason);

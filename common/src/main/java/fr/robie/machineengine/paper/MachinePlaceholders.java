@@ -13,6 +13,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Map;
 import java.util.Locale;
+import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Machine values for menus (§23.3), independent of the menu plugin. Keys (after the menu plugin's
@@ -25,6 +27,7 @@ import java.util.Locale;
  * process_active  process_recipe  process_status  process_progress  process_duration
  * process_remaining  process_remaining_seconds  process_percent  process_bar  process_cell_&lt;k&gt;
  * upgrades  upgrade_&lt;namespace&gt;_&lt;value&gt;  escrow
+ * list_&lt;id&gt;_size  list_&lt;id&gt;_&lt;index&gt;_&lt;field&gt;   (index starts at 0; {@link #list}, D40)
  * </pre>
  *
  * Bars are 10 characters of {@code █} and {@code ░}; percents are whole numbers. For textured menus,
@@ -66,6 +69,39 @@ public final class MachinePlaceholders {
                     .mapToInt(InstalledUpgrade::count).sum());
         }
         return null;
+    }
+
+    /**
+     * A machine list placeholder (D40): {@code list_<id>_size}, or {@code list_<id>_<index>_<field>}, which is
+     * empty past the end of the list or for a field the row does not have. List ids may contain {@code _};
+     * the longest declared id that fits wins.
+     *
+     * @param ids  the lists the machine's type declares
+     * @param rows reads a list's rows (only called for a declared id)
+     * @return the value, or {@code null} if {@code key} is not a list placeholder of these lists
+     */
+    public static @Nullable String list(@NotNull Set<String> ids, @NotNull Function<String, List<Map<String, String>>> rows,
+                                        @NotNull String key) {
+        if (!key.startsWith("list_")) return null;
+        String rest = key.substring("list_".length());
+        String id = null;
+        for (String candidate : ids) {
+            if (rest.startsWith(candidate + "_") && (id == null || candidate.length() > id.length())) id = candidate;
+        }
+        if (id == null) return null;
+        String tail = rest.substring(id.length() + 1);
+        if (tail.equals("size")) return Integer.toString(rows.apply(id).size());
+        int separator = tail.indexOf('_');
+        if (separator <= 0) return null;
+        int index;
+        try {
+            index = Integer.parseInt(tail.substring(0, separator));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+        List<Map<String, String>> list = rows.apply(id);
+        if (index < 0 || index >= list.size()) return "";
+        return list.get(index).getOrDefault(tail.substring(separator + 1), "");
     }
 
     private static @Nullable String process(@Nullable ProcessView process, String key) {

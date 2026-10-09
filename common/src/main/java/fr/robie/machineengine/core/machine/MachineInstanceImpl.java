@@ -11,6 +11,7 @@ import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.machine.CapabilityBinding;
+import fr.robie.machineengine.api.machine.MachineAction;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineDataKey;
@@ -18,6 +19,7 @@ import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.MachineEvents;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.MachineInstance;
+import fr.robie.machineengine.api.machine.MachineList;
 import fr.robie.machineengine.api.machine.MachineType;
 import fr.robie.machineengine.api.machine.MachineWorld;
 import fr.robie.machineengine.api.machine.OtherMachines;
@@ -63,6 +65,7 @@ import fr.robie.machineengine.core.machine.handoff.Escrow;
 import fr.robie.machineengine.core.machine.handoff.Route;
 import fr.robie.machineengine.core.machine.handoff.TransferId;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -628,6 +631,36 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         upgradesChanged();
         postUpgrade(upgrade, current, current - removed);
         return removed;
+    }
+
+    @Override
+    public @NotNull MachineAction.Outcome runAction(@NotNull String id, @NotNull MachineAction.Click click) {
+        MachineAction action = this.type.actions().get(id);
+        if (action == null) return MachineAction.Outcome.refused(Component.text("This machine has no action " + id));
+        if (!isValid()) return MachineAction.Outcome.nothing();
+        MachineAction.Outcome outcome;
+        try {
+            outcome = action.run(this.context, click);
+        } catch (RuntimeException e) {
+            this.services.logger().log(Level.SEVERE, "Action " + id + " of machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            return MachineAction.Outcome.refused(Component.text("That did not work (see the server log)"));
+        }
+        if (outcome.done() && this.services.events().hasListeners(MachineEvents.ACTION, EventPhase.POST)) {
+            this.services.events().post(MachineEvents.ACTION, EventPhase.POST, new MachineEvents.Action(this, id, click, outcome));
+        }
+        return outcome;
+    }
+
+    @Override
+    public @NotNull List<Map<String, String>> list(@NotNull String id) {
+        MachineList list = this.type.lists().get(id);
+        if (list == null || !isValid()) return List.of();
+        try {
+            return List.copyOf(list.rows(this.context));
+        } catch (RuntimeException e) {
+            this.services.logger().log(Level.SEVERE, "List " + id + " of machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            return List.of();
+        }
     }
 
     private void postUpgrade(UpgradeType upgrade, int previous, int current) {
