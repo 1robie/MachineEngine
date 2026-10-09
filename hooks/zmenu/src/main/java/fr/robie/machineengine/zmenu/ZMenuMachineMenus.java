@@ -348,6 +348,14 @@ public final class ZMenuMachineMenus implements MachineMenuService {
             String side = SideButton.placeholder(machine.instance(), key);
             if (side != null) return side;
         }
+        // data_<id>_cell: a percent setting as the level of a one-slot bar (a factory lane's arrow).
+        if (key.startsWith("data_") && key.endsWith("_cell") && machine.instance() != null) {
+            var data = DataButton.key(machine.instance(), key.substring("data_".length(), key.length() - "_cell".length()));
+            if (data != null) {
+                String level = MachinePlaceholders.percentCell(String.valueOf(machine.instance().context().get(data)));
+                if (level != null) return level;
+            }
+        }
         if (key.startsWith("data_") && machine.instance() != null) {
             var data = DataButton.key(machine.instance(), key.substring("data_".length()));
             if (data != null) return String.valueOf(machine.instance().context().get(data));

@@ -21,6 +21,13 @@ final class BarCells {
         return Math.max(1, (int) ((double) value / total * LENGTH));
     }
 
+    /** A one-slot bar (16 px, e.g. a factory lane's arrow) for a percent: rounded down, but at least 1 when started. */
+    static int percentLevel(long percent) {
+        if (percent <= 0) return 0;
+        if (percent >= 100) return 16;
+        return Math.max(1, (int) (percent * 16 / 100));
+    }
+
     /** The level of {@code cell} (0 to 2), or -1 if there is no such cell. */
     static int level(long value, long total, int cell) {
         if (cell < 0 || cell >= CELLS) return -1;

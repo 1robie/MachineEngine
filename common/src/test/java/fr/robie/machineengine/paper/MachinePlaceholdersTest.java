@@ -68,6 +68,13 @@ class MachinePlaceholdersTest {
     }
 
     @Test
+    void percentsBecomeOneSlotLevels() {
+        assertEquals("8", MachinePlaceholders.percentCell("50"));
+        assertEquals("16", MachinePlaceholders.percentCell(" 100 "));
+        assertNull(MachinePlaceholders.percentCell("idle"));
+    }
+
+    @Test
     void colorsComeFromColorers() {
         Function<ResourceVariant, Integer> colorer = variant -> variant.type() == SPARK ? 0xB30505 : null;
         ResourceColors.register(colorer);

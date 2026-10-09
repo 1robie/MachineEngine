@@ -144,6 +144,18 @@ public final class MachinePlaceholders {
         };
     }
 
+    /**
+     * The level of a one-slot bar (0 to 16) for a percent, e.g. a machine data {@code lane_1} (menus:
+     * {@code data_<id>_cell}); {@code null} if {@code percent} is not a whole number.
+     */
+    public static @Nullable String percentCell(@NotNull String percent) {
+        try {
+            return Integer.toString(BarCells.percentLevel(Long.parseLong(percent.trim())));
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
     /** {@code cell_<k>}: the level of cell k of a fill bar, or {@code null} for a bad cell. */
     private static @Nullable String cell(long value, long total, String key) {
         int cell;

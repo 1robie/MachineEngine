@@ -43,6 +43,16 @@ class BarCellsTest {
     }
 
     @Test
+    void oneSlotBarsFollowAPercent() {
+        assertEquals(0, BarCells.percentLevel(0));
+        assertEquals(1, BarCells.percentLevel(1), "started shows a pixel");
+        assertEquals(8, BarCells.percentLevel(50));
+        assertEquals(15, BarCells.percentLevel(99), "nearly done is not done");
+        assertEquals(16, BarCells.percentLevel(100));
+        assertEquals(16, BarCells.percentLevel(250));
+    }
+
+    @Test
     void hugeAmountsDoNotOverflow() {
         assertEquals(BarCells.LENGTH / 2, BarCells.filled(Long.MAX_VALUE / 2, Long.MAX_VALUE));
     }
