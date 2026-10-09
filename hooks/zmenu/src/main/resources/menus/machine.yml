@@ -11,9 +11,10 @@
 # Placeholders work in a button's material too, which is how textured fill bars are drawn: a bar
 # covers 3 slots, cell 0 at the bottom (or left), and _cell_<k> (k = 0, 1, 2) is that cell's level
 # (0 to 17, or 18 for the middle cell). _color is the resource's color as #RRGGBB, for the dyed-color
-# component of tinted bars. With Mekanized's items, for example:
-#   update: true
-#   update-master-button: true      (rebuilds the item, material included, at each update)
+# component of tinted bars. MachineEngine redraws every button whose material holds a machine
+# placeholder by itself, all in the same tick, every update-interval and whenever the machine changes:
+# such buttons need no "update: true" (zMenu would update each one at its own time, so the cells of a
+# bar would disagree). With Mekanized's items, for example:
 #   item:
 #     material: "craftengine:mekanized:gui/bar/chemical/0/%zmenu_machineengine_storage_tank_cell_0%"
 #     components:

@@ -18,6 +18,7 @@ import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.core.player.CorePlayers;
 import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.api.platform.Scheduler;
+import fr.robie.machineengine.api.platform.Task;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
@@ -72,6 +73,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     private final InventoryListener listener;
     /** Players being moved to another menu of the same machine: their close is not the end. */
     private final Set<UUID> switching = ConcurrentHashMap.newKeySet();
+    /** Per viewer of a machine menu: the timer redrawing its live buttons ({@link #isLive}). */
+    private final Map<UUID, Task> tickers = new ConcurrentHashMap<>();
     private Map<Key, String> menuByType = Map.of();
     private String defaultMenu = "machine";
 
@@ -119,6 +122,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.inventories.deleteInventories(this.plugin);
         this.buttons.unregisters(this.plugin);
         this.openMachines.clear();
+        this.tickers.values().forEach(Task::cancel);
+        this.tickers.clear();
     }
 
     @Override
@@ -169,7 +174,40 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.inventories.openInventory(player, menu);
         // zMenu may open on the player's scheduler (Folia): the old menu's close can come a tick later.
         this.scheduler.runLater(player, () -> this.switching.remove(id), () -> this.switching.remove(id), 2);
+        startTicker(player, menu);
         return true;
+    }
+
+    /**
+     * Redraws the live buttons of the player's menu every {@code update-interval} of {@code menu}, all in
+     * the same tick, until the player leaves the machine's menus. zMenu's own {@code update} gives each
+     * button its own timer, so the cells of one fill bar would show different moments.
+     */
+    private void startTicker(Player player, Inventory menu) {
+        UUID id = player.getUniqueId();
+        Task old = this.tickers.remove(id);
+        if (old != null) old.cancel();
+        long period = Math.max(1, menu.getUpdateInterval() / 50);
+        Task task = this.scheduler.runTimer(player, () -> {
+            if (this.openMachines.containsKey(id)) {
+                rebuild(player, false);
+            } else {
+                Task self = this.tickers.remove(id);
+                if (self != null) self.cancel();
+            }
+        }, () -> this.tickers.remove(id), period, period);
+        if (task != null) this.tickers.put(id, task);
+    }
+
+    /**
+     * Whether a button's item depends on the machine through its material, e.g. a fill bar cell
+     * {@code craftengine:mekanized:gui/bar/energy/0/%zmenu_machineengine_storage_energy_cell_0%}. Such
+     * buttons are rebuilt by MachineEngine, together, and need no zMenu {@code update}.
+     */
+    static boolean isLive(@NotNull Button button) {
+        var item = button.getItemStack();
+        String material = item == null ? null : item.getMaterial();
+        return material != null && material.contains("%zmenu_" + PLACEHOLDER_PREFIX);
     }
 
     @Override
@@ -260,15 +298,23 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         // Rebuild the machine buttons in place. zMenu's updateInventory reopens the menu instead, which
         // fires a close (losing the open machine) and reopens a closed menu if it runs too late.
         if (!this.openMachines.containsKey(player.getUniqueId())) return;
+        rebuild(player, true);
+    }
+
+    /**
+     * Rebuilds the live buttons ({@link #isLive}) of the player's open machine menu, and its slots too if
+     * {@code slots}. Buttons with only placeholders in their name and lore keep zMenu's own periodic
+     * update; rebuilding them would restart that timer before it fires.
+     */
+    private void rebuild(@NotNull Player player, boolean slots) {
         // Not a zMenu menu (or unreadable): nothing to re-render. The close listener, not this, forgets
         // the open machine; forgetting it here would blank every placeholder of a menu still open.
         if (!(topHolder(player) instanceof InventoryEngine engine)) return;
-        // Only slots: their item changes. Gauges (energy, progress) keep their own periodic update,
-        // which re-reads the placeholders; rebuilding them would restart that timer before it fires.
+        Placeholders placeholders = new Placeholders();
         for (Button button : engine.getButtons()) {
-            if (!(button instanceof SlotButton)) continue;
+            if (!(slots && button instanceof SlotButton) && !isLive(button)) continue;
             for (int slot : button.getSlots()) engine.cancel(slot);
-            engine.buildButton(button, new Placeholders());
+            engine.buildButton(button, placeholders);
         }
     }
 
