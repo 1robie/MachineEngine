@@ -52,6 +52,14 @@ public interface MachineInstance {
      */
     @NotNull Result<InstalledUpgrade> installUpgrade(@NotNull UpgradeType type, int count);
 
+    /**
+     * How many more units of {@code type} the machine takes now.
+     *
+     * @return at least 1, or an error saying why none fit: not registered, not accepted, every upgrade
+     *         slot used by other types, or already at {@link UpgradeType#maxStack()}
+     */
+    @NotNull Result<Integer> upgradeRoom(@NotNull UpgradeType type);
+
     /** Removes up to {@code count} units; returns how many were removed. */
     int removeUpgrade(@NotNull UpgradeType type, int count);
 

@@ -2,11 +2,13 @@ package fr.robie.machineengine.craftengine;
 
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.item.ResourceItem;
+import fr.robie.machineengine.api.item.UpgradeItem;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.craftengine.item.ResourceItemBehavior;
 import fr.robie.machineengine.craftengine.item.ResourceLoreProcessor;
 import fr.robie.machineengine.craftengine.item.StorageReaderBehavior;
+import fr.robie.machineengine.craftengine.item.UpgradeItemBehavior;
 import fr.robie.machineengine.craftengine.item.WrenchBehavior;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
@@ -36,6 +38,7 @@ public final class CraftEngineIntegration {
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_item")), ResourceItemBehavior.RESOURCE_FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("storage_reader")), StorageReaderBehavior.FACTORY);
         ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("wrench")), WrenchBehavior.FACTORY);
+        ItemBehaviors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("upgrade")), UpgradeItemBehavior.FACTORY);
         ItemProcessors.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("resource_lore")), ResourceLoreProcessor.FACTORY);
         LootFunctions.register(CraftEngineKeys.toCraftEngine(MachineEngineKeys.key("keep_contents")), KeepContentsFunction.FACTORY);
     }
@@ -47,7 +50,7 @@ public final class CraftEngineIntegration {
 
     /**
      * @return one message per CraftEngine block whose {@code machine:} or {@code transport:} key is not
-     *         registered (D14), and per item holding a resource type that is not registered (D32); such
+     *         registered (D14), per item holding a resource type that is not registered (D32), and per upgrade item whose upgrade type is not (D40); such
      *         blocks stay inert, such items hold nothing of it
      */
     public static @NotNull List<String> unboundContent(@NotNull RegistryAccess registries) {
@@ -69,6 +72,12 @@ public final class CraftEngineIntegration {
                 if (registries.registry(Registries.RESOURCE_TYPE).get(holder.resource()).isEmpty()) {
                     problems.add("CraftEngine item " + item.id().asString() + " holds resource type "
                             + holder.resource().asString() + ", which is not registered");
+                }
+            });
+            item.behavior().let(UpgradeItem.class, upgrade -> {
+                if (registries.registry(Registries.UPGRADE_TYPE).get(upgrade.upgrade()).isEmpty()) {
+                    problems.add("CraftEngine item " + item.id().asString() + " installs upgrade type "
+                            + upgrade.upgrade().asString() + ", which is not registered");
                 }
             });
         }

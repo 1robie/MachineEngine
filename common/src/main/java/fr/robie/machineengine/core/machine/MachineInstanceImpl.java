@@ -599,8 +599,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     @Override
-    public @NotNull Result<InstalledUpgrade> installUpgrade(@NotNull UpgradeType upgrade, int count) {
-        if (count < 1) throw new IllegalArgumentException("count must be at least 1");
+    public @NotNull Result<Integer> upgradeRoom(@NotNull UpgradeType upgrade) {
         if (!this.services.registries().registry(Registries.UPGRADE_TYPE).containsValue(upgrade)) {
             return Result.err(new MachineError.MissingResource(Registries.UPGRADE_TYPE.key(), upgrade.key()));
         }
@@ -612,10 +611,23 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         if (current == 0 && this.upgrades.size() >= this.type.upgradeSlots()) {
             return Result.err(new MachineError.InvalidConfiguration("All " + this.type.upgradeSlots() + " upgrade slots are used", Map.of()));
         }
-        if (current + count > upgrade.maxStack()) {
+        if (current >= upgrade.maxStack()) {
             return Result.err(new MachineError.InvalidConfiguration("At most " + upgrade.maxStack() + " "
                     + upgrade.key().asString() + " can be installed", Map.of()));
         }
+        return Result.ok(upgrade.maxStack() - current);
+    }
+
+    @Override
+    public @NotNull Result<InstalledUpgrade> installUpgrade(@NotNull UpgradeType upgrade, int count) {
+        if (count < 1) throw new IllegalArgumentException("count must be at least 1");
+        Result<Integer> room = upgradeRoom(upgrade);
+        if (room.isErr()) return Result.err(room.error());
+        if (count > room.value()) {
+            return Result.err(new MachineError.InvalidConfiguration("At most " + upgrade.maxStack() + " "
+                    + upgrade.key().asString() + " can be installed", Map.of()));
+        }
+        int current = this.upgrades.getOrDefault(upgrade, 0);
         this.upgrades.put(upgrade, current + count);
         upgradesChanged();
         postUpgrade(upgrade, current, current + count);

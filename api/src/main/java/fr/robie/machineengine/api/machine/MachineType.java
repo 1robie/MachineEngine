@@ -1,5 +1,6 @@
 package fr.robie.machineengine.api.machine;
 
+import fr.robie.machineengine.api.upgrade.UpgradeActions;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
@@ -40,8 +41,15 @@ public final class MachineType implements Keyed {
         this.acceptsUpgrade = builder.acceptsUpgrade;
         this.behavior = Objects.requireNonNull(builder.behavior, "behavior(...) is required");
         this.catchUp = builder.catchUp;
-        this.actions = Map.copyOf(builder.actions);
-        this.lists = Map.copyOf(builder.lists);
+        Map<String, MachineAction> actions = new LinkedHashMap<>(builder.actions);
+        Map<String, MachineList> lists = new LinkedHashMap<>(builder.lists);
+        if (this.upgradeSlots > 0) {
+            // Every machine with upgrade slots can have them added and removed from menus (D40).
+            actions.putIfAbsent(UpgradeActions.ACTION, UpgradeActions.UPGRADE);
+            lists.putIfAbsent(UpgradeActions.LIST, UpgradeActions.UPGRADES);
+        }
+        this.actions = Map.copyOf(actions);
+        this.lists = Map.copyOf(lists);
     }
 
     public static @NotNull Builder builder(@NotNull Key key) {
@@ -90,7 +98,10 @@ public final class MachineType implements Keyed {
         return this.catchUp;
     }
 
-    /** The actions menus can run on this type's machines, by id (D40). */
+    /**
+     * The actions menus can run on this type's machines, by id (D40). A type with upgrade slots also has
+     * {@link UpgradeActions#ACTION} (and the list {@link UpgradeActions#LIST}) unless it declares its own.
+     */
     public @NotNull Map<String, MachineAction> actions() {
         return this.actions;
     }

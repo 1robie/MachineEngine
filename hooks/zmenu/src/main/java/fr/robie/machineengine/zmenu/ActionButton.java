@@ -110,6 +110,12 @@ final class ActionButton extends Button {
         ResourceStack stack = held == null || held.getType().isAir() ? null : PaperItems.toResource(held);
         MachineAction.Outcome outcome = machine.runAction(this.action,
                 new MachineAction.Click(player.getUniqueId(), kind, this.index, stack));
+        finish(this.menus, player, machine, outcome);
+        return outcome;
+    }
+
+    /** Gives the player what {@code outcome} gives, shows its message, and redraws the menus if it did something. */
+    static void finish(ZMenuMachineMenus menus, Player player, MachineInstanceImpl machine, MachineAction.Outcome outcome) {
         for (ResourceStack given : outcome.give()) {
             for (ItemStack item : PaperItems.toItemStacks(given)) {
                 player.getInventory().addItem(item).values()
@@ -117,11 +123,10 @@ final class ActionButton extends Button {
             }
         }
         if (outcome.message() != null) player.sendActionBar(outcome.message());
-        if (outcome.done()) this.menus.changed(player, machine.position());
-        return outcome;
+        if (outcome.done()) menus.changed(player, machine.position());
     }
 
-    private static @Nullable ItemStack remove(ItemStack stack, long used) {
+    static @Nullable ItemStack remove(ItemStack stack, long used) {
         return used >= stack.getAmount() ? null : stack.asQuantity((int) (stack.getAmount() - used));
     }
 

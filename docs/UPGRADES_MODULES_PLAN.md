@@ -115,12 +115,13 @@ Each stage ends with `./gradlew check` green and, from stage 2, a headless dev-s
 - Tests: `MachineActionTest` (use, refuse, give, unknown and failing actions, lists, events, id checks), `MachinePlaceholdersTest#resolvesListRows`.
 - Paging long lists is left to stage 5, where the module list needs it.
 
-### Stage 2: upgrade API and item behavior (engine)
+### Stage 2: upgrade API and item behavior (engine). Done (2026-10-09)
 
-- `machineengine:upgrade` item behavior; `MachineInstance#canInstall/installUpgrades/takeUpgrade` with reasons; the built-in actions `upgrade_install`/`upgrade_take`; list `upgrades` (every accepted type, with count and max).
-- `UpgradeButton` uses them. An empty-hand click opens the upgrades menu, if the machine has one.
-- Mekanized: upgrade items get the behavior in `gear.yml`/`extras.yml`; the key rule stays as a fallback.
-- Tests: install from a stack with leftovers, refused for each reason, take all, keep-contents round trip.
+- `api`: `UpgradeItem` (item behavior interface) and `UpgradeItems` (item to upgrade and back; platform `Access`, the id rule as a reported fallback); `MachineInstance#upgradeRoom` (how many more fit, or why none); `UpgradeActions`: the action `upgrade` (held item: install as many as fit, right-click one; empty hand: take out row `index`, one or with shift all; nothing is taken out of an upgrade with no item) and the list `upgrades` (accepted upgrades in registry order, then installed ones no longer accepted; fields `id`, `namespace`, `value`, `count`, `max`, `installed`, `item`). `MachineType` adds both to every type with upgrade slots unless it declares its own. (The plan's `installUpgrades(ItemStack)` / `takeUpgrade` became this action, which keeps `api` free of `ItemStack`.)
+- `common`: `machineengine:upgrade` (`upgrade:` defaults to the item's own id; right-click a machine: one, sneak: as many as fit; action bar message), `CraftEngineUpgradeItems` (behavior lookup, item per upgrade cached per CraftEngine load, the id rule warned once per item), unbound check for upgrade items naming an unknown upgrade.
+- `hooks:zmenu`: `UpgradeButton` runs the `upgrade` action with the cursor; with an empty hand it opens `<menu>_upgrades` if it exists, else takes the last upgrade out (the old behavior, until stage 3 writes the menus).
+- Mekanized: the six upgrade items have `machineengine:upgrade`. New console check `mekanized check-upgrades <x y z> world`.
+- Tests: `UpgradeActionsTest` (install with leftovers, right-click one, shift-click insert, each refusal, rows, take one/all, no item stays in, a type's own action wins). Dev check on Paper 26.3 and 1.20.6: 8 of 10 installed, listed 8/8, 8 given back, 3 rows, filter refused with its reason; no fallback warnings, no errors.
 
 ### Stage 3: upgrades menu (Mekanized)
 

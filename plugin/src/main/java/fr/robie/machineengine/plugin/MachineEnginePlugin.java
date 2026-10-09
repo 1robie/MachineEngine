@@ -17,6 +17,8 @@ import fr.robie.machineengine.craftengine.CraftEngineIntegration;
 import fr.robie.machineengine.api.item.ItemResources;
 import fr.robie.machineengine.api.paper.PaperItemResources;
 import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
+import fr.robie.machineengine.craftengine.item.CraftEngineUpgradeItems;
+import fr.robie.machineengine.api.upgrade.UpgradeItems;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
 import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.api.paper.ClassPreloader;
@@ -141,6 +143,10 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         // Items holding energy or other resources: CraftEngine item behaviors and item data (D32).
         ItemResources.setAccess(PaperItemResources.ACCESS);
         getServer().getPluginManager().registerEvents(items, this);
+        // Upgrade items: the machineengine:upgrade item behavior (D40).
+        CraftEngineUpgradeItems upgradeItems = new CraftEngineUpgradeItems(getLogger());
+        UpgradeItems.setAccess(upgradeItems);
+        getServer().getPluginManager().registerEvents(upgradeItems, this);
         MachineEngineAccess.install(started);
         if (this.config.get(EngineConfig.BUKKIT_EVENT_BRIDGE)) {
             BukkitEventBridge.install(started.events());
