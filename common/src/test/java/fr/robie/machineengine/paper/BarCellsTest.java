@@ -10,10 +10,10 @@ class BarCellsTest {
         for (int cell = 0; cell < BarCells.CELLS; cell++) {
             assertEquals(0, BarCells.level(0, 1000, cell));
         }
-        assertEquals(17, BarCells.level(1000, 1000, 0));
+        assertEquals(18, BarCells.level(1000, 1000, 0));
         assertEquals(18, BarCells.level(1000, 1000, 1));
-        assertEquals(17, BarCells.level(1000, 1000, 2));
-        assertEquals(17, BarCells.level(5000, 1000, 2), "more than the capacity is full");
+        assertEquals(16, BarCells.level(1000, 1000, 2));
+        assertEquals(16, BarCells.level(5000, 1000, 2), "more than the capacity is full");
     }
 
     @Test
@@ -26,14 +26,14 @@ class BarCellsTest {
     @Test
     void nearlyFullIsNotFull() {
         assertEquals(BarCells.LENGTH - 1, BarCells.filled(999, 1000));
-        assertEquals(16, BarCells.level(999, 1000, 2));
+        assertEquals(15, BarCells.level(999, 1000, 2));
     }
 
     @Test
     void cellsShareThePixels() {
-        // Half of 52 px: the bottom cell is full (17), the middle one has the other 9.
-        assertEquals(17, BarCells.level(50, 100, 0));
-        assertEquals(9, BarCells.level(50, 100, 1));
+        // Half of 52 px: the bottom cell is full (18), the middle one has the other 8.
+        assertEquals(18, BarCells.level(50, 100, 0));
+        assertEquals(8, BarCells.level(50, 100, 1));
         assertEquals(0, BarCells.level(50, 100, 2));
         for (long amount = 0; amount <= 100; amount++) {
             int sum = 0;
