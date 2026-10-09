@@ -129,9 +129,14 @@ Stop and report if any of these fails.
 - Redstone control and upgrades: done in stage 4 (`MenuLayout.redstone`, `upgrades`: icon tabs). Only the lasers have redstone control (`UtilityMachines.REDSTONE`); giving it to other machines is gameplay, not this plan.
 - `MenuConsistencyTest` checks the side menus' titles too.
 
-### Stage 6: docs.
+### Stage 6: docs. Done (2026-10-09).
 
-- `docs/MEKANIZED_GUIDE.md` (how to edit a textured menu: titles, glyph ids, widgets), the button keys in `ARCHITECTURE.md` §GUI, and the decision (D39).
+- `docs/MEKANIZED_GUIDE.md`: the resource pack is required (Installing), a "Textured menus" section (how a title draws the window, the image and item ids, a fill bar button, the placeholders, the live redraw), and troubleshooting for boxes in titles and kept old menus.
+- `docs/ARCHITECTURE.md`: D39, and a "Textured menus" bullet in the GUI section.
+
+## Decision
+
+**D39** (recorded in ARCHITECTURE.md): machine menus are drawn with CraftEngine images in the zMenu title (what does not move) and CraftEngine items in slots (what moves), chosen by placeholders in the button's `material` and colored with `dyed-color`; MachineEngine redraws those buttons together. Mekanized ships Mekanism's textures, `gui.yml` and `MenuLayout`; players need the resource pack.
 
 ## Owner answers (2026-10-09)
 
@@ -142,8 +147,9 @@ Stop and report if any of these fails.
 
 ## Open questions
 
+Question 5 (machine name) is settled by the implementation: names are left-aligned at x 8, as proposed. Still open:
+
 4. **Engine menus:** should `machine.yml` and `player_settings` (MachineEngine, not Mekanized) also get a textured look, with a small `machineengine` GUI kit, or stay plain?
-5. **Machine name:** Mekanism centers it; centered text needs its width, which a translated name does not give. Left-aligned is proposed.
 6. **Edited menus:** owners who edited a menu keep the old look. Leave them, or overwrite once (no other servers run Mekanized yet, as for D38)?
 
 ## Not in this plan
