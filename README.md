@@ -77,6 +77,32 @@ menu. Menus are ordinary zMenu inventories in `plugins/MachineEngine/menus/`:
   bar …); see the comments in `machine.yml` for the full list.
 - Button types `machineengine_slot` (a storage slot players can put items into or take from) and
   `machineengine_cancel_process`.
+- `machineengine_upgrades`: the upgrade tab. Clicking with upgrades installs them (right-click: one);
+  an empty hand opens the upgrades menu (`menu: <file>`, else `<the machine's menu>_upgrades`).
+- `machineengine_action` (`action`, `index`, `list`, `input`, `empty`): runs one of the machine
+  type's actions with the click and the held item (D40). Every machine with upgrade slots has the
+  action `upgrade` and the list `upgrades`; addons add their own (Mekanized's modification station:
+  `module` / `modules`). A list row shows with `%zmenu_machineengine_list_<id>_<index>_<field>%`
+  (`list_<id>_size` for its length); past the end the button hides, or shows its `empty:` item:
+  ```yaml
+  upgrade-0:
+    type: machineengine_action
+    action: upgrade        # held upgrades: install; empty hand: take one out (shift: all)
+    list: upgrades
+    index: 0
+    slot: 19
+    item:
+      material: "craftengine:%zmenu_machineengine_list_upgrades_0_item%"
+      name: "%zmenu_machineengine_list_upgrades_0_count%/%zmenu_machineengine_list_upgrades_0_max%"
+    empty: { material: LIGHT_GRAY_STAINED_GLASS_PANE, name: "<gray>No upgrade" }
+  input:
+    type: machineengine_action
+    action: upgrade
+    input: true            # shift-clicking upgrades in the player's inventory installs them
+    index: 99
+    slot: 40
+    item: { material: HOPPER, name: "Put upgrades here" }
+  ```
 
 Dev servers download zMenu automatically (`-PwithZMenu=false` to leave it out).
 
@@ -164,7 +190,11 @@ Items get MachineEngine's CraftEngine item behaviors in their `behaviors:` list:
 - `machineengine:energy_item` (`max-energy`, `max-input`, `max-output`);
 - `machineengine:resource_item` (`resource`, `capacity`, `fill-from-machines`);
 - `machineengine:storage_reader`, which prints a machine's storages;
-- `machineengine:wrench`, with `click` and `sneak-click` each `rotate`, `dismantle` or `none`.
+- `machineengine:wrench`, with `click` and `sneak-click` each `rotate`, `dismantle` or `none`;
+- `machineengine:upgrade` (`upgrade`: the upgrade type, the item's own id by default): the item is a
+  machine upgrade. Install it from the machine's menu, or right-click the machine with it (sneak:
+  as many as fit). An item without it whose id is an upgrade's key still works, with a warning in
+  the log; that rule will be removed.
 
 Machines charge or fill any item with these behaviors. Add `machineengine:resource_lore: {}` under the item's `client-bound-data:` to show what it holds, in each player's language.
 

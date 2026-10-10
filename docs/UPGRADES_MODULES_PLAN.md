@@ -151,10 +151,12 @@ Each stage ends with `./gradlew check` green and, from stage 2, a headless dev-s
 - Right-clicking the station with gear no longer takes a module out: the gear behavior is no longer a `MachineTool`, so the click opens the menu. The sneak-right-click install shortcut stays.
 - Tests: `ModificationStationTest` (installs a level per 40 ticks for energy, waits without energy, does-not-fit and max-level reasons, rows, take one and all, toggling, the energy unit cannot be switched, asks twice before losing energy, only modular gear and modules go in, the menu has room for every piece); `BlockNumbersTest` knows its options. New console check `mekanized check-station <x y z> world`; on Paper 26.3 and 1.20.6 it installs two fortune levels (Fortune II) from 40,000 J, then one level comes out (Fortune I). Clicking needs a player: the owner checks the menu.
 
-### Stage 6: docs and in-game check
+### Stage 6: docs and in-game check. Done (2026-10-10)
 
-- `MEKANIZED_GUIDE.md` (how to install and remove upgrades and modules); `ARCHITECTURE.md` §14 (actions, lists, upgrade item behavior); D40.
-- The owner checks in game: upgrades menu, station menu, shortcut, old menus they edited.
+- `README.md`: the `machineengine_upgrades` and `machineengine_action` buttons (with an example), the list placeholders, and the `machineengine:upgrade` item behavior.
+- `MEKANIZED_GUIDE.md`: installing and taking out upgrades (right-click, the tab, the upgrades menu), the modification station, the install shortcut, module levels and what each level does, enchantments, the station's block options, the module and upgrade item options, the ghost items.
+- `ARCHITECTURE.md`: D40 rewritten to what was built; §14 points at actions and lists.
+- In game (owner, 2026-10-10): the station works: installing, taking out, switching, the energy warning (the time limit was added after) and the right-click opening the menu. Left to look at: the ghost items in empty rows, and the upgrades menu's clicks (stage 3).
 
 ## Decisions (accepted 2026-10-09)
 
