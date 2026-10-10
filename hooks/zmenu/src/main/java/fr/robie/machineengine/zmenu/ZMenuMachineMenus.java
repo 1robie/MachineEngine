@@ -315,6 +315,11 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         for (Button button : engine.getButtons()) {
             if (!(slots && button instanceof SlotButton) && !isLive(button)) continue;
             for (int slot : button.getSlots()) engine.cancel(slot);
+            // A button that hides itself now (a list row past the end) is cleared, not drawn.
+            if (!button.checkPermission(player, engine, placeholders)) {
+                for (int slot : button.getSlots()) engine.removeItem(slot);
+                continue;
+            }
             engine.buildButton(button, placeholders);
         }
     }

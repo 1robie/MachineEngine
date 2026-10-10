@@ -10,6 +10,9 @@ import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Material;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.ClickType;
@@ -21,6 +24,8 @@ import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.List;
+
 /**
  * {@code type: machineengine_action}: runs one of the open machine's actions (D40, {@code MachineAction})
  * with the click: left, right, shift, drop, and the stack on the cursor. What the action takes comes off
@@ -30,6 +35,9 @@ import org.jetbrains.annotations.Nullable;
  *   <li>{@code index}: passed to the action (the row of a list), 0 by default;</li>
  *   <li>{@code list: <id>}: hidden when {@code index} is past the end of that list (one button per row,
  *       showing the row with {@code %zmenu_machineengine_list_<id>_<index>_<field>%});</li>
+ *   <li>{@code empty: {material, name, lore}}: with {@code list}, what a row past the end shows instead of
+ *       hiding (an empty slot); clicking it runs nothing. {@code material} is a vanilla material or
+ *       {@code craftengine:<namespace>:<id>}; name and lore are MiniMessage.</li>
  *   <li>{@code input: true}: a shift-click on a stack in the player's inventory runs the action too, as
  *       an {@code INSERT} click with that stack (an upgrade input, a module slot). Use it on one button
  *       per menu, and not next to {@code machineengine_slot} buttons that accept shift-clicks.</li>
@@ -51,22 +59,65 @@ final class ActionButton extends Button {
     private final int index;
     private final @Nullable String list;
     private final boolean input;
+    private final @Nullable EmptyItem empty;
 
-    private ActionButton(ZMenuMachineMenus menus, String action, int index, @Nullable String list, boolean input) {
+    private ActionButton(ZMenuMachineMenus menus, String action, int index, @Nullable String list, boolean input,
+                         @Nullable EmptyItem empty) {
         this.menus = menus;
         this.action = action;
         this.index = index;
         this.list = list;
         this.input = input;
+        this.empty = empty;
+    }
+
+    /** What an empty row shows; the item is built on first use (CraftEngine items load after menus). */
+    record EmptyItem(String material, String name, List<String> lore) {
+        @Nullable ItemStack build() {
+            ItemStack item;
+            if (this.material.startsWith("craftengine:")) {
+                String id = this.material.substring("craftengine:".length());
+                item = Key.parseable(id) ? PaperItems.itemOf(Key.key(id)) : null;
+            } else {
+                Material vanilla = Material.matchMaterial(this.material);
+                item = vanilla == null ? null : new ItemStack(vanilla);
+            }
+            if (item == null) return null;
+            MiniMessage text = MiniMessage.miniMessage();
+            item.editMeta(meta -> {
+                meta.displayName(text.deserialize("<!i>" + this.name));
+                meta.lore(this.lore.stream().map(line -> text.deserialize("<!i>" + line)).toList());
+            });
+            return item;
+        }
     }
 
     @Override
     public boolean checkPermission(@NotNull Player player, @NotNull InventoryEngine inventory, @NotNull Placeholders placeholders) {
         if (!super.checkPermission(player, inventory, placeholders)) return false;
-        LoadedMachine machine = this.menus.machineOf(player);
-        MachineInstanceImpl instance = machine == null ? null : machine.instance();
+        MachineInstanceImpl instance = instance(player);
         if (instance == null || instance.type().action(this.action).isEmpty()) return false;
-        return this.list == null || this.index < instance.list(this.list).size();
+        return this.empty != null || !pastTheEnd(instance);
+    }
+
+    /** A row past the end of the list shows the {@code empty} item. */
+    @Override
+    public ItemStack getCustomItemStack(@NotNull Player player, boolean useCache, @NotNull Placeholders placeholders) {
+        MachineInstanceImpl instance = instance(player);
+        if (this.empty != null && instance != null && pastTheEnd(instance)) {
+            ItemStack item = this.empty.build();
+            if (item != null) return item;
+        }
+        return super.getCustomItemStack(player, useCache, placeholders);
+    }
+
+    private @Nullable MachineInstanceImpl instance(Player player) {
+        LoadedMachine machine = this.menus.machineOf(player);
+        return machine == null ? null : machine.instance();
+    }
+
+    private boolean pastTheEnd(MachineInstanceImpl instance) {
+        return this.list != null && this.index >= instance.list(this.list).size();
     }
 
     @Override
@@ -99,6 +150,9 @@ final class ActionButton extends Button {
                         @NotNull Placeholders placeholders) {
         super.onClick(player, event, inventory, slot, placeholders);
         ItemStack cursor = player.getItemOnCursor();
+        // An empty row: an empty hand has nothing to take out (an upgrade held still installs).
+        MachineInstanceImpl instance = instance(player);
+        if (instance != null && pastTheEnd(instance) && cursor.getType().isAir()) return;
         MachineAction.Outcome outcome = run(player, kind(event.getClick()), cursor);
         if (outcome != null && outcome.used() > 0) player.setItemOnCursor(remove(cursor, outcome.used()));
     }
@@ -156,8 +210,13 @@ final class ActionButton extends Button {
                 this.owner.getLogger().warning("The machineengine_action button at " + path + " needs 'action: <id>'");
                 return null;
             }
+            EmptyItem empty = null;
+            if (configuration.isConfigurationSection(path + "empty")) {
+                empty = new EmptyItem(configuration.getString(path + "empty.material", "LIGHT_GRAY_STAINED_GLASS_PANE"),
+                        configuration.getString(path + "empty.name", ""), configuration.getStringList(path + "empty.lore"));
+            }
             return new ActionButton(this.menus, action, Math.max(0, configuration.getInt(path + "index", 0)),
-                    configuration.getString(path + "list"), configuration.getBoolean(path + "input", false));
+                    configuration.getString(path + "list"), configuration.getBoolean(path + "input", false), empty);
         }
     }
 }
