@@ -8,6 +8,10 @@
 
 This document is the single source of truth for MachineEngine's architecture.
 
+It is written for people working on MachineEngine. Server owners and addon developers have the
+[documentation site](https://1robie.github.io/plugins/machineengine/) (its source: the `1robie.github.io`
+repository); building, dev servers and releases are in [CONTRIBUTING.md](../CONTRIBUTING.md).
+
 - **MUST / MUST NOT** are binding. **SHOULD** is the default unless a documented reason exists. **MAY** is optional.
 - §1 (Decision Log) overrides any other section if they ever disagree.
 - Items marked **[VERIFY]** depend on CraftEngine behavior that was not fully confirmed in source; the implementer MUST check them against the pinned CraftEngine snapshot before relying on them, and update this document.

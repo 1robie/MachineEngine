@@ -5,7 +5,7 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Stages 3-7 done. Next: stage 8 (screenshots, owner) and stage 9 (portfolio). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
+Hangar, Hangar pages synced from the READMEs. Stages 3-7, 9 and 10 done (10 committed locally, pushed once the site is live). Next: stage 8 (screenshots, owner), stage 11 (go live). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
 so the engine modules are published to https://1robie.github.io/maven/ (repo 1robie/maven,
 maven.yml, MAVEN_REPO_TOKEN), with the API Javadoc; 0.1.0 is there.
 
@@ -287,11 +287,18 @@ Claude crops them, saves them as `.webp` under the site's `static/img/machineeng
 
 **Stage 9: portfolio.** The MachineEngine block replacing the template block, then a Mekanized
 block. `npm run check`.
+- **Done (2026-10-11):** MachineEngine and Mekanized entries replace the template block in
+  `docs/portfolio/projects.md` (site branch).
 
 **Stage 10: repo docs (MachineEngine).** README rewritten to the outline, linking to the site.
 `CONTRIBUTING.md` at the root. The Mekanized docs have already left with the split; the README's
 Mekanized section becomes a line linking to its repo and site page. ARCHITECTURE.md
 §0 points to the site for user docs.
+- **Done (2026-10-11), not pushed:** README rewritten (307 -> 81 lines, links to the site),
+  `CONTRIBUTING.md` (modules, building, dev servers and properties, server checks, tests,
+  releases), ARCHITECTURE.md §0 points to both. Mekanized's README links to its site pages and
+  MEKANIZED_GUIDE.md becomes a pointer. Held back because pushing a README change syncs it to the
+  Hangar page at once, and its links need the site live (stage 11).
 
 **Stage 11: go live.** Once the `api` is on JitPack: the owner reviews the site branch locally
 (`npm start`), then merges to `main`, which deploys. Not done by Claude. Then the repo READMEs'
