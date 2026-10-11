@@ -22,6 +22,8 @@ Stages 2 onward wait for MEKANIZED_SPLIT_PLAN.md (decision 7).
    repo has its own README; Mekanized's is written in that plan, from the site pages of stage 7.
 8. **Downloads: not only GitHub releases.** Proposed: GitHub releases, Modrinth and Hangar
    (PaperMC's own; both plugins are Paper and Folia only, so no SpigotMC). Confirmed by the owner.
+   Update (2026-10-11): **Hangar only for now**; Modrinth later, when the owner has time to set it up.
+   Hangar categories: MachineEngine *Developer Tools*, Mekanized *Gameplay*.
 9. **Repo names** `1robie/MachineEngine` and `1robie/Mekanized`; Mekanized's package becomes
    `fr.robie.mekanized`, its history is kept (MEKANIZED_SPLIT_PLAN.md).
 
