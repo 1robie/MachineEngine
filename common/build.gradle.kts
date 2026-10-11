@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
 }
 
 description = "MachineEngine implementation of the API: the engine, its Paper integration and its CraftEngine integration (D24)."

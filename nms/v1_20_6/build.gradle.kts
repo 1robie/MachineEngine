@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.java-conventions")
+    id("machineengine.publishing")
     alias(libs.plugins.paperweight.userdev)
 }
 

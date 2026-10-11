@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
 }
 
 description = "MachineEngine machine menus on zMenu: placeholders, custom buttons, configurable menu files."

@@ -4,6 +4,7 @@ import xyz.jpenilla.runpaper.task.RunServer
 
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
     alias(libs.plugins.shadow)
     alias(libs.plugins.plugin.yml.paper)
     alias(libs.plugins.run.paper)
@@ -92,6 +93,12 @@ tasks.shadowJar {
 
 tasks.assemble {
     dependsOn(tasks.shadowJar)
+}
+
+// The published artifact is the plain jar with its dependencies (what machineengine-test needs), not
+// the shaded plugin jar: servers get that from the releases.
+(components["java"] as AdhocComponentWithVariants).withVariantsFromConfiguration(configurations["shadowRuntimeElements"]) {
+    skip()
 }
 
 val verifyRelocation = tasks.register<VerifyRelocation>("verifyRelocation") {

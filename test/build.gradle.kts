@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
 }
 
 description = "Headless test harness for MachineEngine and its addons (ARCHITECTURE.md §28)."

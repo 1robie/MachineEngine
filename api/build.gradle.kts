@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
 }
 
 description = "MachineEngine public API and SPI."

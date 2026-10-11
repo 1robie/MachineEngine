@@ -4,7 +4,7 @@ Owner's decision (2026-10-11, while planning DOCS_PLAN.md): MachineEngine and Me
 GitHub repositories, both public. Mekanized then builds against MachineEngine's published `api`,
 like any outside addon.
 
-Status: stage 0 done (owner's answers below). Next: stage 1. Must be done before DOCS_PLAN.md stage 2 (publishing), since
+Status: stages 0-2 done (2026-10-11). Next: stage 3, the Mekanized repo.
 Mekanized's repo needs MachineEngine's artifacts on JitPack.
 
 ## How tied together they are today
@@ -66,10 +66,23 @@ Mekanized's own docs, with a line in ARCHITECTURE.md pointing there.
 **Stage 1: engine checks into MachineEngine.** YAML test machines and `/machineengine check
 drop|hopper|comparator|fill` (or headless tests), run on a dev server without Mekanized
 (`-PwithAddons=false`). Mekanized's copies are removed after the split.
+- **Done:** `/machineengine check drop|hopper|comparator|fill` (`common/.../paper/EngineChecks.java`)
+  on `devcheck:bin` and `devcheck:crusher`, defined in `plugin/src/dev/` (a definitions file and a
+  CraftEngine pack) and copied into each dev server by `installDevChecks<Software>-<version>`.
+  Checked on Paper 26.3 with `-PwithAddons=false`: drop 100/100, comparator 8 then 0, hopper 10 in
+  the chest, fill 9 crushers.
 
 **Stage 2: publishing in MachineEngine** (DOCS_PLAN stage 2, done here first): `maven-publish` on
 `api` and `test`, `jitpack.yml` (JDK 25, only those two modules). Checked locally with
 `publishToMavenLocal` and a throwaway consumer project.
+- **Done:** `machineengine.publishing` (buildSrc) on every engine module, group
+  `com.github.1robie.MachineEngine`, artifact = jar name (`machineengine-api`, `machineengine-test`,
+  `machineengine-common`, `machineengine-zmenu`, `machineengine-nms-*`, `machineengine-plugin`).
+  `machineengine-test` brings the others; `machineengine-plugin` is the thin jar (the shaded variant
+  is skipped). `jitpack.yml` runs Gradle on JDK 21 and `publishToMavenLocal`; the toolchain fetches
+  JDK 25. Checked with `publishToMavenLocal`: POMs reference each other by those coordinates. Not
+  checked yet: the JitPack build itself (needs the public repo and a tag; paperweight on JitPack is
+  the risk).
 
 **Stage 3: new Mekanized repo** (in `C:\Users\clare\IdeaProjects\Mekanized`): `git filter-repo`
 (installed with `pip install git-filter-repo`) on a fresh clone, then the standalone build:

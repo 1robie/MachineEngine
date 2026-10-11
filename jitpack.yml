@@ -1,0 +1,6 @@
+# JitPack builds the published modules from a git tag (docs/MEKANIZED_SPLIT_PLAN.md stage 2).
+# Gradle runs on JDK 21; the foojay resolver (settings.gradle.kts) fetches the JDK 25 toolchain.
+jdk:
+  - openjdk21
+install:
+  - ./gradlew publishToMavenLocal --console=plain

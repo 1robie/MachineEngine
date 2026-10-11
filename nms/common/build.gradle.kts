@@ -1,5 +1,6 @@
 plugins {
     id("machineengine.platform")
+    id("machineengine.publishing")
 }
 
 description = "The reflective fallback for Minecraft versions without an nms:v* module (the interfaces are in api, D28)."
