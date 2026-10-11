@@ -4,8 +4,10 @@ Owner's requests (2026-10-11): rewrite the README, since the repo has changed si
 then add MachineEngine to the portfolio and documentation website (`1robie.github.io`, a Docusaurus
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
-Status: stage 0 done; the owner answered the open questions (see Decisions). Next: stage 1.
-Stages 2 onward wait for MEKANIZED_SPLIT_PLAN.md (decision 7).
+Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
+Hangar, Hangar pages synced from the READMEs. Next: stage 3 (site scaffolding), once the site repo's
+uncommitted work is committed. Open: JitPack failed to build the 0.1.0 tag (its builders could not
+install a JDK, any jitpack.yml), retried; Mekanized's CI and releases no longer need JitPack.
 
 ## Decisions (owner, 2026-10-11)
 
