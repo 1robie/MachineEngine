@@ -13,6 +13,7 @@ enabled: false
 # the global fluid category, so every fluid pipe and port takes it.
 resource-types:
   custom:fluid/oil: { category: machineengine:fluid }
+  # A menu color for a type: custom:fluid/tar: { category: machineengine:fluid, color: "#2B2118" }
 # A resource of a new kind (mana, heat …) needs its own category:
 # resource-categories:
 #   custom:mana: { unit: MP, scale: 0 }

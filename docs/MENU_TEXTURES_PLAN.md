@@ -99,7 +99,7 @@ Stop and report if any of these fails.
 
 - No new button type: placeholders in `material` and `dyed-color` do it (see Design).
 - `MachinePlaceholders` (common): `storage_<id>_cell_<k>`, `storage_<id>_slot_<n>_cell_<k>`, `process_cell_<k>` (level of cell k of a 3-slot bar) and `storage_<id>_color`, `storage_<id>_slot_<n>_color` (`#RRGGBB`). The level rule is `BarCells`: filled px = `floor(value / total × 52)`, at least 1 when not empty, 52 only when full (so a nearly full tank does not look full). Tests: `BarCellsTest`, `MachinePlaceholdersTest`.
-- `api.paper.ResourceColors`, like `ResourceNames`: addons register a colorer; MachineEngine colors water (`#3F76E4`) and lava; the rest is white.
+- `api.paper.ResourceColors`, like `ResourceNames`: a type's own color first (D41: `ResourceType#color`, set in code, a definition's `color:`, or config.yml for water and lava), then addons' colorers, then white.
 - Mekanized: `chemicals.txt` and `fluids.txt` get a second column, Mekanism's tint at `4718860` (`ChemicalConstants`, `MekanismChemicals`, `GeneratorsChemicals`, `PrimaryResource` for slurries, `EnumColor` for pigments, `MekanismFluids`, `GeneratorsFluids`); heat is `#FF7E1F`. `MekanizedContent.color` and a colorer registered next to the namer; `EngineResourcesTest` checks every chemical and Mekanized fluid has one.
 - Level-0 items (`gui/bar/<shape>/<cell>/0`, an empty model) so every placeholder value names an item; `:plugin:ceSnapshot` accepts the 18.
 - The placeholders and the bar recipe are documented in `menus/machine.yml`'s header.

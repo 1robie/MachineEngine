@@ -75,6 +75,8 @@ public final class EngineConfig {
             .key(Fluids.UNIT)
             .key(Fluids.SCALE)
             .key(Fluids.BUCKET)
+            .key(Fluids.WATER_COLOR)
+            .key(Fluids.LAVA_COLOR)
             .build();
 
     private EngineConfig() {

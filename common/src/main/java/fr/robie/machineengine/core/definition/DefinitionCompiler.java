@@ -65,7 +65,7 @@ import java.util.function.Supplier;
  *
  * <pre>{@code
  * resource-categories:  { <key>: { unit: FE, scale: 0 } }
- * resource-types:       { <key>: { category: <key> } }
+ * resource-types:       { <key>: { category: <key>, color: "#RRGGBB" } }   # color optional
  * recipe-types:         [ <key>, … ]
  * machines:
  *   <key>:
@@ -162,7 +162,15 @@ public final class DefinitionCompiler {
                     skip(report, where, category.error().message());
                     return;
                 }
-                context.resourceTypes().register(ResourceType.of(key, category.value()));
+                String text = map.getString("color").toOptional().orElse(null);
+                Integer color = text == null ? null : ResourceType.parseColor(text);
+                if (text != null && color == null) {
+                    skip(report, where, "color must be \"#RRGGBB\" but is " + text);
+                    return;
+                }
+                context.resourceTypes().register(color == null
+                        ? ResourceType.of(key, category.value())
+                        : ResourceType.of(key, category.value(), color));
             });
             for (Key key : keys(file, "recipe-types", report)) {
                 context.recipeTypes().register(RecipeType.of(key, ProcessingRecipe.class));

@@ -64,6 +64,9 @@ class BuiltInResourcesTest {
         assertEquals("mB", Fluids.category().unit());
         assertEquals(0, Fluids.category().scale());
         assertEquals(1000, Fluids.bucket());
+        assertEquals(0x3F76E4, Fluids.water().color().intValue(), "vanilla's water blue, from config.yml's default");
+        assertEquals(0xE0641A, Fluids.lava().color().intValue());
+        assertNull(Energy.type().color(), "energy has no menu color");
         assertSame(Energy.type(), TestEngine.builder().start().registries().registry(Registries.RESOURCE_TYPE).getOrThrow(Energy.KEY),
                 "built once: every engine shares the same objects");
     }
@@ -74,7 +77,7 @@ class BuiltInResourcesTest {
         Files.writeString(file, """
                 resources:
                   energy: { unit: FE, scale: 3 }
-                  fluid: { unit: L, bucket: 81000 }
+                  fluid: { unit: L, bucket: 81000, water-color: "#112233" }
                 """);
         ConfigFile config = ConfigFile.load(file, EngineConfig.SPEC, Logger.getAnonymousLogger());
 
@@ -83,6 +86,8 @@ class BuiltInResourcesTest {
         assertEquals(3, built.energyCategory().scale());
         assertEquals("L", built.fluidCategory().unit());
         assertEquals(81000, built.bucket());
+        assertEquals(0x112233, built.water().color().intValue(), "the water color from config.yml");
+        assertEquals(0xE0641A, built.lava().color().intValue(), "lava keeps its default");
         assertSame(built.energyCategory(), built.energy().category());
         assertSame(built.fluidCategory(), built.water().category());
 
@@ -152,6 +157,21 @@ class BuiltInResourcesTest {
         assertEquals(Fluids.WORLD_LAVA, Fluids.worldFluid(Fluids.lava()));
         assertNull(Fluids.worldFluid(Fluids.create(OIL)));
         assertNull(Fluids.fromWorld(Key.key("minecraft", "milk")));
+    }
+
+    @Test
+    void aDefinitionSetsATypesColorOrIsReported() {
+        CoreMachineEngine engine = TestEngine.builder()
+                .definitions(List.of(new DefinitionFile("definitions/colors.yml", map(
+                        "resource-types", map(
+                                "pack:tar", map("category", "machineengine:fluid", "color", "#2B2118"),
+                                "pack:red", map("category", "machineengine:fluid", "color", "red"))))))
+                .start();
+        var types = engine.registries().registry(Registries.RESOURCE_TYPE);
+
+        assertEquals(0x2B2118, types.getOrThrow(Key.key("pack", "tar")).color().intValue());
+        assertFalse(types.contains(Key.key("pack", "red")), "a color that is not #RRGGBB skips the type");
+        assertTrue(engine.startupReport().format().contains("color must be \"#RRGGBB\" but is red"), engine.startupReport().format());
     }
 
     @Test

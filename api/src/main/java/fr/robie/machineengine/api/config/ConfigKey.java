@@ -1,5 +1,6 @@
 package fr.robie.machineengine.api.config;
 
+import fr.robie.machineengine.api.resource.ResourceType;
 import org.bukkit.configuration.ConfigurationSection;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -67,6 +68,12 @@ public final class ConfigKey<T> {
     /** Text. Numbers and booleans written without quotes are read as text too. */
     public static @NotNull ConfigKey<String> string(@NotNull String path, @NotNull String defaultValue) {
         return of(path, defaultValue, raw -> scalar(raw), value -> value, "text");
+    }
+
+    /** A color, written {@code "#RRGGBB"} (quoted in YAML); read and written as {@code 0xRRGGBB}. */
+    public static @NotNull ConfigKey<Integer> color(@NotNull String path, int defaultValue) {
+        return of(path, defaultValue & 0xFFFFFF, raw -> ResourceType.parseColor(scalar(raw)),
+                value -> String.format("#%06X", value), "a color like \"#RRGGBB\"");
     }
 
     public static @NotNull ConfigKey<Boolean> bool(@NotNull String path, boolean defaultValue) {

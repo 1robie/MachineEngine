@@ -30,6 +30,11 @@ public final class Fluids {
             .comment("Decimal digits of fluid amounts.").restartOnly();
     public static final ConfigKey<Long> BUCKET = ConfigKey.whole("resources.fluid.bucket", 1000, 1, 1_000_000_000L)
             .comment("Amount of fluid in one bucket (and one source block).").restartOnly();
+    /** Vanilla's default water color; the menus' tint of water. */
+    public static final ConfigKey<Integer> WATER_COLOR = ConfigKey.color("resources.fluid.water-color", 0x3F76E4)
+            .comment("Color of water in menus, \"#RRGGBB\" (quote it).").restartOnly();
+    public static final ConfigKey<Integer> LAVA_COLOR = ConfigKey.color("resources.fluid.lava-color", 0xE0641A)
+            .comment("Color of lava in menus, \"#RRGGBB\" (quote it).").restartOnly();
 
     private Fluids() {
     }
@@ -65,6 +70,11 @@ public final class Fluids {
      */
     public static @NotNull ResourceType create(@NotNull Key key) {
         return ResourceType.of(key, category());
+    }
+
+    /** A new fluid with a menu color ({@code 0xRRGGBB}), as {@link #create(Key)}. */
+    public static @NotNull ResourceType create(@NotNull Key key, int color) {
+        return ResourceType.of(key, category(), color);
     }
 
     /** Whether {@code type} is in the global fluid category. */

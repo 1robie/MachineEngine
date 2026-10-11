@@ -25,7 +25,8 @@ public final class BuiltInResources {
     public record Built(@NotNull ResourceCategory energyCategory, @NotNull ResourceType energy,
                         @NotNull ResourceCategory fluidCategory, @NotNull ResourceType water, @NotNull ResourceType lava, long bucket) {
         boolean sameSettings(Built other) {
-            return same(this.energyCategory, other.energyCategory) && same(this.fluidCategory, other.fluidCategory) && this.bucket == other.bucket;
+            return same(this.energyCategory, other.energyCategory) && same(this.fluidCategory, other.fluidCategory) && this.bucket == other.bucket
+                    && Objects.equals(this.water.color(), other.water.color()) && Objects.equals(this.lava.color(), other.lava.color());
         }
 
         private static boolean same(ResourceCategory a, ResourceCategory b) {
@@ -40,7 +41,8 @@ public final class BuiltInResources {
         ResourceCategory fluidCategory = ResourceCategory.builder(Fluids.CATEGORY_KEY)
                 .unit(config.get(Fluids.UNIT)).scale(config.get(Fluids.SCALE)).build();
         return new Built(energyCategory, ResourceType.of(Energy.KEY, energyCategory), fluidCategory,
-                ResourceType.of(Fluids.WATER_KEY, fluidCategory), ResourceType.of(Fluids.LAVA_KEY, fluidCategory),
+                ResourceType.of(Fluids.WATER_KEY, fluidCategory, config.get(Fluids.WATER_COLOR)),
+                ResourceType.of(Fluids.LAVA_KEY, fluidCategory, config.get(Fluids.LAVA_COLOR)),
                 config.get(Fluids.BUCKET));
     }
 

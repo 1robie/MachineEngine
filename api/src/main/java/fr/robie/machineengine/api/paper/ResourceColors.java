@@ -1,6 +1,5 @@
 package fr.robie.machineengine.api.paper;
 
-import fr.robie.machineengine.api.resource.Fluids;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -11,14 +10,14 @@ import java.util.function.Function;
 
 /**
  * The color of resources in menus (the {@code storage_<id>_color} placeholders), as {@code 0xRRGGBB}:
- * tinted fill bars take it, e.g. through zMenu's {@code dyed-color} component. Addons color their own
- * resources; MachineEngine colors water and lava. Without a color, white (the bar's own texture).
+ * tinted fill bars take it, e.g. through zMenu's {@code dyed-color} component. A resource's color is its
+ * type's {@link fr.robie.machineengine.api.resource.ResourceType#color()}; colorers color types by rule
+ * for the ones without one. Without a color, white (the bar's own texture).
+ *
+ * <p>Order: the type's color, then the colorers in registration order, then white.</p>
  */
 public final class ResourceColors {
     public static final int WHITE = 0xFFFFFF;
-    /** Vanilla's default water color. */
-    public static final int WATER = 0x3F76E4;
-    public static final int LAVA = 0xE0641A;
     private static final List<Function<ResourceVariant, Integer>> COLORERS = new CopyOnWriteArrayList<>();
 
     private ResourceColors() {
@@ -33,15 +32,15 @@ public final class ResourceColors {
         COLORERS.remove(colorer);
     }
 
-    /** The color of {@code variant} ({@code 0xRRGGBB}), or {@link #WHITE} for no resource or no color. */
+    /** The color of {@code variant} ({@code  0xRRGGBB}), or {@link #WHITE} for no resource or no color. */
     public static int of(@Nullable ResourceVariant variant) {
         if (variant == null) return WHITE;
+        Integer own = variant.type().color();
+        if (own != null) return own;
         for (Function<ResourceVariant, Integer> colorer : COLORERS) {
             Integer color = colorer.apply(variant);
             if (color != null) return color & 0xFFFFFF;
         }
-        if (variant.type().key().equals(Fluids.WATER_KEY)) return WATER;
-        if (variant.type().key().equals(Fluids.LAVA_KEY)) return LAVA;
         return WHITE;
     }
 
