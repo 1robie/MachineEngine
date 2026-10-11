@@ -1,8 +1,0 @@
-{
-  "parent": "mekanized:block/crusher",
-  "textures": {
-    "front": "mekanized:block/crusher/front_active",
-    "west": "mekanized:block/crusher/side_active",
-    "east": "mekanized:block/crusher/side_active"
-  }
-}

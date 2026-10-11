@@ -1,8 +1,0 @@
-{
-  "parent": "mekanized:block/pigment_extractor",
-  "textures": {
-    "front": "mekanized:block/pigment_extractor/front_active",
-    "west": "mekanized:block/pigment_extractor/right_active",
-    "east": "mekanized:block/pigment_extractor/left_active"
-  }
-}

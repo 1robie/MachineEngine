@@ -1,6 +1,0 @@
-{
-  "parent": "mekanized:block/combiner",
-  "textures": {
-    "front": "mekanized:block/combiner/front_active"
-  }
-}

@@ -4,7 +4,7 @@ Owner's decision (2026-10-11, while planning DOCS_PLAN.md): MachineEngine and Me
 GitHub repositories, both public. Mekanized then builds against MachineEngine's published `api`,
 like any outside addon.
 
-Status: stages 0-2 done (2026-10-11). Next: stage 3, the Mekanized repo.
+Status: stages 0-4 done (2026-10-11). Next: stage 5, going public (owner).
 Mekanized's repo needs MachineEngine's artifacts on JitPack.
 
 ## How tied together they are today
@@ -91,11 +91,20 @@ drop|hopper|comparator|fill` (or headless tests), run on a dev server without Me
 its tests against `mavenLocal` and against the local engine (`-PlocalEngine`). The package rename
 to `fr.robie.mekanized` is its own commit after the history import, so the imported history stays
 as it was.
+- **Done:** `IdeaProjects/Mekanized`, 131 commits kept from `mekanized/`,
+  `machineengine-mekanized/`, the two guides and the importer files in `buildSrc`, then: standalone
+  build, package `fr.robie.mekanized`, the moved checks removed, README and CI. The local checkout is
+  found automatically (`../MachineEngine`; `-PlocalEngine=false` turns it off, `-Pmachineengine_dir`
+  moves it). 177 tests pass against the local engine. Not run yet: its dev servers (their run folders
+  are new, so the Minecraft EULA has to be accepted there first).
 
 **Stage 4: remove Mekanized from MachineEngine.** Delete `mekanized/`, the `devAddons` entry,
 `ceSnapshot` tasks, `ContentManifest.kt`, `CeSnapshot.kt`; move the Mekanized docs; add D42.
 `./gradlew build` passes. Check on a dev server that MachineEngine starts alone, and that both
 plugins start together (Mekanized jar from its repo).
+- **Done:** `mekanized/`, `devAddons` / `-PwithAddons`, the `ceSnapshot` tasks, `ContentManifest.kt`,
+  `CeSnapshot.kt`, MEKANIZED_GUIDE.md and MEKANIZED_PLAN.md removed; D42 added; README trimmed (the
+  rewrite is DOCS_PLAN stage 10). The older plans still name Mekanized's files as history.
 
 **Stage 5: go public.** The owner creates both GitHub repos, pushes, and tags MachineEngine
 `0.1.0` first, then Mekanized `0.1.0` once JitPack has built the engine. Claude checks JitPack's

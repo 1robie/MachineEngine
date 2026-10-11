@@ -60,6 +60,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | D39 | **Machine menus are drawn with CraftEngine images in the zMenu title and CraftEngine items in slots.** The title holds what does not move (panel, slot frames, bar frames) as `<image:…>` and `<shift:…>` tags that CraftEngine replaces in the open-screen packet. What moves is a CraftEngine item in a slot, named by placeholders in the button's `material` (zMenu resolves them before its CraftEngine loader) and colored with zMenu's `dyed-color` component. A fill bar covers 3 slots (52 px; cell k draws `[18k, 18k + 18)`, never below or left of its slot, which clients clip). Placeholders: `storage_<id>[_slot_<n>]_cell_<k>`, `process_cell_<k>`, `storage_<id>[_slot_<n>]_color` (`api.paper.ResourceColors`, colorers like `ResourceNames`), `data_<id>_cell` (a percent as 0–16), `side_<group>_<side>_mode`. `ZMenuMachineMenus` redraws every button whose material holds a machine placeholder, all in the same tick, at the menu's `update-interval` and on `machineChanged` (zMenu's `update` would refresh only name and lore, each button on its own timer). Mekanized ships the textures (Mekanism's, MIT), `gui.yml` and `MenuLayout`, which writes each title from the widgets it places; players need the resource pack. | Project owner decision (2026-10-09), docs/MENU_TEXTURES_PLAN.md: require the pack, Mekanism's textures, layered images in the title; the rest delegated. |
 | D40 | **Upgrades and modules are added and removed from menus, through machine actions and lists.** A `MachineType` declares named `MachineAction`s (a click: left, right, shift, drop, or a shift-click from the player's inventory, with the held stack as a `ResourceStack` and a row index; the outcome says what it used, what it gives and a message) and `MachineList`s (rows of text fields). `MachineInstance#runAction` runs one on the owner thread, refuses unknown or failing ones, and posts `MachineEvents.ACTION` when it did something. zMenu shows them with the `machineengine_action` button (`action`, `index`, `list`, `input`, `empty`: what a row past the end shows) and the placeholders `list_<id>_size` and `list_<id>_<index>_<field>`; the live redraw clears buttons that hide themselves. Every type with upgrade slots gets the action `upgrade` and the list `upgrades` (`UpgradeActions`) unless it declares its own; `MachineInstance#upgradeRoom` says how many more fit or why none. Upgrade items get the CE item behavior `machineengine:upgrade` (`UpgradeItem`, `UpgradeItems`; an item whose id is an upgrade key stays a reported, deprecated fallback), right-clicking a machine with one installs it (sneak: the stack), and `machineengine_upgrades` opens an upgrades menu (Mekanized: one shared `mekanized_upgrades`). Gear modules get levels and an on/off switch (`name[:level[:off]]`; old lists read as level 1, on), scaled as in Mekanism, with every module number in its item config. The modification station is a powered machine with gear and module slots and a menu: installing costs energy and time (block config, D34), its module list removes and toggles, and removing an energy unit that would lose energy needs the same click again within `confirm-seconds`; the sneak-right-click install stays as a shortcut. | Project owner decision (2026-10-09): the proposals of docs/UPGRADES_MODULES_PLAN.md accepted as written; module numbers configurable (2026-10-10). |
 | D41 | **A resource's menu color is part of its type.** `ResourceType` has an optional color, `0xRRGGBB`, set once when the type is built (`ResourceType.of(key, category, color)`, `Fluids.create(key, color)`) and never changed, so identity by reference (D9) holds. `ResourceColors.of` reads the type's color first, then the colorers (addons color types by rule), then white. Water and lava take `resources.fluid.water-color` and `lava-color` in config.yml (restart); a definition's `resource-types` entry takes `color: "#RRGGBB"`; Mekanized's chemicals and fluids take their list's color, overridable by the `colors` map of its config.yml (restart); heat's color is fixed in code. The fluid tank's and heat bar's labels take the storage's color (`<color:…_color%>`). Mekanized no longer registers a colorer. | Project owner decision (2026-10-10): plan docs/RESOURCE_COLOR_PLAN.md, with addon YAML colors, colored menu labels and heat on the type all accepted. |
+| D42 | **Mekanized is a separate repository** (`1robie/Mekanized`, package `fr.robie.mekanized`), built against the published `machineengine-api` and `machineengine-test` (JitPack, group `com.github.1robie.MachineEngine`), or against a MachineEngine checkout next to it (a composite build). Supersedes the "dev addon of `plugin`" part of D27; D31 and D36 now belong to Mekanized's own docs. Every engine module is published (`machineengine.publishing`). The engine checks that needed no Mekanized content are `/machineengine check drop|hopper|comparator|fill`, on blocks only the dev servers install (`plugin/src/dev`). | Project owner decision (2026-10-11), with the docs website (DOCS_PLAN.md): two public repositories, Mekanized's history kept (`git filter-repo`). See MEKANIZED_SPLIT_PLAN.md. |
 
 ---
 
@@ -71,7 +72,7 @@ This document is the single source of truth for MachineEngine's architecture.
 | Minecraft version | **1.20.6 – 26.3** (D19). 26.3 matches CraftEngine `dev`'s `latest_supported_version`. |
 | Paper API (compile) | Compile against the **26.3** Paper API, restricted to API present in **1.20.6** and enforced by `verifyPaperBaseline` (D25). Version-specific code lives only in `nms:v*` modules (paperweight userdev, Mojang-mapped jars, no reobf). |
 | Runtime test matrix | Smoke tests on Paper 1.20.6 and on the latest supported 26.3 build (and Folia equivalents from M4). |
-| Java | Bytecode `--release 21` (required by 1.20.6 and the same floor as CraftEngine) for every module, including the plugin jar, `api` and `mekanized`; build toolchain JDK 25, which Paper 26.x requires (its API jar is class version 69). Exception: `nms:v26_*` emit `--release 25` and are only loaded on 26.x servers (D25). Tests run on JDK 25. |
+| Java | Bytecode `--release 21` (required by 1.20.6 and the same floor as CraftEngine) for every module, including the plugin jar and `api`; build toolchain JDK 25, which Paper 26.x requires (its API jar is class version 69). Exception: `nms:v26_*` emit `--release 25` and are only loaded on 26.x servers (D25). Tests run on JDK 25. |
 | Build | Gradle (Kotlin DSL), multi-module. `xyz.jpenilla.run-paper` for dev servers, `net.minecrell.plugin-yml.paper` for `paper-plugin.yml`, Shadow for the plugin jar. |
 | CraftEngine repository | `https://repo.momirealms.net/snapshots/` (dev builds) — releases at `https://repo.momirealms.net/releases/`. |
 | CraftEngine artifacts | `net.momirealms:craft-engine-core:26.10-SNAPSHOT` and `net.momirealms:craft-engine-bukkit:26.10-SNAPSHOT`, both `compileOnly`, available to every module (D26). |
@@ -127,19 +128,19 @@ plugin         Shaded plugin jar = common + hooks + nms. Picks the nms implement
                startup. Owns the run-paper / run-folia dev servers.
 test           Headless test harness (fake worlds, fake regions, fake clock, in-memory
                DataView) and the engine's integration tests. Published for addon authors.
-mekanized      Mekanism-style content addon, separate jar, compiles against api only (D27);
-               content kept by hand in src/main/resources/mekanized, based on Mekanism (D31).
 ```
+
+Mekanized, the Mekanism-style content addon, is its own repository since D42
+(https://github.com/1robie/Mekanized), built against the published `api` and `test`.
 
 Future modules: more `hooks:*`, and official content plugins (Energy, Logistics, Chemistry, Industry, Utilities) as separate addons.
 
 Dependency direction (MUST be enforced by Gradle, no cycles):
 
 ```text
-api ← nms:common ← common ← hooks:*    ← plugin ← test ← mekanized (tests only)
+api ← nms:common ← common ← hooks:*    ← plugin ← test
           ↑                              ↑
           └──── nms:v1_20_6, nms:v26_3 ──┘
-api ← mekanized (compileOnly); plugin runs mekanized as a dev addon
 ```
 
 ### API stability tiers
@@ -847,7 +848,7 @@ Core logic MUST be testable without a Minecraft server. The harness (module `tes
 - In-memory `DataView` for persistence round-trips and migrations.
 - Assertions for resource conservation (§10.3 invariant).
 
-Real-server tests: `run-paper` with the pinned CraftEngine snapshot jar for smoke tests (M3), run on Paper 1.20.6 and 26.3 and Folia 1.20.6 and 26.2 (`:plugin:runPaper-*`, `:plugin:runFolia-*`), with the `/mekanized check-*` and `test` commands. MockBukkit is not used (it cannot host CraftEngine).
+Real-server tests: `run-paper` with the pinned CraftEngine snapshot jar for smoke tests (M3), run on Paper 1.20.6 and 26.3 and Folia 1.20.6 and 26.2 (`:plugin:runPaper-*`, `:plugin:runFolia-*`), with the `/machineengine check` commands (on dev-only blocks, D42). MockBukkit is not used (it cannot host CraftEngine).
 
 ---
 
@@ -932,7 +933,7 @@ MachineEngine MUST NOT (narrowed by D29, which ships an optional shared energy a
 
 Build stable foundations first; do not implement every advanced system at once.
 
-The status notes below are history. The `machineengine-example` addon (`/mexample`) that several of them were verified with was removed on 2026-10-06 (D24). Its engine checks are now `/mekanized check-drop`, `check-hopper`, `check-comparator` and `fill`, run on a Mekanized basic bin instead of the example crate. Likewise, `verifyPureJava` was replaced by `verifyPaperBaseline` (D25, D26).
+The status notes below are history. The `machineengine-example` addon (`/mexample`) that several of them were verified with was removed on 2026-10-06 (D24). Its engine checks became `/mekanized check-drop`, `check-hopper`, `check-comparator` and `fill`, run on a Mekanized basic bin instead of the example crate, and since D42 `/machineengine check drop|hopper|comparator|fill` on dev-only blocks. Likewise, `verifyPureJava` was replaced by `verifyPaperBaseline` (D25, D26).
 
 ### M0 — Scaffold
 Gradle multi-module layout (§5), version catalog, `craftengine_version=26.10-SNAPSHOT`, CI (build, tests, dual-CE job, API compatibility placeholder), `paper-plugin.yml` with required CraftEngine dependency, `run-paper` tasks for Paper 1.20.6 and 26.3 that install the CE snapshot.

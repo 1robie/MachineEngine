@@ -1,7 +1,0 @@
-{
-  "parent": "mekanized:block/energized_smelter",
-  "textures": {
-    "front": "mekanized:block/energized_smelter/front_active",
-    "down": "mekanized:block/energized_smelter/bottom_active"
-  }
-}

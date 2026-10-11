@@ -1,8 +1,0 @@
-{
-    "parent": "mekanized:block/bin/active/basic",
-    "textures": {
-        "led": "mekanized:block/bin/creative_led",
-        "side": "mekanized:block/bin/creative_side",
-        "back": "mekanized:block/bin/creative_back"
-    }
-}

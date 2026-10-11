@@ -1,6 +1,0 @@
-{
-  "parent": "mekanized:block/fusion/port",
-  "textures": {
-    "all": "mekanized:block/reactor_port_output"
-  }
-}

@@ -16,11 +16,6 @@ base {
     archivesName = "machineengine-plugin"
 }
 
-/** Addon jars installed on dev servers next to MachineEngine (Mekanized). */
-val devAddons: Configuration by configurations.creating {
-    isTransitive = false
-}
-
 dependencies {
     implementation(project(":common"))
     implementation(project(":hooks:zmenu"))
@@ -30,8 +25,6 @@ dependencies {
     compileOnly(libs.zmenu.api)
     // Registers the commands; the classes come with :common (bundled, relocated: D35).
     compileOnly(libs.paper.dispatch)
-    // The shaded jar: Mekanized bundles a relocated Paper-Dispatch (D35).
-    devAddons(project(":mekanized", "shadowRuntimeElements"))
 }
 
 paper {
@@ -165,7 +158,6 @@ fun RunServer.devServer(minecraftVersion: String, javaVersion: Int, folia: Boole
     // -PwithMachineEngine=false runs CraftEngine alone (checks that CE keeps machine data, §21).
     val withMachineEngine = providers.gradleProperty("withMachineEngine").orElse("true").get() == "true"
     if (withMachineEngine) pluginJars.from(tasks.shadowJar.flatMap { it.archiveFile })
-    if (withMachineEngine && providers.gradleProperty("withAddons").orElse("true").get() == "true") pluginJars.from(devAddons)
     when (craftEngineRuntime) {
         "dev" -> pluginJars.from(buildCraftEngineDev.flatMap { it.outputJar })
         "modrinth" -> downloadPlugins {
@@ -178,46 +170,6 @@ fun RunServer.devServer(minecraftVersion: String, javaVersion: Int, folia: Boole
         downloadPlugins { modrinth("zmenu", libs.versions.zmenu.get()) }
     }
     jvmArgs("-Dsun.stdout.encoding=UTF-8", "-Dsun.stderr.encoding=UTF-8")
-}
-
-// ---------------------------------------------------------------------------------------------
-// ceSnapshot (docs/CE_TEMPLATES_PLAN.md, Stage 0): what CraftEngine makes of every Mekanized block
-// and item, read on the Paper 26.3 dev server and compared with mekanized/ce-snapshot.json.
-// -PacceptCeSnapshot replaces the reference with this run's result.
-// ---------------------------------------------------------------------------------------------
-
-/** A dev server that stops by itself once started ([StopWhenDone]) instead of reading the console. */
-abstract class SelfStoppingServer : RunServer() {
-    override fun setStandardInput(inputStream: java.io.InputStream): JavaExec =
-        super.setStandardInput(StopWhenDone(runDirectory.get().asFile.resolve("logs/latest.log")))
-}
-
-val snapshotRun = rootProject.layout.projectDirectory.dir("run/paper-26.3")
-val snapshotInstalled = snapshotRun.dir("plugins/CraftEngine/resources/mekanized/configuration")
-val snapshotBackup = layout.buildDirectory.dir("ce-snapshot/installed")
-
-val ceSnapshotPrepare = tasks.register<CeSnapshotPrepare>("ceSnapshotPrepare") {
-    sourceConfiguration = rootProject.layout.projectDirectory.dir("mekanized/src/main/resources/mekanized/pack/configuration")
-    runDirectory = snapshotRun
-    installedConfiguration = snapshotInstalled
-    backupDirectory = snapshotBackup
-}
-
-val ceSnapshotCollect = tasks.register<CeSnapshotCollect>("ceSnapshotCollect") {
-    runDirectory = snapshotRun
-    installedConfiguration = snapshotInstalled
-    backupDirectory = snapshotBackup
-    output = layout.buildDirectory.file("ce-snapshot/snapshot.json")
-    reference = rootProject.layout.projectDirectory.file("mekanized/ce-snapshot.json")
-    accept = providers.gradleProperty("acceptCeSnapshot").isPresent
-}
-
-tasks.register<SelfStoppingServer>("ceSnapshot") {
-    group = "run dev server"
-    description = "Checks that Mekanized's CraftEngine blocks and items expand as in mekanized/ce-snapshot.json."
-    devServer("26.3", javaVersion = 25, folia = false)
-    dependsOn(ceSnapshotPrepare)
-    finalizedBy(ceSnapshotCollect)
 }
 
 registerDevServer("1.20.6", javaVersion = 21)

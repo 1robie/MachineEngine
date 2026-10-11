@@ -1,6 +1,0 @@
-{
-  "parent": "mekanized:block/enrichment_chamber",
-  "textures": {
-    "front": "mekanized:block/enrichment_chamber/front_active"
-  }
-}
