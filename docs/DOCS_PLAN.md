@@ -284,6 +284,11 @@ compiling it (or taken from `test`).
 
 Claude crops them, saves them as `.webp` under the site's `static/img/machineengine/` and
 `static/img/mekanized/`, and places them in the overview and topic pages with alt text.
+- **Partly done (2026-10-11):** shots 1-4 from the owner (`screenshots/` in the site repo, kept
+  untracked): the crusher menu, the modification station (instead of the upgrades menu), cables
+  between generators, cubes and a machine, formed multiblocks. As WebP in
+  `static/img/mekanized/`, on the Mekanized overview and MachineEngine's overview, menus, cables
+  and multiblocks pages. Left: 5 (debug view) and 6 (item lore), when the owner adds them.
 
 **Stage 9: portfolio.** The MachineEngine block replacing the template block, then a Mekanized
 block. `npm run check`.
