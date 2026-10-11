@@ -5,7 +5,7 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Stages 3-6 done. Next: stage 7 (Mekanized pages). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
+Hangar, Hangar pages synced from the READMEs. Stages 3-7 done. Next: stage 8 (screenshots, owner) and stage 9 (portfolio). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
 so the engine modules are published to https://1robie.github.io/maven/ (repo 1robie/maven,
 maven.yml, MAVEN_REPO_TOKEN), with the API Javadoc; 0.1.0 is there.
 
@@ -268,6 +268,11 @@ compiling it (or taken from `test`).
   `machineengine-common`; moving them to `api` would be cleaner (an engine change, not done).
 
 **Stage 7: Mekanized pages.** From MEKANIZED_GUIDE.md, checked against the code.
+- **Done (2026-10-11):** the 12 pages from MEKANIZED_GUIDE.md, checked against Mekanized's code
+  (MekanizedConfig defaults, the command classes, the menu builders' data placeholders, lang.yml's
+  53 languages, the personal-storage permission). The gameplay guide went into the overview (the
+  plain plugin sidebar has no gameplay page). Gaps written as they are: `mekanized.personal.bypass`
+  is not in plugin.yml; some action-bar messages are English only.
 
 **Stage 8: screenshots.** Shot list for the owner, taken on `runPaper-26.3` with the resource pack:
 1. A textured processing menu (crusher or enrichment chamber) mid-process.
