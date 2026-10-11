@@ -5,7 +5,7 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Stage 3 done. Next: stage 4 (MachineEngine server pages). Open: JitPack failed to build the 0.1.0 tag (its builders could not
+Hangar, Hangar pages synced from the READMEs. Stages 3-4 done. Next: stage 5 (Building with it). Open: JitPack failed to build the 0.1.0 tag (its builders could not
 install a JDK, any jitpack.yml), retried; Mekanized's CI and releases no longer need JitPack.
 
 ## Decisions (owner, 2026-10-11)
@@ -243,6 +243,11 @@ site-architecture.md updated. `npm run check` passes.
 
 **Stage 4: MachineEngine server pages.** Overview, Installation, Configuration, Usage,
 Integrations, Help.
+- **Done (2026-10-11):** the 12 server pages, from the code (generated config, MachinePlaceholders,
+  the command classes, SchedulerState and ProcessStatus, the startup code). Every value was checked
+  against 0.1.0; nothing claimed that the code does not do. Known gaps left in the engine, written
+  as they are: `machineengine.admin.breakplaceholders` is not in plugin.yml; the in-game
+  `/machineengine debug` message lists 4 of the 8 dot colors.
 
 **Stage 5: Building with it.** The seven pages, with the missing topics written fresh
 (transports, per-block numbers, textured menus, colors).
