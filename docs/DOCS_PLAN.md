@@ -218,6 +218,12 @@ plan, each fact mapped to its site page.
 - Version `0.1.0`. Publishing to JitPack itself is done in MEKANIZED_SPLIT_PLAN stage 2; the
   owner makes the repos public and pushes the tags; Claude checks the JitPack build and the
   coordinates in the `PROJECTS` entries.
+- **Hangar release done (2026-10-11), both repos:** `.github/workflows/release.yml` runs on a tag named
+  like the version: `build -Pversion=<tag>`, a GitHub release with the jar (prerelease for a hyphenated
+  tag), then `publishPluginPublicationToHangar` (hangar-publish-plugin 0.1.4, channel Release, or
+  Snapshot for a hyphenated tag; Paper `hangar_paper_versions` = 1.20.6-26.3; dependencies CraftEngine
+  by URL, zMenu optional, and MachineEngine for Mekanized). Needs the `HANGAR_API_TOKEN` secret.
+  Modrinth is left for later. Tag MachineEngine first: Mekanized builds against its JitPack tag.
 
 **Stage 3: site scaffolding (site repo, on a branch).** Starts once the owner has committed or
 stashed the site's own work. The `plugin-framework` kind and sidebar, both `PROJECTS` entries

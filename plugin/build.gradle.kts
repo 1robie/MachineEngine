@@ -8,6 +8,7 @@ plugins {
     alias(libs.plugins.shadow)
     alias(libs.plugins.plugin.yml.paper)
     alias(libs.plugins.run.paper)
+    alias(libs.plugins.hangar.publish)
 }
 
 description = "The MachineEngine Paper plugin jar (api + common + hooks + nms)."
@@ -92,6 +93,33 @@ tasks.assemble {
 // the shaded plugin jar: servers get that from the releases.
 (components["java"] as AdhocComponentWithVariants).withVariantsFromConfiguration(configurations["shadowRuntimeElements"]) {
     skip()
+}
+
+// Hangar (https://hangar.papermc.io/1robie/MachineEngine): the release workflow runs
+// publishPluginPublicationToHangar on a tag, with -Pversion=<tag> and the HANGAR_API_TOKEN secret.
+hangarPublish {
+    publications.register("plugin") {
+        version = project.version.toString()
+        id = "MachineEngine"
+        // Tags with a hyphen (0.2.0-beta.1) go to the Snapshot channel, which must exist on Hangar.
+        channel = if (project.version.toString().contains('-')) "Snapshot" else "Release"
+        changelog = "https://github.com/1robie/MachineEngine/releases/tag/${project.version}"
+        apiKey = providers.environmentVariable("HANGAR_API_TOKEN")
+        platforms {
+            register(io.papermc.hangarpublishplugin.model.Platforms.PAPER) {
+                jar = tasks.shadowJar.flatMap { it.archiveFile }
+                platformVersions = providers.gradleProperty("hangar_paper_versions").get().split(",").map { it.trim() }
+                dependencies {
+                    url("CraftEngine", "https://modrinth.com/plugin/craftengine") {
+                        required = true
+                    }
+                    hangar("zMenu") {
+                        required = false
+                    }
+                }
+            }
+        }
+    }
 }
 
 val verifyRelocation = tasks.register<VerifyRelocation>("verifyRelocation") {
