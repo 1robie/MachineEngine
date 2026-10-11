@@ -5,7 +5,7 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Stages 3-7, 9 and 10 done (10 committed locally, pushed once the site is live). Next: stage 8 (screenshots, owner), stage 11 (go live). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
+Hangar, Hangar pages synced from the READMEs. Stages 3-11 done: the site is live (2026-10-11). Left: screenshots 5 and 6 (owner). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
 so the engine modules are published to https://1robie.github.io/maven/ (repo 1robie/maven,
 maven.yml, MAVEN_REPO_TOKEN), with the API Javadoc; 0.1.0 is there.
 
@@ -309,6 +309,12 @@ Mekanized section becomes a line linking to its repo and site page. ARCHITECTURE
 **Stage 11: go live.** Once the `api` is on JitPack: the owner reviews the site branch locally
 (`npm start`), then merges to `main`, which deploys. Not done by Claude. Then the repo READMEs'
 site links work. Update memory and this plan's status.
+- **Done (2026-10-11):** GitHub Pages switched from the legacy branch build to the Actions
+  workflow (as commit 0381dfe in the site repo required), `docs/machineengine` pushed to the site's
+  `main` (a fast-forward over the old deploy commit), deploy green; the plugin pages, portfolio and
+  `/maven/` all answer. The held README, CONTRIBUTING, permission and D43 commits were pushed;
+  both Hangar pages re-synced. The owner's paper-dispatch work was unstashed onto the site's `main`
+  (uncommitted, theirs), with the site README's project-kind and component tables updated in it.
 
 ## Open questions
 
