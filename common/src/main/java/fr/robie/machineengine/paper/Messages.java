@@ -47,8 +47,8 @@ public final class Messages {
     }
 
     public static @NotNull Component debugOn() {
-        return message("machineengine.debug.on", "§6Debug view on: dots show machine states (green active, blue sleeping, "
-                + "orange blocked, red error), ports (blue in, orange out, purple both) and networks; look at a machine for details.");
+        return message("machineengine.debug.on", "§6Debug view on: dots show machine states (green active, yellow scheduled, "
+                + "aqua waiting, orange blocked, blue sleeping, gray disabled, magenta placeholder, red error), ports (blue in, orange out, purple both) and networks; look at a machine for details.");
     }
 
     public static @NotNull Component debugOff() {

@@ -65,6 +65,10 @@ paper {
             description = "MachineEngine admin commands"
             default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
         }
+        register("machineengine.admin.breakplaceholders") {
+            description = "Break placeholder machines (machines of a missing addon), which destroys their data"
+            default = net.minecrell.pluginyml.bukkit.BukkitPluginDescription.Permission.Default.OP
+        }
     }
 }
 
