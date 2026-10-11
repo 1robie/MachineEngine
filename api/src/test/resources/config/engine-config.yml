@@ -57,3 +57,7 @@ resources:
     scale: 0
     # Amount of fluid in one bucket (and one source block).
     bucket: 1000
+    # Color of water in menus, "#RRGGBB" (quote it).
+    water-color: '#3F76E4'
+    # Color of lava in menus, "#RRGGBB" (quote it).
+    lava-color: '#E0641A'
