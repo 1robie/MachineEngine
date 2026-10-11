@@ -1,0 +1,84 @@
+name: Maven repository
+
+# Publishes the engine modules (machineengine-api, machineengine-test and what they need) to the
+# Maven repository https://1robie.github.io/maven/, the 1robie/maven repo served by GitHub Pages,
+# with the API's Javadoc under javadoc/machineengine-api/<version>/ (and latest/).
+# Runs on a version tag, or by hand for an existing tag (Actions > Maven repository > Run workflow).
+# Needs the MAVEN_REPO_TOKEN secret: a token that may push to 1robie/maven.
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to publish, e.g. 0.1.0"
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-repository
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == '1robie/MachineEngine'
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+
+      - uses: actions/checkout@v4
+        with:
+          repository: 1robie/maven
+          token: ${{ secrets.MAVEN_REPO_TOKEN }}
+          path: maven-repo
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      # The repository is added by an init script, not by the build, so older tags publish too.
+      - name: Publish the modules
+        env:
+          MAVEN_REPO_DIR: ${{ github.workspace }}/maven-repo
+        run: |
+          cat > "$RUNNER_TEMP/pages.init.gradle.kts" <<'EOF'
+          allprojects {
+              plugins.withId("maven-publish") {
+                  extensions.getByType<PublishingExtension>().repositories.maven {
+                      name = "pages"
+                      url = uri(System.getenv("MAVEN_REPO_DIR"))
+                  }
+              }
+          }
+          EOF
+          ./gradlew --init-script "$RUNNER_TEMP/pages.init.gradle.kts" publishMavenPublicationToPagesRepository             -Pversion="$VERSION" --console=plain
+
+      - name: Javadoc
+        run: |
+          jar="maven-repo/com/github/1robie/MachineEngine/machineengine-api/$VERSION/machineengine-api-$VERSION-javadoc.jar"
+          dir="maven-repo/javadoc/machineengine-api"
+          rm -rf "$dir/$VERSION" && mkdir -p "$dir/$VERSION" && unzip -q "$jar" -d "$dir/$VERSION"
+          # latest/ follows releases, not pre-releases (0.2.0-beta.1).
+          case "$VERSION" in *-*) ;; *) rm -rf "$dir/latest" && cp -r "$dir/$VERSION" "$dir/latest" ;; esac
+          touch maven-repo/.nojekyll
+
+      - name: Push
+        working-directory: maven-repo
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "MachineEngine $VERSION" || { echo "Nothing to publish"; exit 0; }
+          git push
