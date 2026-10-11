@@ -19,7 +19,7 @@ import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
-import fr.robie.machineengine.paper.event.PlayerMachineInteractEvent;
+import fr.robie.machineengine.api.paper.event.PlayerMachineInteractEvent;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;

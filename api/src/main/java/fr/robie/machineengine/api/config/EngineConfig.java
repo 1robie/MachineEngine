@@ -23,7 +23,7 @@ public final class EngineConfig {
 
     public static final ConfigKey<Boolean> BUKKIT_EVENT_BRIDGE = ConfigKey.bool("events.bukkit-bridge", true)
             .comment("Mirror machine events (create, load, unload, remove, process start/complete) as Bukkit events",
-                    "(fr.robie.machineengine.paper.event) for plugins that do not use the MachineEngine API.",
+                    "(fr.robie.machineengine.api.paper.event) for plugins that do not use the MachineEngine API.",
                     "Events nobody listens to cost nothing. Restart to apply.")
             .restartOnly();
 

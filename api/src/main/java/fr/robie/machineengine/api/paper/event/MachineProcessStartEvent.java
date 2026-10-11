@@ -1,15 +1,16 @@
-package fr.robie.machineengine.paper.event;
+package fr.robie.machineengine.api.paper.event;
 
 import fr.robie.machineengine.api.machine.MachineInstance;
+import fr.robie.machineengine.api.process.ProcessView;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
-/** A machine was created (placed). */
-public final class MachineCreateEvent extends MachineEvent {
+/** A machine started a process; its inputs are already consumed. */
+public final class MachineProcessStartEvent extends MachineProcessEvent {
     private static final HandlerList HANDLERS = new HandlerList();
 
-    public MachineCreateEvent(@NotNull MachineInstance machine) {
-        super(machine);
+    public MachineProcessStartEvent(@NotNull MachineInstance machine, @NotNull ProcessView process) {
+        super(machine, process);
     }
 
     public static @NotNull HandlerList getHandlerList() {

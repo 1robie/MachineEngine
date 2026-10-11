@@ -1,16 +1,15 @@
-package fr.robie.machineengine.paper.event;
+package fr.robie.machineengine.api.paper.event;
 
 import fr.robie.machineengine.api.machine.MachineInstance;
-import fr.robie.machineengine.api.process.ProcessView;
 import org.bukkit.event.HandlerList;
 import org.jetbrains.annotations.NotNull;
 
-/** A machine completed a process; its outputs are already produced. */
-public final class MachineProcessCompleteEvent extends MachineProcessEvent {
+/** A machine was loaded with its chunk. */
+public final class MachineLoadEvent extends MachineEvent {
     private static final HandlerList HANDLERS = new HandlerList();
 
-    public MachineProcessCompleteEvent(@NotNull MachineInstance machine, @NotNull ProcessView process) {
-        super(machine, process);
+    public MachineLoadEvent(@NotNull MachineInstance machine) {
+        super(machine);
     }
 
     public static @NotNull HandlerList getHandlerList() {

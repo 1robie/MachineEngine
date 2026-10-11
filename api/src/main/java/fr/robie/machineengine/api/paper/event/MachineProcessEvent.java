@@ -1,4 +1,4 @@
-package fr.robie.machineengine.paper.event;
+package fr.robie.machineengine.api.paper.event;
 
 import fr.robie.machineengine.api.machine.MachineInstance;
 import fr.robie.machineengine.api.process.ProcessView;

@@ -265,7 +265,8 @@ compiling it (or taken from `test`).
   test were compiled and run in a throwaway project against the published 0.1.0 from
   1robie.github.io/maven. Found: the Bukkit events are in `common`
   (`fr.robie.machineengine.paper.event`), so plugins listening to them compile against
-  `machineengine-common`; moving them to `api` would be cleaner (an engine change, not done).
+  `machineengine-common`. Owner: move them (D43, done 2026-10-11, ships in 0.1.1); when 0.1.1 is
+  released, the events page drops `machineengine-common` and names `fr.robie.machineengine.api.paper.event`.
 
 **Stage 7: Mekanized pages.** From MEKANIZED_GUIDE.md, checked against the code.
 - **Done (2026-10-11):** the 12 pages from MEKANIZED_GUIDE.md, checked against Mekanized's code
