@@ -1,0 +1,37 @@
+# Dev servers only: the blocks /machineengine check places, drawn with vanilla models. Their machines
+# are in definitions/devcheck.yml.
+items:
+  devcheck:bin:
+    data:
+      item_name: <!i>Check bin
+    model: minecraft:block/barrel
+    behavior:
+      type: block_item
+      block: devcheck:bin
+  devcheck:crusher:
+    data:
+      item_name: <!i>Check crusher
+    model: minecraft:block/blast_furnace
+    behavior:
+      type: block_item
+      block: devcheck:crusher
+
+blocks:
+  devcheck:bin:
+    template: machineengine:block/machine
+    settings:
+      template: default:settings/solid_1x1x1
+    states:
+      template: machineengine:block_state/facing_active
+      arguments:
+        model: minecraft:block/barrel
+        active_model: minecraft:block/barrel_open
+  devcheck:crusher:
+    template: machineengine:block/machine
+    settings:
+      template: default:settings/solid_1x1x1
+    states:
+      template: machineengine:block_state/facing_active
+      arguments:
+        model: minecraft:block/blast_furnace
+        active_model: minecraft:block/blast_furnace_on

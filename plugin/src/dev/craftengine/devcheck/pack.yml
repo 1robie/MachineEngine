@@ -1,0 +1,4 @@
+author: MachineEngine
+version: 1.0
+description: Dev servers only - blocks for /machineengine check
+namespace: devcheck

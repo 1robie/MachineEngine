@@ -127,10 +127,19 @@ val buildCraftEngineDev = tasks.register<BuildCraftEngineDev>("buildCraftEngineD
 
 fun registerDevServer(minecraftVersion: String, javaVersion: Int, folia: Boolean = false) {
     val software = if (folia) "Folia" else "Paper"
+    // The blocks /machineengine check places (src/dev): a definitions file and a CraftEngine pack,
+    // copied into the server before each start. Never part of the plugin jar.
+    val installDevChecks = tasks.register<Copy>("installDevChecks$software-$minecraftVersion") {
+        description = "Copies the /machineengine check blocks into the $software $minecraftVersion dev server."
+        into(rootProject.layout.projectDirectory.dir("run/${software.lowercase()}-$minecraftVersion/plugins"))
+        from(layout.projectDirectory.dir("src/dev/definitions")) { into("MachineEngine/definitions") }
+        from(layout.projectDirectory.dir("src/dev/craftengine")) { into("CraftEngine/resources") }
+    }
     tasks.register<RunServer>("run$software-$minecraftVersion") {
         group = "run dev server"
         description = "Runs a $software $minecraftVersion dev server with MachineEngine and CraftEngine."
         devServer(minecraftVersion, javaVersion, folia)
+        dependsOn(installDevChecks)
     }
 }
 

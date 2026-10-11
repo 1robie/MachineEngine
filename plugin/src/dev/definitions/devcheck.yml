@@ -1,0 +1,43 @@
+# Dev servers only (copied by plugin/build.gradle.kts, never shipped): the machines behind the
+# blocks /machineengine check places. The blocks are in craftengine/devcheck/configuration/blocks.yml.
+
+recipe-types:
+  - devcheck:crushing
+
+machines:
+  # check drop, hopper, comparator: one slot of 4096 items, open on every side.
+  devcheck:bin:
+    storages:
+      items: { slots: 1, capacity: 4096, filter: { category: machineengine:items } }
+    ports:
+      items: { storage: items, direction: input_output }
+    behavior:
+      type: machineengine:storage
+
+  # check fill: a processing machine that stays idle (nothing to crush).
+  devcheck:crusher:
+    storages:
+      input:  { slots: 1, capacity: 64, filter: { category: machineengine:items } }
+      output: { slots: 1, capacity: 64 }
+      energy: { capacity: 10000, filter: { type: machineengine:energy } }
+    ports:
+      in:    { storage: input,  direction: input,  sides: [top, back] }
+      out:   { storage: output, direction: output, sides: [bottom] }
+      power: { storage: energy, direction: input,  sides: [left, right] }
+    behavior:
+      type: machineengine:processing
+      recipes: devcheck:crushing
+      inputs: [input]
+      output: output
+      costs: energy
+
+recipes:
+  devcheck:crush_raw_iron:
+    type: devcheck:crushing
+    duration: 100
+    inputs:
+      - { item: minecraft:raw_iron, amount: 1 }
+    outputs:
+      - { item: minecraft:iron_ingot, amount: 2 }
+    cost-per-tick:
+      - { type: machineengine:energy, amount: 20 }
