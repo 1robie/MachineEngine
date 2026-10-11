@@ -5,8 +5,7 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Next: stage 3 (site scaffolding), once the site repo's
-uncommitted work is committed. Open: JitPack failed to build the 0.1.0 tag (its builders could not
+Hangar, Hangar pages synced from the READMEs. Stage 3 done. Next: stage 4 (MachineEngine server pages). Open: JitPack failed to build the 0.1.0 tag (its builders could not
 install a JDK, any jitpack.yml), retried; Mekanized's CI and releases no longer need JitPack.
 
 ## Decisions (owner, 2026-10-11)
@@ -233,6 +232,14 @@ stashed the site's own work. The `plugin-framework` kind and sidebar, both `PROJ
 read by a new `<DownloadLinks project="…" />` component for the install pages (so no URL is typed
 in Markdown, as AGENTS.md asks), every page as a stub marked with `:::note`, AGENTS.md and
 site-architecture.md updated. `npm run check` passes.
+- **Done (2026-10-11):** branch `docs/machineengine` in the site repo, from `publish-temp` (the site's
+  source branch; `main` there holds an old deploy). The owner's uncommitted paper-dispatch work is in
+  `git stash` ("paper-dispatch WIP before MachineEngine docs"). Kind `plugin-framework`, both
+  projects, `Project.downloads` + `<DownloadLinks>`, 34 stub pages. Found and fixed a site bug on the
+  way: `PLUGIN_SIDEBAR_ITEMS` exported from a sidebar file became a second sidebar (Docusaurus loads
+  every export), so plain `plugin` projects registered `/usage` twice; it now lives in
+  `sidebarPluginItems.ts`. `npm run check` passes with no warnings. The site README (stashed) is
+  not updated yet.
 
 **Stage 4: MachineEngine server pages.** Overview, Installation, Configuration, Usage,
 Integrations, Help.
