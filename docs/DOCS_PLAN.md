@@ -5,8 +5,9 @@ then add MachineEngine to the portfolio and documentation website (`1robie.githu
 site in `C:\Users\clare\IdeaProjects\1robie.github.io`).
 
 Status (2026-10-11): stages 0-2 done; MachineEngine 0.1.0 and Mekanized 0.1.0 released on GitHub and
-Hangar, Hangar pages synced from the READMEs. Stages 3-5 done. Next: stage 6 (Developer API). Open: JitPack failed to build the 0.1.0 tag (its builders could not
-install a JDK, any jitpack.yml), retried; Mekanized's CI and releases no longer need JitPack.
+Hangar, Hangar pages synced from the READMEs. Stages 3-6 done. Next: stage 7 (Mekanized pages). JitPack cannot build (its builders cannot install a JDK, any jitpack.yml),
+so the engine modules are published to https://1robie.github.io/maven/ (repo 1robie/maven,
+maven.yml, MAVEN_REPO_TOKEN), with the API Javadoc; 0.1.0 is there.
 
 ## Decisions (owner, 2026-10-11)
 
@@ -259,6 +260,12 @@ Integrations, Help.
 
 **Stage 6: Developer API.** Written from the `api` module, with a small example addon checked by
 compiling it (or taken from `test`).
+- **Done (2026-10-11):** add the dependency (paper-plugin.yml, registration in onLoad, a lava
+  generator addon, the headless test), events (bus and Bukkit), Javadoc. The example addon and its
+  test were compiled and run in a throwaway project against the published 0.1.0 from
+  1robie.github.io/maven. Found: the Bukkit events are in `common`
+  (`fr.robie.machineengine.paper.event`), so plugins listening to them compile against
+  `machineengine-common`; moving them to `api` would be cleaner (an engine change, not done).
 
 **Stage 7: Mekanized pages.** From MEKANIZED_GUIDE.md, checked against the code.
 
