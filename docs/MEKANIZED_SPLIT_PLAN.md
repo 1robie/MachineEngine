@@ -4,7 +4,7 @@ Owner's decision (2026-10-11, while planning DOCS_PLAN.md): MachineEngine and Me
 GitHub repositories, both public. Mekanized then builds against MachineEngine's published `api`,
 like any outside addon.
 
-Status: stages 0-4 done (2026-10-11). Next: stage 5, going public (owner).
+Status: done (2026-10-11), except the `0.1.0` tags, which wait for the release jobs (DOCS_PLAN stage 2).
 Mekanized's repo needs MachineEngine's artifacts on JitPack.
 
 ## How tied together they are today
@@ -95,8 +95,9 @@ as it was.
   `machineengine-mekanized/`, the two guides and the importer files in `buildSrc`, then: standalone
   build, package `fr.robie.mekanized`, the moved checks removed, README and CI. The local checkout is
   found automatically (`../MachineEngine`; `-PlocalEngine=false` turns it off, `-Pmachineengine_dir`
-  moves it). 177 tests pass against the local engine. Not run yet: its dev servers (their run folders
-  are new, so the Minecraft EULA has to be accepted there first).
+  moves it). 177 tests pass against the local engine. Its Paper 26.3 dev server (EULA copied from
+  MachineEngine's run folders, with the owner's go-ahead) passes `test`, `check-block-options`,
+  `check-upgrades`, `check-station`, `check-modules` and `check-item-data`.
 
 **Stage 4: remove Mekanized from MachineEngine.** Delete `mekanized/`, the `devAddons` entry,
 `ceSnapshot` tasks, `ContentManifest.kt`, `CeSnapshot.kt`; move the Mekanized docs; add D42.
@@ -110,6 +111,9 @@ plugins start together (Mekanized jar from its repo).
 `0.1.0` first, then Mekanized `0.1.0` once JitPack has built the engine. Claude checks JitPack's
 build log and the coordinates. Release publishing (GitHub releases, Modrinth, Hangar) is
 DOCS_PLAN stage 2.
+- **Done:** both repos public and pushed. JitPack built MachineEngine at commit `7352c70` in 2 minutes
+  (paperweight modules included), all 8 artifacts; Mekanized builds and passes its 177 tests from
+  JitPack alone (`-PlocalEngine=false`, catalog set to that commit for the check). Left: the tags.
 
 ## Decisions (owner, 2026-10-11)
 
