@@ -1,4 +1,4 @@
-# MessageFlow plan (2026-10-13, in progress: stages 1-11 done, MessageFlow 1.1.2 released)
+# MessageFlow plan (2026-10-13, done; owner in-game checks left)
 
 MachineEngine's text and logging are spread across three systems:
 
@@ -287,6 +287,7 @@ The `line(label, value)` helpers become one message with `%label%` / `%value%` p
   - **D45**: logging via MessageFlow everywhere except the `api` JUL signature.
   - §23 gets a *Messages* subsection, and the stale "§23.4" javadoc reference is fixed.
 - The docs site gets two pages: "Translating MachineEngine" (the `lang/` files, fallback, default language) and "Configuration" (`messages.*`, `logging.*`).
+- *Done (2026-10-13):* D44 and D45 are in the decision log, §23.6 *Messages* and the §23.5 keys are added. On the docs site (`1robie.github.io`), the existing page `configuration/messages.md` is rewritten instead of adding a new one, and `config-reference.md` gets `messages` and `logging`. MessageFlow is pinned to 1.1.2; `mavenLocal()` was never needed.
 
 ### Mekanized
 
@@ -307,7 +308,7 @@ Not changed by this plan (decision 3). It keeps working: its `Component.translat
 | 9 ✅ (owner: in-game check) | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
 | 10 ✅ | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
 | 11 ✅ (owner: in-game check) | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |
-| 12 | MachineEngine | pin 1.1.0, drop mavenLocal, B6 docs | `./gradlew check`; docs site builds |
+| 12 ✅ | MachineEngine | pin 1.1.0, drop mavenLocal, B6 docs | `./gradlew check`; docs site builds |
 
 The dev-server checks run headless and with no build while a server runs. The owner checks the French client in game.
 
