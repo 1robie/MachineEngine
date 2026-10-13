@@ -20,7 +20,7 @@ zmenu = "1.1.1.9"
 paper-dispatch = "2fafd75"
 folialib = "0.5.1"
 # Messages, languages and logging (MESSAGEFLOW_PLAN.md).
-message-flow = "1.1.1"
+message-flow = "1.1.2"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
