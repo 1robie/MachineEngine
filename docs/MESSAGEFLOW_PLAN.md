@@ -1,4 +1,4 @@
-# MessageFlow plan (2026-10-13, in progress: stages 1-9 done, MessageFlow 1.1.1 released)
+# MessageFlow plan (2026-10-13, in progress: stages 1-10 done, MessageFlow 1.1.2 released)
 
 MachineEngine's text and logging are spread across three systems:
 
@@ -212,6 +212,21 @@ Then:
 
 The `line(label, value)` helpers become one message with `%label%` / `%value%` placeholders.
 
+*Done (2026-10-13), as follows:*
+- **Messages.** There are 65 new `machineengine.admin.*` messages, with French in the bundled `fr_fr.yml`.
+- **Fixed labels** ("Enabled addons", "(setting, locked)", "active"/"sleeping") are their own messages, so they can be translated. The generic `ADMIN_LINE` (`%label%: %value%`) is left for lines whose label is data: menu placeholders and registry entries.
+- **Data stays as it is.** It is passed through a message that keeps its colour:
+  - the `describe()` inspection lines (`ADMIN_INSPECT_LINE`), which are also logged;
+  - diagnostics (`ADMIN_PROBLEM_ERROR` / `_WARNING`);
+  - the dev `check` results (`ADMIN_CHECK`), which scripts read.
+- **Usage strings** stay command syntax (`ADMIN_USAGE`).
+- **`PositionArguments`** (api) sends `Component.translatable("machineengine.admin.position_*", English fallback)`, which the translator renders. Brigadier's own syntax errors stay Minecraft's.
+- **Kept on purpose:** `MachineDebugView`'s live action bar (decision 11), and the refusals, which are B3.
+- **Checked:**
+  - `./gradlew check --rerun-tasks` passes.
+  - On Paper 1.20.6, `machineengine status` and `report` come out in English.
+  - On Paper 26.3, with `messages.default-language: fr_fr`, the status and `config.yml rechargé.` come out in French.
+
 **B3. Refusals from `api` and `core`.** The four outcomes in `UpgradeActions` and the two in `MachineInstanceImpl` become `Component.translatable("machineengine.upgrade.…", fallback)`. The translator (A4, decision 8) renders them per player. `api` gains no MessageFlow types.
 
 **B4. Logging everywhere.**
@@ -276,7 +291,7 @@ Not changed by this plan (decision 3). It keeps working: its `Component.translat
 | 7 ✅ | MachineEngine | B0 wiring (1.1.1 from JitPack, no mavenLocal) | `./gradlew check` incl. `verifyRelocation`, `verifyBundledPaperBaseline` |
 | 8 ✅ | MachineEngine | B4 logging (first: B1 needs the manager built early anyway) | tests pass; dev server log looks right on 1.20.6 and 26.3 |
 | 9 ✅ (owner: in-game check) | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
-| 10 | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
+| 10 ✅ | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
 | 11 | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |
 | 12 | MachineEngine | pin 1.1.0, drop mavenLocal, B6 docs | `./gradlew check`; docs site builds |
 

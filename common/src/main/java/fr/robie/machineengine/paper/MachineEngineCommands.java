@@ -19,14 +19,13 @@ import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.PlayerAdminCommand;
+import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.paperdispatch.command.BaseCommand;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
 import fr.robie.paperdispatch.command.SubCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.World;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -100,7 +99,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
     }
 
     private static CommandResultType usage(CommandDispatch<Plugin> dispatch, String usage) {
-        dispatch.getSender().sendMessage(Component.text(usage, NamedTextColor.RED));
+        EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_USAGE, Placeholder.of("usage", usage));
         return CommandResultType.FAILURE;
     }
 
@@ -160,26 +159,31 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         CommandSender sender = dispatch.getSender();
         CoreMachineEngine running = this.engine.get();
         if (running == null) {
-            sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NOT_RUNNING);
             return CommandResultType.FAILURE;
         }
         List<LoadedMachine> machines = List.copyOf(this.locator.get().loadedMachines());
         long active = machines.stream().filter(machine -> machine.instance() != null
                 && machine.instance().schedulerState() == SchedulerState.ACTIVE).count();
         long placeholders = machines.stream().filter(machine -> machine.instance() == null).count();
-        sender.sendMessage(Component.text("MachineEngine " + running.phase(), NamedTextColor.GOLD));
-        sender.sendMessage(line("Enabled addons", running.enabledAddons().toString()));
-        sender.sendMessage(line("Disabled addons", running.disabledAddons().toString()));
-        sender.sendMessage(line("Loaded machines", machines.size() + " (" + active + " active, "
-                + (machines.size() - active - placeholders) + " sleeping, " + placeholders + " placeholders)"));
-        sender.sendMessage(line("Startup problems", running.startupReport().errors().size() + " errors, "
-                + running.startupReport().warnings().size() + " warnings"));
+        EngineMessages.send(sender, EngineMessage.ADMIN_STATUS, Placeholder.of("phase", String.valueOf(running.phase())));
+        EngineMessages.send(sender, EngineMessage.ADMIN_STATUS_ENABLED, Placeholder.of("addons", running.enabledAddons().toString()));
+        EngineMessages.send(sender, EngineMessage.ADMIN_STATUS_DISABLED, Placeholder.of("addons", running.disabledAddons().toString()));
+        EngineMessages.send(sender, EngineMessage.ADMIN_STATUS_MACHINES, Placeholder.builder()
+                .register("count", String.valueOf(machines.size()))
+                .register("active", String.valueOf(active))
+                .register("sleeping", String.valueOf(machines.size() - active - placeholders))
+                .register("placeholders", String.valueOf(placeholders))
+                .build());
+        EngineMessages.send(sender, EngineMessage.ADMIN_STATUS_PROBLEMS, Placeholder.of(
+                "errors", String.valueOf(running.startupReport().errors().size()),
+                "warnings", String.valueOf(running.startupReport().warnings().size())));
         return CommandResultType.SUCCESS;
     }
 
     private CommandResultType debug(CommandDispatch<Plugin> dispatch) {
         if (!(dispatch.getExecutor() instanceof Player player)) {
-            dispatch.getSender().sendMessage(Component.text("Only players can see the debug view.", NamedTextColor.RED));
+            EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_DEBUG_PLAYERS_ONLY);
             return CommandResultType.FAILURE;
         }
         boolean on = this.debugView.toggle(player);
@@ -204,7 +208,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
     private CommandResultType network(CommandSender sender, World world, int x, int y, int z) {
         CoreMachineEngine running = this.engine.get();
         if (running == null) {
-            sender.sendMessage(Component.text("MachineEngine is not running.", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NOT_RUNNING);
             return CommandResultType.FAILURE;
         }
         WorldPosition position = WorldPosition.of(world.getKey(), x, y, z);
@@ -223,17 +227,26 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
                     MachineInspection inspection = machine.inspect();
                     return inspection.placeholder() || !inspection.lockedSlots().isEmpty() || !inspection.unknownData().isEmpty();
                 }).toList();
-        sender.sendMessage(Component.text(found.size() + " loaded machine(s) keep data of missing content"
-                + (found.isEmpty() ? "." : ":"), NamedTextColor.GOLD));
+        if (found.isEmpty()) {
+            EngineMessages.send(sender, EngineMessage.ADMIN_PLACEHOLDERS_NONE);
+            return CommandResultType.SUCCESS;
+        }
+        EngineMessages.send(sender, EngineMessage.ADMIN_PLACEHOLDERS_FOUND, Placeholder.of("count", String.valueOf(found.size())));
         for (LoadedMachine machine : found) {
             MachineInspection inspection = machine.inspect();
-            String what = inspection.placeholder() ? "placeholder (" + inspection.type().asString() + " is not registered)"
-                    : inspection.type().asString() + ": locked slots " + inspection.lockedSlots() + ", unknown data " + inspection.unknownData();
-            sender.sendMessage(line("  " + machine.position(), what));
+            if (inspection.placeholder()) {
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLACEHOLDERS_MISSING_TYPE,
+                        Placeholder.of("position", String.valueOf(machine.position()), "type", inspection.type().asString()));
+            } else {
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLACEHOLDERS_MISSING_DATA, Placeholder.builder()
+                        .register("position", String.valueOf(machine.position()))
+                        .register("type", inspection.type().asString())
+                        .register("slots", String.valueOf(inspection.lockedSlots()))
+                        .register("data", String.valueOf(inspection.unknownData()))
+                        .build());
+            }
         }
-        if (!found.isEmpty()) {
-            sender.sendMessage(Component.text("Delete with /machineengine placeholders purge <x y z> [world] (irreversible).", NamedTextColor.GRAY));
-        }
+        EngineMessages.send(sender, EngineMessage.ADMIN_PLACEHOLDERS_HINT);
         return CommandResultType.SUCCESS;
     }
 
@@ -249,16 +262,17 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         long now = System.currentTimeMillis();
         if (pending == null || !pending.position().equals(position) || pending.until() < now) {
             this.pendingPurges.put(sender.getName(), new PendingPurge(position, now + 10_000));
-            sender.sendMessage(Component.text("This deletes the missing content's data at " + position
-                    + " for good (a placeholder machine is removed with its block). Run the command again within 10 seconds to confirm.",
-                    NamedTextColor.YELLOW));
+            EngineMessages.send(sender, EngineMessage.ADMIN_PURGE_CONFIRM, Placeholder.of("position", String.valueOf(position)));
             return CommandResultType.SUCCESS;
         }
         this.pendingPurges.remove(sender.getName());
         onRegion(position, world, () -> {
             String result = this.locator.get().purge(position);
-            sender.sendMessage(result == null ? Component.text("Nothing to purge at " + position + ".", NamedTextColor.GRAY)
-                    : Component.text("Purged: " + result + ".", NamedTextColor.GREEN));
+            if (result == null) {
+                EngineMessages.send(sender, EngineMessage.ADMIN_PURGE_NOTHING, Placeholder.of("position", String.valueOf(position)));
+            } else {
+                EngineMessages.send(sender, EngineMessage.ADMIN_PURGE_DONE, Placeholder.of("result", result));
+            }
         });
         return CommandResultType.SUCCESS;
     }
@@ -269,7 +283,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         onRegion(position, world, () -> {
             LoadedMachine machine = this.locator.get().machine(position);
             if (machine == null) {
-                sender.sendMessage(Component.text("No machine is loaded at " + position + ".", NamedTextColor.RED));
+                EngineMessages.send(sender, EngineMessage.ADMIN_NO_MACHINE, Placeholder.of("position", String.valueOf(position)));
                 return;
             }
             MachineInspection inspection = machine.inspect();
@@ -278,7 +292,8 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
             inspection.storages().keySet().forEach(id -> keys.addAll(List.of("storage_" + id + "_amount",
                     "storage_" + id + "_capacity", "storage_" + id + "_bar", "storage_" + id + "_resource")));
             for (String key : keys) {
-                sender.sendMessage(line("%zmenu_machineengine_" + key + "%", String.valueOf(MachinePlaceholders.resolve(inspection, key))));
+                EngineMessages.send(sender, EngineMessage.ADMIN_LINE, Placeholder.of("label", "%zmenu_machineengine_" + key + "%",
+                        "value", String.valueOf(MachinePlaceholders.resolve(inspection, key))));
             }
         });
         return CommandResultType.SUCCESS;
@@ -291,22 +306,27 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
     private void describeNetwork(CommandSender sender, CoreMachineEngine running, WorldPosition position) {
         var network = running.machines().networks().network(position).orElse(null);
         if (network == null) {
-            sender.sendMessage(Component.text("No loaded transport at " + position + ".", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NO_TRANSPORT, Placeholder.of("position", String.valueOf(position)));
             return;
         }
-        sender.sendMessage(Component.text("Network " + network.type().key().asString() + ": " + network.transports().size()
-                + " transports, rate " + network.ratePerTick() + "/tick, " + (network.active() ? "active" : "sleeping")
-                + ", moved " + network.movedLastTick() + " last tick", NamedTextColor.GOLD));
-        network.endpoints().forEach(endpoint -> sender.sendMessage(line("  endpoint", endpoint)));
+        EngineMessages.send(sender, network.active() ? EngineMessage.ADMIN_NETWORK_ACTIVE : EngineMessage.ADMIN_NETWORK_SLEEPING,
+                Placeholder.builder()
+                        .register("type", network.type().key().asString())
+                        .register("transports", String.valueOf(network.transports().size()))
+                        .register("rate", String.valueOf(network.ratePerTick()))
+                        .register("moved", String.valueOf(network.movedLastTick()))
+                        .build());
+        network.endpoints().forEach(endpoint -> EngineMessages.send(sender, EngineMessage.ADMIN_NETWORK_ENDPOINT,
+                Placeholder.of("endpoint", String.valueOf(endpoint))));
     }
 
     private void inspect(CommandSender sender, WorldPosition position) {
         LoadedMachine machine = this.locator.get().machine(position);
         if (machine == null) {
-            sender.sendMessage(Component.text("No machine is loaded at " + position + ".", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NO_MACHINE, Placeholder.of("position", String.valueOf(position)));
             return;
         }
-        for (String line : describe(machine.inspect())) sender.sendMessage(Component.text(line));
+        for (String line : describe(machine.inspect())) EngineMessages.send(sender, EngineMessage.ADMIN_INSPECT_LINE, Placeholder.of("line", line));
     }
 
     /** Human-readable inspection; also used in logs. */
@@ -344,32 +364,41 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         Key key = Key.key(name.contains(":") ? name : "machineengine:" + name);
         Registry<?> registry = running.registries().find(key).orElse(null);
         if (registry == null) {
-            sender.sendMessage(Component.text("No registry " + key.asString() + ".", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NO_REGISTRY, Placeholder.of("registry", key.asString()));
             return CommandResultType.FAILURE;
         }
-        sender.sendMessage(Component.text("Registry " + key.asString() + " (" + registry.size() + " entries)", NamedTextColor.GOLD));
+        EngineMessages.send(sender, EngineMessage.ADMIN_REGISTRY,
+                Placeholder.of("registry", key.asString(), "count", String.valueOf(registry.size())));
         for (Key entry : registry.keys()) {
-            sender.sendMessage(line(entry.asString(), registry.owner(entry).map(Object::toString).orElse("?")));
+            EngineMessages.send(sender, EngineMessage.ADMIN_LINE,
+                    Placeholder.of("label", entry.asString(), "value", registry.owner(entry).map(Object::toString).orElse("?")));
         }
-        registry.aliases().forEach((from, to) -> sender.sendMessage(line(from.asString() + " → " + to.asString(),
-                "alias by " + registry.owner(from).map(Object::toString).orElse("?"))));
+        registry.aliases().forEach((from, to) -> EngineMessages.send(sender, EngineMessage.ADMIN_REGISTRY_ALIAS, Placeholder.builder()
+                .register("from", from.asString())
+                .register("to", to.asString())
+                .register("owner", registry.owner(from).map(Object::toString).orElse("?"))
+                .build()));
         return CommandResultType.SUCCESS;
     }
 
     private CommandResultType reloadConfig(CommandSender sender) {
         ConfigLoadResult result = this.reloadConfig.get();
         if (result.error() != null) {
-            sender.sendMessage(Component.text("config.yml could not be read; the previous settings stay live: " + result.error(), NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_ERROR, Placeholder.of("error", String.valueOf(result.error())));
             return CommandResultType.FAILURE;
         }
-        sender.sendMessage(Component.text("Reloaded config.yml.", NamedTextColor.GREEN));
-        if (!result.changed().isEmpty()) sender.sendMessage(line("Changed", String.join(", ", result.changed())));
-        if (!result.added().isEmpty()) sender.sendMessage(line("Added with defaults", String.join(", ", result.added())));
+        EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_RELOADED);
+        if (!result.changed().isEmpty()) {
+            EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_CHANGED, Placeholder.of("keys", String.join(", ", result.changed())));
+        }
+        if (!result.added().isEmpty()) {
+            EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_ADDED, Placeholder.of("keys", String.join(", ", result.added())));
+        }
         if (!result.restartRequired().isEmpty()) {
-            sender.sendMessage(Component.text("Restart to apply: " + String.join(", ", result.restartRequired()), NamedTextColor.YELLOW));
+            EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_RESTART, Placeholder.of("keys", String.join(", ", result.restartRequired())));
         }
         if (!result.invalid().isEmpty()) {
-            sender.sendMessage(Component.text("Invalid, using the default (see the console): " + String.join(", ", result.invalid()), NamedTextColor.YELLOW));
+            EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_INVALID, Placeholder.of("keys", String.join(", ", result.invalid())));
         }
         return CommandResultType.SUCCESS;
     }
@@ -379,9 +408,9 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         if (running == null) return CommandResultType.FAILURE;
         ValidationReport report = running.reload(type);
         if (report.hasErrors()) {
-            sender.sendMessage(Component.text("Reload of " + type + " rejected; the previous content stays live.", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_RELOAD_REJECTED, Placeholder.of("type", String.valueOf(type)));
         } else {
-            sender.sendMessage(Component.text("Reloaded " + type + ".", NamedTextColor.GREEN));
+            EngineMessages.send(sender, EngineMessage.ADMIN_RELOADED, Placeholder.of("type", String.valueOf(type)));
             if (type.equals(Registries.RECIPE)) this.locator.get().wakeAll(WakeReason.RECIPES_RELOADED);
         }
         sendReport(sender, report);
@@ -390,16 +419,12 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
 
     private static void sendReport(CommandSender sender, ValidationReport report) {
         if (report.diagnostics().isEmpty()) {
-            sender.sendMessage(Component.text("No problems found.", NamedTextColor.GREEN));
+            EngineMessages.send(sender, EngineMessage.ADMIN_NO_PROBLEMS);
             return;
         }
         for (Diagnostic diagnostic : report.diagnostics()) {
-            NamedTextColor color = diagnostic.isError() ? NamedTextColor.RED : NamedTextColor.YELLOW;
-            sender.sendMessage(Component.text(diagnostic.format(), color));
+            EngineMessages.send(sender, diagnostic.isError() ? EngineMessage.ADMIN_PROBLEM_ERROR : EngineMessage.ADMIN_PROBLEM_WARNING,
+                    Placeholder.of("problem", diagnostic.format()));
         }
-    }
-
-    private static Component line(String label, String value) {
-        return Component.text(label + ": ", NamedTextColor.GRAY).append(Component.text(value, NamedTextColor.WHITE));
     }
 }

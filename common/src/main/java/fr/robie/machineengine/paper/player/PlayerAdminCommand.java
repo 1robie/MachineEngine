@@ -6,13 +6,15 @@ import fr.robie.machineengine.api.player.MachinePlayer;
 import fr.robie.machineengine.api.player.PlayerDataKey;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.player.CorePlayers;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
+import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
 import fr.robie.paperdispatch.command.SubCommand;
 import io.papermc.paper.command.brigadier.Commands;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
@@ -67,13 +69,13 @@ public final class PlayerAdminCommand extends SubCommand<Plugin> {
         String action = words.length > 1 ? words[1].toLowerCase(Locale.ROOT) : "list";
         if (!List.of("list", "get", "set", "reset").contains(action) || (!action.equals("list") && words.length < 3)
                 || (action.equals("set") && words.length < 4)) {
-            sender.sendMessage(Component.text(USAGE, NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_USAGE, Placeholder.of("usage", USAGE));
             return CommandResultType.FAILURE;
         }
         PlayerDataKey<?> key = action.equals("list") ? null : PlayerValues.key(players, words[2]);
         if (!action.equals("list") && key == null) {
-            sender.sendMessage(Component.text("No player data key " + words[2] + ". Keys: "
-                    + players.keys().stream().map(k -> k.key().asString()).toList(), NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_NO_KEY,
+                    Placeholder.of("key", words[2], "keys", String.valueOf(players.keys().stream().map(k -> k.key().asString()).toList())));
             return CommandResultType.FAILURE;
         }
         String value = words.length > 3 ? words[3] : null;
@@ -81,24 +83,26 @@ public final class PlayerAdminCommand extends SubCommand<Plugin> {
         Player online = Bukkit.getPlayerExact(words[0]);
         if (online != null) {
             MachineEngine.scheduler(this.plugin).run(online, () -> players.find(online.getUniqueId())
-                    .ifPresent(data -> act(sender, players, data, online.getName(), action, key, value)), null);
+                    .ifPresent(data -> act(sender, players, data, Component.text(online.getName()), action, key, value)), null);
             return CommandResultType.SUCCESS;
         }
         OfflinePlayer offline = Bukkit.getOfflinePlayerIfCached(words[0]);
         if (offline == null) {
-            sender.sendMessage(Component.text(words[0] + " has never played here.", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_NEVER_PLAYED, Placeholder.of("player", words[0]));
             return CommandResultType.FAILURE;
         }
         String name = offline.getName() != null ? offline.getName() : words[0];
         players.loadOffline(offline.getUniqueId()).whenComplete((loaded, error) -> {
             if (error != null) {
-                sender.sendMessage(Component.text("Could not load the data of " + name + ": " + error.getMessage(), NamedTextColor.RED));
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_LOAD_FAILED, Placeholder.of("player", name, "error", error.getMessage()));
             } else if (loaded.isEmpty()) {
-                sender.sendMessage(Component.text(name + " is offline, and the player data storage cannot read offline players"
-                        + " (players.storage: machineengine:files can).", NamedTextColor.RED));
-            } else if (act(sender, players, loaded.get(), name + " (offline)", action, key, value) && !action.equals("get") && !action.equals("list")) {
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_OFFLINE_UNREADABLE, Placeholder.of("player", name));
+            } else if (act(sender, players, loaded.get(), EngineMessages.component(EngineMessage.ADMIN_PLAYERS_OFFLINE_NAME,
+                    sender instanceof Player viewer ? viewer : null, Placeholder.of("player", name)), action, key, value) && !action.equals("get") && !action.equals("list")) {
                 players.saveOffline(loaded.get()).whenComplete((saved, saveError) -> {
-                    if (saveError != null) sender.sendMessage(Component.text("Could not save: " + saveError.getMessage(), NamedTextColor.RED));
+                    if (saveError != null) {
+                        EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_SAVE_FAILED, Placeholder.of("error", saveError.getMessage()));
+                    }
                 });
             }
         });
@@ -106,47 +110,47 @@ public final class PlayerAdminCommand extends SubCommand<Plugin> {
     }
 
     /** @return whether it worked */
-    private static boolean act(CommandSender sender, CorePlayers players, MachinePlayer data, String name, String action,
+    private static boolean act(CommandSender sender, CorePlayers players, MachinePlayer data, Component name, String action,
                                PlayerDataKey<?> key, String value) {
         switch (action) {
-            case "get" -> sender.sendMessage(line(name + " " + key.key().asString(), PlayerValues.text(data, key)));
+            case "get" -> EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_GET, Placeholder.builder()
+                    .register("player", name).register("key", key.key().asString()).register("value", PlayerValues.text(data, key)).build());
             case "set" -> {
                 String problem = PlayerValues.set(players, data, key, value);
                 if (problem != null) {
-                    sender.sendMessage(Component.text(problem + ".", NamedTextColor.RED));
+                    EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_SET_PROBLEM, Placeholder.of("problem", problem));
                     return false;
                 }
-                sender.sendMessage(Component.text("Set " + key.key().asString() + " of " + name + " to " + PlayerValues.text(data, key) + ".",
-                        NamedTextColor.GREEN));
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_SET, Placeholder.builder()
+                        .register("player", name).register("key", key.key().asString()).register("value", PlayerValues.text(data, key)).build());
             }
             case "reset" -> {
                 data.reset(key);
-                sender.sendMessage(Component.text("Reset " + key.key().asString() + " of " + name + ".", NamedTextColor.GREEN));
+                EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_RESET,
+                        Placeholder.builder().register("player", name).register("key", key.key().asString()).build());
             }
             default -> list(sender, players, data, name);
         }
         return true;
     }
 
-    private static void list(CommandSender sender, CorePlayers players, MachinePlayer data, String name) {
-        sender.sendMessage(Component.text("Player data of " + name + " (storage " + storageName(players) + ")", NamedTextColor.GOLD));
+    private static void list(CommandSender sender, CorePlayers players, MachinePlayer data, Component name) {
+        EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_LIST,
+                Placeholder.builder().register("player", name).register("storage", storageName(players)).build());
         for (PlayerDataKey<?> key : players.keys()) {
             boolean setting = players.setting(key.key()) != null;
             String shown = setting ? PlayerValues.settingText(data, players.setting(key.key())) : PlayerValues.text(data, key);
-            String kind = setting ? (players.isLocked(players.setting(key.key())) ? "setting, locked" : "setting")
-                    : key.isPersistent() ? "saved" : "session";
-            sender.sendMessage(line("  " + key.key().asString(), shown + " (" + kind + ")"));
+            EngineMessage kind = setting ? (players.isLocked(players.setting(key.key())) ? EngineMessage.ADMIN_PLAYERS_ENTRY_LOCKED
+                    : EngineMessage.ADMIN_PLAYERS_ENTRY_SETTING)
+                    : key.isPersistent() ? EngineMessage.ADMIN_PLAYERS_ENTRY_SAVED : EngineMessage.ADMIN_PLAYERS_ENTRY_SESSION;
+            EngineMessages.send(sender, kind, Placeholder.of("key", key.key().asString(), "value", shown));
         }
         for (Key unknown : data.unknownKeys()) {
-            sender.sendMessage(line("  " + unknown.asString(), "kept, not registered (addon missing?)"));
+            EngineMessages.send(sender, EngineMessage.ADMIN_PLAYERS_ENTRY_UNKNOWN, Placeholder.of("key", unknown.asString()));
         }
     }
 
     private static String storageName(CorePlayers players) {
         return players.storage().getClass().getSimpleName();
-    }
-
-    private static Component line(String label, String value) {
-        return Component.text(label + ": ", NamedTextColor.GRAY).append(Component.text(value, NamedTextColor.WHITE));
     }
 }

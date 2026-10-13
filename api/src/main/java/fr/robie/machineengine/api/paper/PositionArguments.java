@@ -10,6 +10,7 @@ import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import io.papermc.paper.command.brigadier.argument.resolvers.BlockPositionResolver;
 import io.papermc.paper.math.BlockPosition;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentLike;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -79,11 +80,13 @@ public final class PositionArguments {
             if (has(context, WORLD)) {
                 String name = StringArgumentType.getString(context, WORLD).trim();
                 world = world(name);
-                if (world == null) return fail(context, "Unknown world '" + name + "'.");
+                if (world == null) return fail(context, "machineengine.admin.position_unknown_world", "Unknown world '%s'.", Component.text(name));
             }
             return fromArguments(context, world);
         } catch (CommandSyntaxException e) {
-            return fail(context, e.getRawMessage().getString());
+            // Brigadier's own message (Minecraft's, already translated).
+            context.getSource().getSender().sendMessage(Component.text(e.getRawMessage().getString(), NamedTextColor.RED));
+            return null;
         }
     }
 
@@ -108,17 +111,17 @@ public final class PositionArguments {
             throws CommandSyntaxException {
         BlockPosition position = context.getArgument(POSITION, BlockPositionResolver.class).resolve(context.getSource());
         World target = world != null ? world : context.getSource().getLocation().getWorld();
-        if (target == null) return fail(context, "Give a world.");
+        if (target == null) return fail(context, "machineengine.admin.position_world", "Give a world.");
         return new Position(target, position.blockX(), position.blockY(), position.blockZ());
     }
 
     private static @Nullable Position fromExecutor(CommandContext<CommandSourceStack> context, Default fallback) {
         Entity executor = context.getSource().getExecutor();
-        if (!(executor instanceof Player player)) return fail(context, "Give a position: <x> <y> <z> [world].");
+        if (!(executor instanceof Player player)) return fail(context, "machineengine.admin.position_needed", "Give a position: <x> <y> <z> [world].");
         Block target = player.getTargetBlockExact(REACH);
         Location location;
         if (fallback == Default.TARGET_BLOCK) {
-            if (target == null) return fail(context, "Look at a block, or give a position.");
+            if (target == null) return fail(context, "machineengine.admin.position_look", "Look at a block, or give a position.");
             location = target.getLocation();
         } else {
             location = target != null ? target.getLocation().add(0, 1, 0) : player.getLocation();
@@ -126,8 +129,10 @@ public final class PositionArguments {
         return new Position(location.getWorld(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
     }
 
-    private static @Nullable Position fail(CommandContext<CommandSourceStack> context, String message) {
-        context.getSource().getSender().sendMessage(Component.text(message, NamedTextColor.RED));
+    /** A translatable message: MachineEngine renders it in the sender's language (lang/*.yml), else the English fallback. */
+    private static @Nullable Position fail(CommandContext<CommandSourceStack> context, String key, String fallback, ComponentLike... arguments) {
+        // Not the builder: its build() has another erased return type in the Adventure of 1.20.6.
+        context.getSource().getSender().sendMessage(Component.translatable(key, fallback, arguments).color(NamedTextColor.RED));
         return null;
     }
 }

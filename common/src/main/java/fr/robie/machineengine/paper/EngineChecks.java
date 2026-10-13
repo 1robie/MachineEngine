@@ -13,6 +13,8 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.messageflow.logger.Logger;
 import fr.robie.paperdispatch.command.CommandDispatch;
@@ -20,8 +22,6 @@ import fr.robie.paperdispatch.command.CommandResultType;
 import fr.robie.paperdispatch.command.SubCommand;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.core.util.Key;
 import org.bukkit.Bukkit;
@@ -78,8 +78,8 @@ final class EngineChecks {
                 .addSubCommand(new At(plugin, "comparator", checks::comparator))
                 .addSubCommand(new At(plugin, "fill", checks::fill, Commands.argument("size", IntegerArgumentType.integer(1, 200))))
                 .executes(dispatch -> {
-                    dispatch.getSender().sendMessage(Component.text("Usage: /machineengine check <drop|hopper|comparator|fill> [<x y z>] [world]",
-                            NamedTextColor.RED));
+                    EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_USAGE,
+                            Placeholder.of("usage", "Usage: /machineengine check <drop|hopper|comparator|fill> [<x y z>] [world]"));
                     return CommandResultType.FAILURE;
                 })
                 .build();
@@ -211,7 +211,7 @@ final class EngineChecks {
     }
 
     private static void reply(CommandSender sender, String message) {
-        sender.sendMessage(Component.text(message, NamedTextColor.YELLOW));
+        EngineMessages.send(sender, EngineMessage.ADMIN_CHECK, Placeholder.of("result", message));
     }
 
     private void log(String message) {

@@ -18,6 +18,9 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
+import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
 import fr.robie.paperdispatch.command.SubCommand;
@@ -25,8 +28,6 @@ import io.papermc.paper.command.brigadier.CommandSourceStack;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.command.brigadier.argument.ArgumentTypes;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
@@ -59,8 +60,11 @@ final class MachineStorageCommands {
                 new AtMachine(plugin, "drain", locator, MachineStorageCommands::drain, storageArgument()),
                 new AtMachine(plugin, "wake", locator, (dispatch, machine) -> {
                     machine.wake(WakeReason.ADMIN);
-                    dispatch.getSender().sendMessage(Component.text("Woke up " + machine.type().key().asString() + " at " + machine.position()
-                            + "; it was " + machine.schedulerState() + ".", NamedTextColor.GREEN));
+                    EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_STORAGE_WOKE, Placeholder.builder()
+                            .register("type", machine.type().key().asString())
+                            .register("position", String.valueOf(machine.position()))
+                            .register("state", String.valueOf(machine.schedulerState()))
+                            .build());
                 }));
     }
 
@@ -90,7 +94,7 @@ final class MachineStorageCommands {
         Key key = dispatch.getArgument("resource", Key.class);
         ResourceVariant variant = variant(key);
         if (variant == null) {
-            sender.sendMessage(Component.text("No resource or item " + key.asString() + ".", NamedTextColor.RED));
+            EngineMessages.send(sender, EngineMessage.ADMIN_STORAGE_NO_RESOURCE, Placeholder.of("resource", key.asString()));
             return;
         }
         long amount = dispatch.getArgument("amount", Long.class);
@@ -101,9 +105,13 @@ final class MachineStorageCommands {
         }
         changed(machine);
         String id = dispatch.getArgument("storage", String.class);
-        sender.sendMessage(Component.text("Put " + inserted + " of " + amount + " " + key.asString() + " into " + id
-                + (inserted < amount ? " (it is full, or does not take " + key.asString() + ")" : "") + ".",
-                inserted > 0 ? NamedTextColor.GREEN : NamedTextColor.YELLOW));
+        EngineMessages.send(sender, inserted < amount ? EngineMessage.ADMIN_STORAGE_PUT_PARTIAL : EngineMessage.ADMIN_STORAGE_PUT,
+                Placeholder.builder()
+                        .register("inserted", String.valueOf(inserted))
+                        .register("amount", String.valueOf(amount))
+                        .register("resource", key.asString())
+                        .register("storage", id)
+                        .build());
     }
 
     private static void drain(CommandDispatch<Plugin> dispatch, MachineInstanceImpl machine) {
@@ -117,8 +125,8 @@ final class MachineStorageCommands {
             transaction.commit();
         }
         changed(machine);
-        dispatch.getSender().sendMessage(Component.text("Removed " + removed + " from " + dispatch.getArgument("storage", String.class) + ".",
-                NamedTextColor.GREEN));
+        EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_STORAGE_REMOVED,
+                Placeholder.of("removed", String.valueOf(removed), "storage", dispatch.getArgument("storage", String.class)));
     }
 
     private static @Nullable ResourceHandler storage(CommandDispatch<Plugin> dispatch, MachineInstanceImpl machine) {
@@ -126,8 +134,11 @@ final class MachineStorageCommands {
         try {
             return machine.context().storage(id);
         } catch (IllegalArgumentException e) {
-            dispatch.getSender().sendMessage(Component.text(machine.type().key().asString() + " has no storage '" + id + "'. Storages: "
-                    + machine.inspect().storages().keySet(), NamedTextColor.RED));
+            EngineMessages.send(dispatch.getSender(), EngineMessage.ADMIN_STORAGE_UNKNOWN, Placeholder.builder()
+                    .register("type", machine.type().key().asString())
+                    .register("storage", id)
+                    .register("storages", String.valueOf(machine.inspect().storages().keySet()))
+                    .build());
             return null;
         }
     }
@@ -171,8 +182,8 @@ final class MachineStorageCommands {
                 LoadedMachine loaded = this.locator.get().machine(position);
                 MachineInstanceImpl machine = loaded == null ? null : loaded.instance();
                 if (machine == null || !machine.isValid()) {
-                    dispatch.getSender().sendMessage(Component.text("No machine is loaded at " + position
-                            + (loaded != null ? " (a placeholder: its addon is missing)" : "") + ".", NamedTextColor.RED));
+                    EngineMessages.send(dispatch.getSender(), loaded != null ? EngineMessage.ADMIN_PLACEHOLDER_MACHINE : EngineMessage.ADMIN_NO_MACHINE,
+                            Placeholder.of("position", String.valueOf(position)));
                     return;
                 }
                 this.action.accept(dispatch, machine);
