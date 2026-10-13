@@ -14,9 +14,10 @@ import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
+import fr.robie.messageflow.formatter.Placeholder;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.momirealms.craftengine.core.item.behavior.ItemBehaviorFactory;
 import net.momirealms.craftengine.core.plugin.config.ConfigConstants;
@@ -121,8 +122,10 @@ public final class ResourceItemBehavior extends PaperItemBehavior implements Res
             if (taken <= 0) continue;
             PaperItemResources.add(use.item(), this.resource, taken);
             machine.wake(WakeReason.RESOURCE_EXTRACTED);
-            use.player().sendActionBar(Messages.message("machineengine.item.filled", "§aFilled %s of %s",
-                    Component.text(taken), MiniMessage.miniMessage().deserialize(ResourceNames.of(type.variant()))));
+            EngineMessages.send(use.player(), EngineMessage.ITEM_FILLED, Placeholder.builder()
+                    .register("amount", String.valueOf(taken))
+                    .register("resource", MiniMessage.miniMessage().deserialize(ResourceNames.of(type.variant())))
+                    .build());
             return true;
         }
         return false;

@@ -41,6 +41,14 @@ players:
   # Player settings players may not change: they keep the value of setting-defaults (or the built-in one).
   locked-settings: []
 
+messages:
+  # Language of the console and of players whose client language has no file in lang/ (en_us, fr_fr...).
+  # Each player reads lang/<their client's language>.yml, else the same language in another country, else this one.
+  # Add a language by copying lang/en_us.yml to lang/<language code>.yml and translating it.
+  default-language: en_us
+  # Put before every chat message of MachineEngine (MiniMessage), e.g. "<dark_gray>[<gold>Machines</gold>]</dark_gray> ".
+  prefix: ''
+
 logging:
   # Log debug lines too: details for bug reports, too many for every day.
   debug: false

@@ -14,7 +14,8 @@ import fr.robie.machineengine.api.player.PlayerDataStorage;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.core.player.CorePlayerData;
 import fr.robie.machineengine.core.player.CorePlayers;
-import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
@@ -106,7 +107,8 @@ public final class PaperPlayers implements Listener {
         } catch (Exception e) {
             Logger.warn("[players]", "Could not load the data of %player% (%uuid%); login refused", e,
                     Placeholder.of("player", event.getName(), "uuid", uuid.toString()));
-            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Messages.playerDataNotLoaded());
+            event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER,
+                    EngineMessages.component(EngineMessage.PLAYER_DATA_NOT_LOADED, null, Placeholder.empty()));
         }
     }
 
@@ -125,7 +127,7 @@ public final class PaperPlayers implements Listener {
             } catch (Exception e) {
                 // Without their data, saving would overwrite it: keep them out.
                 Logger.error("[players]", "Could not load the data of %player%; kicking them", e, Placeholder.of("player", player.getName()));
-                player.kick(Messages.playerDataNotLoaded());
+                player.kick(EngineMessages.component(EngineMessage.PLAYER_DATA_NOT_LOADED, player, Placeholder.empty()));
                 return;
             }
         }

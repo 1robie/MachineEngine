@@ -1,4 +1,4 @@
-# MessageFlow plan (2026-10-13, in progress: stages 1-8 done, MessageFlow 1.1.1 released)
+# MessageFlow plan (2026-10-13, in progress: stages 1-9 done, MessageFlow 1.1.1 released)
 
 MachineEngine's text and logging are spread across three systems:
 
@@ -184,6 +184,24 @@ Then:
 - **Call sites.** `Messages.java` is removed and its callers use `EngineMessage`: `PlayerSettingsCommand`, `PaperPlayers`, `CraftEngineMachineHost`, `ResourceItemBehavior`, `UpgradeItemBehavior`, `WrenchBehavior`, `StorageReaderBehavior` and `MachineEnginePlugin`.
 - **Missing key.** Add the missing `upgrade.installed` entry.
 - **Folia.** Sends happen on the thread that already owns the player. That is a rule of the callers, which already hold it.
+- *Done (2026-10-13), as follows:*
+  - **Messages.** `paper.message.EngineMessage` has 21 messages; the keys are unchanged and the English defaults use named placeholders. `paper.message.EngineMessages` is a static facade:
+    - `create` comes first in `onLoad` and makes the logger.
+    - `load` comes after `config.yml` and again on `/machineengine reload config`.
+    - `close` comes last in `onDisable`.
+    - `send` and `component` do the rest; without a manager they fall back to the English text, plain.
+  - **Language files.** Every `plugins/MachineEngine/lang/*.yml` is registered. `en_us.yml` is written from the code. `fr_fr.yml` is bundled and is never filled with English.
+  - **Settings.** `messages.default-language` and `messages.prefix` are new `config.yml` keys.
+  - **Translator.** It is registered for `machineengine.`.
+  - **Item behaviors.** The action-bar messages (`item.filled`, `upgrade.installed`, `wrench.busy`) have `type: ACTION_BAR` in their files. `upgrade.installed` now has English and French text.
+  - **`Messages.java` stays for what CraftEngine still translates** (decision 9): the contents lore and `name(setting)`. Setting names reach chat messages as translatable component values, so the client still translates them.
+  - **CraftEngine `lang.yml`.** The moved keys are still in the bundled file; B5 removes them.
+  - **Checked:**
+    - `./gradlew check` passes.
+    - On Paper 1.20.6, `machinesettings` from the console prints "Only players have settings.".
+    - On Paper 26.3, with `messages.default-language: fr_fr`, it prints "Seuls les joueurs ont des réglages.".
+    - No errors on either server.
+  - **Left to the owner:** a French client and an English client on the same server (`/machinesettings`, the wrench, the storage reader).
 
 **B2. Admin output.** Every `Component.text` in these classes becomes an `EngineMessage` under `machineengine.admin.*`:
 - `MachineEngineCommands`
@@ -257,7 +275,7 @@ Not changed by this plan (decision 3). It keeps working: its `Component.translat
 | 6 ✅ | MessageFlow | A6 tests, docs, tag 1.1.0 | JitPack build green |
 | 7 ✅ | MachineEngine | B0 wiring (1.1.1 from JitPack, no mavenLocal) | `./gradlew check` incl. `verifyRelocation`, `verifyBundledPaperBaseline` |
 | 8 ✅ | MachineEngine | B4 logging (first: B1 needs the manager built early anyway) | tests pass; dev server log looks right on 1.20.6 and 26.3 |
-| 9 | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
+| 9 ✅ (owner: in-game check) | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
 | 10 | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
 | 11 | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |
 | 12 | MachineEngine | pin 1.1.0, drop mavenLocal, B6 docs | `./gradlew check`; docs site builds |

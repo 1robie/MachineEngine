@@ -9,9 +9,10 @@ import fr.robie.machineengine.api.paper.PaperItemBehavior;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.upgrade.UpgradeActions;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
+import fr.robie.messageflow.formatter.Placeholder;
 import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
 import net.momirealms.craftengine.core.item.behavior.ItemBehaviorFactory;
 import org.bukkit.GameMode;
 import org.bukkit.block.Block;
@@ -57,8 +58,8 @@ public final class UpgradeItemBehavior extends PaperItemBehavior implements Upgr
         MachineAction.Outcome outcome = machine.runAction(UpgradeActions.ACTION, new MachineAction.Click(player.getUniqueId(),
                 use.sneaking() ? MachineAction.ClickKind.LEFT : MachineAction.ClickKind.RIGHT, 0, PaperItems.toResource(item)));
         if (outcome.used() > 0) {
-            player.sendActionBar(Messages.message("machineengine.upgrade.installed", "§aInstalled %s × %s",
-                    Component.text(outcome.used()), Component.text(this.upgrade.value().replace('_', ' '))));
+            EngineMessages.send(player, EngineMessage.UPGRADE_INSTALLED, Placeholder.of(
+                    "count", String.valueOf(outcome.used()), "upgrade", this.upgrade.value().replace('_', ' ')));
             if (player.getGameMode() != GameMode.CREATIVE) item.setAmount(item.getAmount() - (int) outcome.used());
         } else if (outcome.message() != null) {
             player.sendActionBar(outcome.message());

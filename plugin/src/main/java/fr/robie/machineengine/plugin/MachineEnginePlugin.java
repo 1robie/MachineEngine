@@ -25,17 +25,15 @@ import fr.robie.machineengine.api.paper.ClassPreloader;
 import fr.robie.machineengine.paper.FoliaLibScheduler;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import fr.robie.machineengine.paper.MachineMenuService;
-import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.FilePlayerStorage;
 import fr.robie.machineengine.paper.player.PaperPlayers;
 import fr.robie.machineengine.paper.player.PdcPlayerStorage;
 import fr.robie.machineengine.paper.player.PlayerSettingsCommand;
-import fr.robie.messageflow.configuration.ConfigurationManager;
-import fr.robie.messageflow.configuration.lang.NormalLanguageConfiguration;
 import fr.robie.messageflow.formatter.Placeholder;
-import fr.robie.messageflow.impl.MessageManager;
 import fr.robie.messageflow.logger.Logger;
 import fr.robie.paperdispatch.manager.CommandManager;
 import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
@@ -81,19 +79,18 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable ZMenuMachineMenus menus;
     private @Nullable PaperPlayers players;
     private ConfigFile config;
-    private @Nullable MessageManager<MachineEnginePlugin, String> messages;
 
     @Override
     public void onLoad() {
         // First: everything logs through MessageFlow (MESSAGEFLOW_PLAN.md B4). Its settings come from config.yml.
-        ConfigurationManager.Setting.BYPASS_EXTERNAL_CONFIG.setValue(true);
-        Logger.LogType.INFO.setShowTypeName(false);
-        this.messages = new MessageManager<>(this, new NormalLanguageConfiguration("en_us"), List.of());
+        EngineMessages.create(this);
         Logger.info("Loading MachineEngine %version% (API %api%)",
                 Placeholder.of("version", getPluginMeta().getVersion(), "api", MachineEngineApi.version()));
         // Before addons' onLoad: they may read MachineEngine.config().
         this.config = ConfigFile.load(getDataFolder().toPath().resolve("config.yml"), EngineConfig.SPEC, logger().toJul());
         Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
+        // Chat and action bar messages, in each player's language (lang/*.yml).
+        EngineMessages.load(this, this.config);
         MachineEngineAccess.installConfig(this.config);
         MachineEngineAccess.installSchedulers(FoliaLibScheduler.perPlugin());
         BuiltInResources.install(this.config);
@@ -106,7 +103,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     }
 
     /**
-     * Installs MachineEngine's CraftEngine pack (translations of player messages, §23.4) before
+     * Installs MachineEngine's CraftEngine pack (translations of item lore and menu texts, §23.4) before
      * CraftEngine loads its packs. Existing files are kept: server owners edit them.
      */
     private void installCraftEnginePack() {
@@ -187,6 +184,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private ConfigLoadResult reloadSettings() {
         ConfigLoadResult result = this.config.reload();
         Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
+        EngineMessages.load(this, this.config);
         if (this.menus != null && result.error() == null) this.menus.reload();
         return result;
     }
@@ -223,8 +221,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         this.engine = null;
         MachineEngineAccess.reset();
         // Last: lines logged after this go to plain java.util.logging.
-        if (this.messages != null) this.messages.close();
-        this.messages = null;
+        EngineMessages.close();
     }
 
     /** The MessageFlow logger the manager made (onLoad), for code that takes a logger. */
@@ -256,7 +253,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (machine instanceof PlaceholderMachine placeholder && !this.config.get(EngineConfig.ALLOW_BREAKING_PLACEHOLDERS)
                 && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Messages.placeholderBreakDenied(placeholder.missingType().asString()));
+            EngineMessages.send(event.getPlayer(), EngineMessage.PLACEHOLDER_BREAK_DENIED, Placeholder.of("type", placeholder.missingType().asString()));
         }
     }
 
@@ -270,7 +267,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         int count = this.host.machinesInChunk(location.getWorld().getKey(), location.getBlockX() >> 4, location.getBlockZ() >> 4);
         if (count >= limit) {
             event.setCancelled(true);
-            event.getPlayer().sendMessage(Messages.chunkLimit(count, limit));
+            EngineMessages.send(event.getPlayer(), EngineMessage.CHUNK_LIMIT,
+                    Placeholder.of("count", String.valueOf(count), "limit", String.valueOf(limit)));
         }
     }
 

@@ -7,7 +7,8 @@ import fr.robie.machineengine.api.paper.MachineBlocks;
 import fr.robie.machineengine.api.paper.PaperItemBehavior;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
-import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import net.kyori.adventure.key.Key;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
 import net.momirealms.craftengine.core.block.ImmutableBlockState;
@@ -73,7 +74,7 @@ public final class WrenchBehavior extends PaperItemBehavior implements MachineTo
         int index = TURN.indexOf(machine.inspect().facing());
         Direction next = TURN.get((index + 1) % TURN.size());
         if (state == null || blocks == null || !blocks.replaceBlock(position, Key.key(state.owner().value().id().asString()), next)) {
-            use.player().sendActionBar(Messages.message("machineengine.wrench.busy", "§cThe machine is busy; try again"));
+            EngineMessages.send(use.player(), EngineMessage.WRENCH_BUSY);
         }
         return true;
     }

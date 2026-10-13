@@ -8,10 +8,14 @@ import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.player.CorePlayers;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.Messages;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
+import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.paperdispatch.command.BaseCommand;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
 import io.papermc.paper.command.brigadier.Commands;
+import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
@@ -92,7 +96,7 @@ public final class PlayerSettingsCommand extends BaseCommand<Plugin> {
     @Override
     protected @NotNull CommandResultType perform(@NotNull CommandDispatch<Plugin> dispatch) {
         if (!(dispatch.getExecutor() instanceof Player player)) {
-            dispatch.getSender().sendMessage(Messages.message("machineengine.settings.players_only", "Only players have settings."));
+            EngineMessages.send(dispatch.getSender(), EngineMessage.SETTINGS_PLAYERS_ONLY);
             return CommandResultType.FAILURE;
         }
         CorePlayers players = players();
@@ -109,11 +113,11 @@ public final class PlayerSettingsCommand extends BaseCommand<Plugin> {
         String name = space < 0 ? arguments : arguments.substring(0, space);
         PlayerSetting<?> setting = find(players, name);
         if (setting == null) {
-            player.sendMessage(Messages.settingUnknown(name));
+            EngineMessages.send(player, EngineMessage.SETTINGS_UNKNOWN, Placeholder.of("name", name));
             return CommandResultType.FAILURE;
         }
         if (space < 0) {
-            player.sendMessage(Messages.settingValue(setting, display(data, setting)));
+            EngineMessages.send(player, EngineMessage.SETTINGS_VALUE, setting(setting, display(data, setting)));
             return CommandResultType.SUCCESS;
         }
         String value = arguments.substring(space + 1).trim();
@@ -123,11 +127,17 @@ public final class PlayerSettingsCommand extends BaseCommand<Plugin> {
     private static void list(Player player, CorePlayers players, MachinePlayer data) {
         List<PlayerSetting<?>> settings = visible(players);
         if (settings.isEmpty()) {
-            player.sendMessage(Messages.settingsNone());
+            EngineMessages.send(player, EngineMessage.SETTINGS_NONE);
             return;
         }
-        player.sendMessage(Messages.settingsHeader());
-        for (PlayerSetting<?> setting : settings) player.sendMessage(Messages.settingEntry(setting, display(data, setting)));
+        EngineMessages.send(player, EngineMessage.SETTINGS_HEADER);
+        for (PlayerSetting<?> setting : settings) {
+            EngineMessages.send(player, EngineMessage.SETTINGS_ENTRY, Placeholder.builder()
+                    .registerAll(setting(setting, display(data, setting)))
+                    .register("key", setting.key().asString())
+                    .register("description", Component.translatable(setting.descriptionKey(), ""))
+                    .build());
+        }
     }
 
     /** Sets {@code setting} from {@code text} ({@code reset}: back to the default) and tells the player. */
@@ -135,17 +145,25 @@ public final class PlayerSettingsCommand extends BaseCommand<Plugin> {
         if (text.equalsIgnoreCase("reset")) {
             text = format(setting, players.ownerDefault(setting));
             data.reset(setting.data());
-            player.sendMessage(Messages.settingChanged(setting, text));
+            EngineMessages.send(player, EngineMessage.SETTINGS_CHANGED, setting(setting, text));
             return true;
         }
         Result<?> result = data.set(setting, text);
         if (result.isErr()) {
-            player.sendMessage(result.error().code().equals(CorePlayers.SETTING_LOCKED) ? Messages.settingLocked(setting)
-                    : Messages.settingInvalid(text, setting.expected()));
+            if (result.error().code().equals(CorePlayers.SETTING_LOCKED)) {
+                EngineMessages.send(player, EngineMessage.SETTINGS_LOCKED, setting(setting, text));
+            } else {
+                EngineMessages.send(player, EngineMessage.SETTINGS_INVALID, Placeholder.of("value", text, "expected", setting.expected()));
+            }
             return false;
         }
-        player.sendMessage(Messages.settingChanged(setting, display(data, setting)));
+        EngineMessages.send(player, EngineMessage.SETTINGS_CHANGED, setting(setting, display(data, setting)));
         return true;
+    }
+
+    /** {@code %setting%} (its translated name) and {@code %value%}. */
+    private static Placeholder setting(PlayerSetting<?> setting, String value) {
+        return Placeholder.builder().register("setting", Messages.name(setting)).register("value", value).build();
     }
 
     static <T> String display(MachinePlayer data, PlayerSetting<T> setting) {

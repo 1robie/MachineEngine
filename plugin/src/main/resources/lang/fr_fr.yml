@@ -1,0 +1,36 @@
+machineengine:
+  machine:
+    missing_addon: "<red>Cette machine appartient à un addon qui n'est pas installé (%type%)."
+    placeholder_break_denied: "<red>Cette machine (%type%) appartient à un addon qui n'est pas installé. La casser détruirait ses données."
+    chunk_limit: "<red>Ce chunk contient déjà %count% machines (limite %limit%)."
+  debug:
+    "on": "<gold>Vue de débogage activée : les points montrent l'état des machines (vert actif, jaune planifié, cyan en attente, orange bloqué, bleu en veille, gris désactivé, magenta en attente de son addon, rouge erreur), les ports (bleu entrée, orange sortie, violet les deux) et les réseaux ; regardez une machine pour les détails."
+    "off": "<gray>Vue de débogage désactivée."
+  item:
+    filled:
+      type: ACTION_BAR
+      message: "<green>%amount% de %resource% ajoutés"
+  upgrade:
+    installed:
+      type: ACTION_BAR
+      message: "<green>%count% × %upgrade% installé(s)"
+  wrench:
+    busy:
+      type: ACTION_BAR
+      message: "<red>La machine est occupée ; réessayez"
+  reader:
+    not_machine: "<gray>Ce n'est pas une machine"
+    machine: "<gold>%machine% :"
+    storage: "<gray>  %storage% : %amount% / %capacity% (%held%)"
+  player:
+    data_not_loaded: "Vos données n'ont pas pu être chargées. Réessayez dans un instant."
+  settings:
+    players_only: "<red>Seuls les joueurs ont des réglages."
+    header: "<gold>Vos réglages (/machinesettings \\<réglage> \\<valeur>) :"
+    none: "<gray>Il n'y a aucun réglage à changer."
+    entry: "<gray>%setting% : <white>%value%</white> <dark_gray>(%key%)</dark_gray> %description%"
+    value: "<gray>%setting% : <white>%value%"
+    changed: "<green>%setting% vaut maintenant %value%."
+    invalid: "<red>« %value% » n'est pas valide (attendu : %expected%)."
+    locked: "<red>%setting% est fixé par le serveur."
+    unknown: "<red>Il n'y a pas de réglage %name%. Voir /machinesettings."

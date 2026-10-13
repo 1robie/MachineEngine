@@ -16,6 +16,8 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.PlayerAdminCommand;
 import fr.robie.paperdispatch.command.BaseCommand;
 import fr.robie.paperdispatch.command.CommandDispatch;
@@ -181,7 +183,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
             return CommandResultType.FAILURE;
         }
         boolean on = this.debugView.toggle(player);
-        player.sendMessage(on ? Messages.debugOn() : Messages.debugOff());
+        EngineMessages.send(player, on ? EngineMessage.DEBUG_ON : EngineMessage.DEBUG_OFF);
         return CommandResultType.SUCCESS;
     }
 

@@ -16,10 +16,11 @@ import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
-import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
 import fr.robie.machineengine.api.paper.event.PlayerMachineInteractEvent;
+import fr.robie.machineengine.paper.message.EngineMessage;
+import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
@@ -136,7 +137,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         LoadedMachine machine = machine(position);
         if (service == null || machine == null) return false;
         if (machine.instance() == null) {
-            player.sendMessage(Messages.missingAddon(machine.inspect().type().asString()));
+            EngineMessages.send(player, EngineMessage.MISSING_ADDON, Placeholder.of("type", machine.inspect().type().asString()));
             return true;
         }
         if (!player.hasPermission("machineengine.use")) return false;

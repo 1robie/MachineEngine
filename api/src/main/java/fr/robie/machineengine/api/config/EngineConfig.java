@@ -54,6 +54,14 @@ public final class EngineConfig {
     public static final ConfigKey<List<String>> PLAYER_LOCKED_SETTINGS = ConfigKey.strings("players.locked-settings", List.of())
             .comment("Player settings players may not change: they keep the value of setting-defaults (or the built-in one).");
 
+    public static final ConfigKey<String> MESSAGES_DEFAULT_LANGUAGE = ConfigKey.string("messages.default-language", "en_us")
+            .comment("Language of the console and of players whose client language has no file in lang/ (en_us, fr_fr...).",
+                    "Each player reads lang/<their client's language>.yml, else the same language in another country, else this one.",
+                    "Add a language by copying lang/en_us.yml to lang/<language code>.yml and translating it.");
+
+    public static final ConfigKey<String> MESSAGES_PREFIX = ConfigKey.string("messages.prefix", "")
+            .comment("Put before every chat message of MachineEngine (MiniMessage), e.g. \"<dark_gray>[<gold>Machines</gold>]</dark_gray> \".");
+
     public static final ConfigKey<Boolean> LOGGING_DEBUG = ConfigKey.bool("logging.debug", false)
             .comment("Log debug lines too: details for bug reports, too many for every day.");
 
@@ -70,6 +78,8 @@ public final class EngineConfig {
             .key(PLAYER_LOAD_TIMEOUT)
             .key(PLAYER_SETTING_DEFAULTS)
             .key(PLAYER_LOCKED_SETTINGS)
+            .key(MESSAGES_DEFAULT_LANGUAGE)
+            .key(MESSAGES_PREFIX)
             .key(LOGGING_DEBUG)
             .section("resources", "Resources MachineEngine provides to every addon and definition:",
                     "machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.",
