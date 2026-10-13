@@ -11,6 +11,8 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.momirealms.craftengine.bukkit.util.BlockStateUtils;
 import net.momirealms.craftengine.bukkit.util.ItemStackUtils;
 import net.momirealms.craftengine.bukkit.util.LocationUtils;
@@ -229,8 +231,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
             MachineType type = this.behavior.resolve(host.engine().registries());
             if (type == null) {
                 if (!this.warnedMissingType) {
-                    host.logger().warning("Block at " + at + " refers to machine type " + this.behavior.machineKey().asString()
-                            + ", which is not registered; it stays inert");
+                    Logger.warn("[craftengine]", "Block at %position% refers to machine type %type%, which is not registered; it stays inert",
+                            Placeholder.of("position", String.valueOf(at), "type", this.behavior.machineKey().asString()));
                     this.warnedMissingType = true;
                 }
                 host.unregister(at, this);
@@ -307,7 +309,8 @@ public final class MachineBlockEntityController extends BlockEntityController {
         if (state == null) return;
         LoadedMachine restored = host.engine().machines().restore(this.machine, state, host);
         if (restored == this.machine) {
-            host.logger().warning("Ignored machine contents for another machine type in the item placed at " + this.position);
+            Logger.warn("[craftengine]", "Ignored machine contents for another machine type in the item placed at %position%",
+                    Placeholder.of("position", String.valueOf(this.position)));
             return;
         }
         this.machine = restored;

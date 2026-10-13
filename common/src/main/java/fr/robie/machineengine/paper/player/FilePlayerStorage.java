@@ -4,6 +4,8 @@ import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.data.DataBinary;
 import fr.robie.machineengine.api.data.DataMap;
 import fr.robie.machineengine.api.player.PlayerDataStorage;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -22,8 +24,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * {@code machineengine:files} (D37): one file per player, {@code plugins/MachineEngine/players/<ab>/<uuid>.dat}
@@ -34,17 +34,15 @@ import java.util.logging.Logger;
  */
 public final class FilePlayerStorage implements PlayerDataStorage {
     public static final Type TYPE = new Type(MachineEngineKeys.key("files"), (plugin, config) ->
-            new FilePlayerStorage(plugin.getDataFolder().toPath().resolve("players"), plugin.getLogger()));
+            new FilePlayerStorage(plugin.getDataFolder().toPath().resolve("players")));
 
     private final Path folder;
-    private final Logger logger;
     private final ExecutorService io;
     /** The last load or save asked for each player; the next one waits for it. */
     private final Map<UUID, CompletableFuture<?>> last = new ConcurrentHashMap<>();
 
-    public FilePlayerStorage(@NotNull Path folder, @NotNull Logger logger) {
+    public FilePlayerStorage(@NotNull Path folder) {
         this.folder = folder;
-        this.logger = logger;
         this.io = Executors.newFixedThreadPool(2, runnable -> {
             Thread thread = new Thread(runnable, "MachineEngine player data");
             thread.setDaemon(true);
@@ -107,8 +105,9 @@ public final class FilePlayerStorage implements PlayerDataStorage {
             } catch (IOException moveError) {
                 throw new UncheckedIOException("could not move the damaged " + file + " aside", moveError);
             }
-            this.logger.severe("The MachineEngine data of " + uuid + " was damaged (" + e.getMessage() + "); kept as "
-                    + aside.getFileName() + ", starting empty");
+            Logger.error("[players]", "The MachineEngine data of %uuid% was damaged (%error%); kept as %file%, starting empty",
+                    Placeholder.builder().register("uuid", uuid.toString()).register("error", e.getMessage())
+                            .register("file", String.valueOf(aside.getFileName())).build());
             return DataMap.EMPTY;
         }
     }
@@ -136,7 +135,7 @@ public final class FilePlayerStorage implements PlayerDataStorage {
             CompletableFuture.allOf(this.last.values().stream().map(pending -> pending.handle((ignored, error) -> null))
                     .toArray(CompletableFuture[]::new)).get(30, TimeUnit.SECONDS);
         } catch (Exception e) {
-            this.logger.log(Level.SEVERE, "Player data was still being saved after 30 seconds", e);
+            Logger.error("[players]", "Player data was still being saved after 30 seconds", e);
         }
         this.io.shutdown();
     }

@@ -10,6 +10,8 @@ import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Material;
@@ -207,7 +209,7 @@ final class ActionButton extends Button {
         public @Nullable Button load(@NotNull YamlConfiguration configuration, @NotNull String path, @NotNull DefaultButtonValue defaultButtonValue) {
             String action = configuration.getString(path + "action");
             if (action == null) {
-                this.owner.getLogger().warning("The machineengine_action button at " + path + " needs 'action: <id>'");
+                Logger.warn("[zmenu]", "The machineengine_action button at %path% needs 'action: <id>'", Placeholder.of("path", path));
                 return null;
             }
             EmptyItem empty = null;

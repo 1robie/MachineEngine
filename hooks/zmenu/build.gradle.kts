@@ -12,4 +12,6 @@ base {
 dependencies {
     api(project(":common"))
     compileOnly(libs.zmenu.api)
+    // Logging; the classes come with :common (bundled, relocated in the plugin jar).
+    compileOnly(libs.messageflow)
 }

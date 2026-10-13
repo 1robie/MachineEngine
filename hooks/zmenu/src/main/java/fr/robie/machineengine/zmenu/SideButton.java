@@ -11,6 +11,8 @@ import fr.robie.machineengine.api.machine.PortDirection;
 import fr.robie.machineengine.api.world.RelativeSide;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -165,8 +167,8 @@ final class SideButton extends Button {
             RelativeSide side = parseSide(configuration.getString(path + "side", ""));
             String group = configuration.getString(path + "group");
             if (side == null || group == null) {
-                this.owner.getLogger().warning("The machineengine_side button at " + path
-                        + " needs 'side: front|back|left|right|top|bottom' and 'group: <port group>'");
+                Logger.warn("[zmenu]", "The machineengine_side button at %path% needs 'side: front|back|left|right|top|bottom' and 'group: <port group>'",
+                        Placeholder.of("path", path));
                 return null;
             }
             return new SideButton(this.menus, side, group);

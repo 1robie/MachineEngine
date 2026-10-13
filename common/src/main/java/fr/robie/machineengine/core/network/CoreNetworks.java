@@ -20,6 +20,8 @@ import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -40,8 +42,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Networks of transports (ARCHITECTURE.md §15). Owned by the engine, per world, and rebuilt from
@@ -371,7 +371,8 @@ public final class CoreNetworks {
             try {
                 moved = this.type.behavior().tick(context(tags));
             } catch (RuntimeException e) {
-                CoreNetworks.this.logger.log(Level.SEVERE, "Network " + this.type.key().asString() + " at " + this.anchor + " failed", e);
+                CoreNetworks.this.logger.logError("[networks]", "Network %type% at %position% failed", e,
+                        Placeholder.of("type", this.type.key().asString(), "position", String.valueOf(this.anchor)));
                 moved = 0;
             }
             this.movedLastTick = moved;

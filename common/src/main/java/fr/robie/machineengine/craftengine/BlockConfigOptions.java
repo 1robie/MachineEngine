@@ -1,9 +1,10 @@
 package fr.robie.machineengine.craftengine;
 
 import fr.robie.machineengine.api.config.BlockOptions;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.momirealms.craftengine.core.block.BlockDefinition;
 import net.momirealms.craftengine.core.plugin.config.ConfigSection;
-import org.bukkit.Bukkit;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.Map;
@@ -23,13 +24,7 @@ final class BlockConfigOptions {
         return child == null ? null : child.values();
     }
 
-    /** Block configs are parsed before the host exists: warnings go to the host's logger once it does. */
     static void warn(String message) {
-        CraftEngineMachineHost host = CraftEngineMachineHost.current();
-        if (host != null) {
-            host.logger().warning(message);
-        } else {
-            Bukkit.getLogger().warning("[MachineEngine] " + message);
-        }
+        Logger.warn("[craftengine]", "%message%", Placeholder.of("message", message));
     }
 }

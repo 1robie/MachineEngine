@@ -6,6 +6,8 @@ import fr.robie.machineengine.api.event.EventPhase;
 import fr.robie.machineengine.api.event.EventPriority;
 import fr.robie.machineengine.api.event.EventType;
 import fr.robie.machineengine.api.event.Subscription;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
@@ -17,8 +19,6 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Copy-on-write event bus: posting reads an immutable listener array and never locks; subscribing
@@ -67,8 +67,11 @@ public final class CoreEventBus implements EventBus {
             try {
                 ((Listener<E>) listener).consumer.accept(event);
             } catch (RuntimeException e) {
-                this.logger.log(Level.SEVERE, "Listener of " + listener.owner + " failed on " + type.key().asString()
-                        + " (" + phase + ")", e);
+                this.logger.logError("[events]", "Listener of %owner% failed on %event% (%phase%)", e, Placeholder.builder()
+                        .register("owner", String.valueOf(listener.owner))
+                        .register("event", type.key().asString())
+                        .register("phase", String.valueOf(phase))
+                        .build());
             }
         }
         return event;

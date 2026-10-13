@@ -8,9 +8,9 @@ import fr.robie.machineengine.api.transfer.TransactionManager;
 import fr.robie.machineengine.core.machine.handoff.HandoffService;
 import fr.robie.machineengine.core.network.CoreNetworks;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.logging.Logger;
 
 /** Engine services machines use. */
 public interface MachineServices {

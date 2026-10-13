@@ -23,6 +23,8 @@ import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.MachinePlaceholders;
 import fr.robie.machineengine.paper.player.PlayerValues;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
@@ -41,7 +43,6 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.logging.Level;
 
 /**
  * Machine menus on zMenu (§23.3). Everything is configured in YAML:
@@ -135,7 +136,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         Map<Key, String> byType = new LinkedHashMap<>();
         MachineEngine.config().get(EngineConfig.MENUS_BY_TYPE).forEach((type, menu) -> {
             if (Key.parseable(type)) byType.put(Key.key(type), menu);
-            else this.plugin.getLogger().warning("config.yml: menus.by-type has an invalid machine type '" + type + "'");
+            else Logger.warn("[zmenu]", "config.yml: menus.by-type has an invalid machine type '%type%'", Placeholder.of("type", type));
         });
         this.menuByType = Map.copyOf(byType);
 
@@ -144,7 +145,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
             this.plugin.saveResource(DEFAULT_MENU_RESOURCE, false);
         }
         CorePlayers players = PlayerSettingButton.players();
-        if (players != null) PlayerSettingsMenu.write(folder.toPath(), List.copyOf(players.settings()), this.plugin.getLogger());
+        if (players != null) PlayerSettingsMenu.write(folder.toPath(), List.copyOf(players.settings()));
         File[] files = folder.listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
         if (files == null) return;
         for (File file : files) {
@@ -153,10 +154,11 @@ public final class ZMenuMachineMenus implements MachineMenuService {
                 Inventory inventory = this.inventories.loadInventory(this.plugin, file);
                 if (inventory != null) this.menus.put(name, inventory);
             } catch (Exception e) {
-                this.plugin.getLogger().log(Level.WARNING, "Could not load machine menu " + file.getName() + ": " + e.getMessage(), e);
+                Logger.warn("[zmenu]", "Could not load machine menu %file%: %error%", e, Placeholder.of("file", file.getName(), "error", e.getMessage()));
             }
         }
-        this.plugin.getLogger().info("Loaded " + this.menus.size() + " machine menu(s) " + this.menus.keySet());
+        Logger.info("[zmenu]", "Loaded %count% machine menu(s) %menus%",
+                Placeholder.of("count", String.valueOf(this.menus.size()), "menus", String.valueOf(this.menus.keySet())));
     }
 
     @Override
@@ -331,7 +333,7 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         } catch (IllegalStateException e) {
             if (!this.topHolderFailed) {
                 this.topHolderFailed = true;
-                this.plugin.getLogger().log(Level.WARNING, "Could not read open menus; machine menus will not refresh", e);
+                Logger.warn("[zmenu]", "Could not read open menus; machine menus will not refresh", e);
             }
             return null;
         }

@@ -41,6 +41,10 @@ players:
   # Player settings players may not change: they keep the value of setting-defaults (or the built-in one).
   locked-settings: []
 
+logging:
+  # Log debug lines too: details for bug reports, too many for every day.
+  debug: false
+
 # Resources MachineEngine provides to every addon and definition:
 # machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.
 # Restart to apply.

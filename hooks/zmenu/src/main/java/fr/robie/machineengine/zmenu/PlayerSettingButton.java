@@ -9,6 +9,8 @@ import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.player.MachinePlayer;
 import fr.robie.machineengine.api.player.PlayerSetting;
 import fr.robie.machineengine.core.player.CorePlayers;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -80,7 +82,7 @@ final class PlayerSettingButton extends Button {
         public @Nullable Button load(@NotNull YamlConfiguration configuration, @NotNull String path, @NotNull DefaultButtonValue defaultButtonValue) {
             String setting = configuration.getString(path + "setting");
             if (setting == null || !Key.parseable(setting)) {
-                this.owner.getLogger().warning("The machineengine_player_setting button at " + path + " needs 'setting: <namespace>:<id>'");
+                Logger.warn("[zmenu]", "The machineengine_player_setting button at %path% needs 'setting: <namespace>:<id>'", Placeholder.of("path", path));
                 return null;
             }
             return new PlayerSettingButton(Key.key(setting));

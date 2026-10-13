@@ -10,6 +10,8 @@ import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.resource.ItemTagSource;
 import fr.robie.machineengine.api.paper.PaperItems;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
@@ -122,11 +124,11 @@ public final class CraftEngineItemBridge implements DefinitionCompiler.ItemResol
             if (running == null) return;
             for (var type : List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG, Registries.RECIPE)) {
                 var report = running.reload(type);
-                if (report.hasErrors()) this.plugin.getLogger().warning("Reload of " + type.key().asString()
-                        + " after CraftEngine loaded: " + System.lineSeparator() + report.format());
+                if (report.hasErrors()) Logger.warn("[craftengine]", "Reload of %type% after CraftEngine loaded:\n%report%",
+                        Placeholder.of("type", type.key().asString(), "report", report.format()));
             }
-            this.plugin.getLogger().info("Recipes and tags reloaded with CraftEngine's items ("
-                    + running.registries().registry(Registries.RECIPE).size() + " recipes)");
+            Logger.info("[craftengine]", "Recipes and tags reloaded with CraftEngine's items (%count% recipes)",
+                    Placeholder.of("count", String.valueOf(running.registries().registry(Registries.RECIPE).size())));
             // Loaded machines and transports read their block configs again (D34).
             CraftEngineMachineHost host = CraftEngineMachineHost.current();
             if (host != null) host.blockConfigsReloaded();

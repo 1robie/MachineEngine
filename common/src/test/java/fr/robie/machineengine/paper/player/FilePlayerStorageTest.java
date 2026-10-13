@@ -11,8 +11,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,20 +20,13 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 /** {@code machineengine:files} (D37): one file per player, written atomically, in order per player. */
 class FilePlayerStorageTest {
     private static final UUID ALEX = UUID.fromString("ab000000-0000-0000-0000-00000000a1e5");
-    private static final Logger QUIET = quiet();
 
     @TempDir
     Path folder;
     private FilePlayerStorage storage;
 
-    private static Logger quiet() {
-        Logger logger = Logger.getLogger("FilePlayerStorageTest");
-        logger.setLevel(Level.OFF);
-        return logger;
-    }
-
     private FilePlayerStorage storage() {
-        this.storage = new FilePlayerStorage(this.folder, QUIET);
+        this.storage = new FilePlayerStorage(this.folder);
         return this.storage;
     }
 
@@ -60,7 +51,7 @@ class FilePlayerStorageTest {
         assertEquals(this.folder.resolve("ab").resolve(ALEX + ".dat"), files.file(ALEX));
         assertTrue(Files.exists(files.file(ALEX)));
         assertEquals(data(3), files.load(ALEX, null).join());
-        assertEquals(data(3), new FilePlayerStorage(this.folder, QUIET).load(ALEX, null).join(), "a new storage reads the file");
+        assertEquals(data(3), new FilePlayerStorage(this.folder).load(ALEX, null).join(), "a new storage reads the file");
     }
 
     @Test

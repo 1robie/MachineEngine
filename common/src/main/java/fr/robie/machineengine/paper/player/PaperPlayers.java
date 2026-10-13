@@ -15,6 +15,8 @@ import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.core.player.CorePlayerData;
 import fr.robie.machineengine.core.player.CorePlayers;
 import fr.robie.machineengine.paper.Messages;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
@@ -36,7 +38,6 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 
 /**
  * Loads and saves players' data on Paper (D37): the storage chosen in {@code players.storage} loads a
@@ -81,11 +82,11 @@ public final class PaperPlayers implements Listener {
         PlayerDataStorage.Type type = key.isOk()
                 ? MachineEngine.get().registries().registry(Registries.PLAYER_STORAGE).get(key.value()).orElse(null) : null;
         if (type == null) {
-            plugin.getLogger().warning("players.storage: no player data storage '" + chosen + "'; using machineengine:pdc. Storages: "
-                    + MachineEngine.get().registries().registry(Registries.PLAYER_STORAGE).keys());
+            Logger.warn("[players]", "players.storage: no player data storage '%storage%'; using machineengine:pdc. Storages: %storages%",
+                    Placeholder.of("storage", chosen, "storages", String.valueOf(MachineEngine.get().registries().registry(Registries.PLAYER_STORAGE).keys())));
             type = PdcPlayerStorage.TYPE;
         }
-        plugin.getLogger().info("Player data is saved with " + type.key().asString());
+        Logger.info("[players]", "Player data is saved with %storage%", Placeholder.of("storage", type.key().asString()));
         return type.factory().create(plugin, config);
     }
 
@@ -103,7 +104,8 @@ public final class PaperPlayers implements Listener {
         try {
             this.preloaded.put(uuid, this.storage.load(uuid, null).get(timeout, TimeUnit.SECONDS));
         } catch (Exception e) {
-            this.plugin.getLogger().log(Level.WARNING, "Could not load the data of " + event.getName() + " (" + uuid + "); login refused", e);
+            Logger.warn("[players]", "Could not load the data of %player% (%uuid%); login refused", e,
+                    Placeholder.of("player", event.getName(), "uuid", uuid.toString()));
             event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_OTHER, Messages.playerDataNotLoaded());
         }
     }
@@ -122,7 +124,7 @@ public final class PaperPlayers implements Listener {
                 saved = this.storage.load(uuid, player).get(MachineEngine.config().get(EngineConfig.PLAYER_LOAD_TIMEOUT), TimeUnit.SECONDS);
             } catch (Exception e) {
                 // Without their data, saving would overwrite it: keep them out.
-                this.plugin.getLogger().log(Level.SEVERE, "Could not load the data of " + player.getName() + "; kicking them", e);
+                Logger.error("[players]", "Could not load the data of %player%; kicking them", e, Placeholder.of("player", player.getName()));
                 player.kick(Messages.playerDataNotLoaded());
                 return;
             }
@@ -191,7 +193,7 @@ public final class PaperPlayers implements Listener {
         this.storage.save(data.uuid(), player, encoded).whenComplete((done, error) -> {
             if (error == null) return;
             data.markDirty();
-            this.plugin.getLogger().log(Level.SEVERE, "Could not save the data of " + data, error);
+            Logger.error("[players]", "Could not save the data of %player%", error, Placeholder.of("player", String.valueOf(data)));
         });
     }
 
@@ -204,7 +206,7 @@ public final class PaperPlayers implements Listener {
             try {
                 save(data, data.player());
             } catch (RuntimeException e) {
-                this.plugin.getLogger().log(Level.SEVERE, "Could not save the data of " + data, e);
+                Logger.error("[players]", "Could not save the data of %player%", e, Placeholder.of("player", String.valueOf(data)));
             }
         }
         this.storage.close();

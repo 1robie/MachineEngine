@@ -33,7 +33,7 @@ public final class TestEngine {
     private TestEngine() {
         Logger logger = Logger.getLogger("MachineEngine-Test");
         logger.setLevel(Level.OFF);
-        this.builder.logger(logger);
+        this.builder.julLogger(logger);
     }
 
     public static @NotNull TestEngine builder() {
@@ -83,7 +83,7 @@ public final class TestEngine {
 
     /** Logs to the console instead of discarding engine logs. */
     public @NotNull TestEngine verbose() {
-        this.builder.logger(Logger.getLogger("MachineEngine-Test-Verbose"));
+        this.builder.julLogger(Logger.getLogger("MachineEngine-Test-Verbose"));
         return this;
     }
 

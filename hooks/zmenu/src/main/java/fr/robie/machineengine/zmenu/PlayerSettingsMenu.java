@@ -1,6 +1,8 @@
 package fr.robie.machineengine.zmenu;
 
 import fr.robie.machineengine.api.player.PlayerSetting;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.IOException;
@@ -8,7 +10,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.logging.Logger;
 
 /**
  * {@code menus/player_settings.yml} (D37), opened by {@code /machinesettings}: one
@@ -25,7 +26,7 @@ final class PlayerSettingsMenu {
     private PlayerSettingsMenu() {
     }
 
-    static void write(@NotNull Path folder, @NotNull List<PlayerSetting<?>> settings, @NotNull Logger logger) {
+    static void write(@NotNull Path folder, @NotNull List<PlayerSetting<?>> settings) {
         Path file = folder.resolve(NAME + ".yml");
         try {
             if (Files.exists(file)) {
@@ -33,16 +34,17 @@ final class PlayerSettingsMenu {
                 if (lines.isEmpty() || !lines.getFirst().equals(MARKER)) return;
             }
             Files.createDirectories(folder);
-            Files.writeString(file, yaml(settings, logger), StandardCharsets.UTF_8);
+            Files.writeString(file, yaml(settings), StandardCharsets.UTF_8);
         } catch (IOException e) {
-            logger.warning("Could not write the menu " + file + ": " + e.getMessage());
+            Logger.warn("[zmenu]", "Could not write the menu %file%: %error%", Placeholder.of("file", file.toString(), "error", e.getMessage()));
         }
     }
 
-    static String yaml(List<PlayerSetting<?>> settings, Logger logger) {
+    static String yaml(List<PlayerSetting<?>> settings) {
         int max = COLUMNS * MAX_ROWS;
         if (settings.size() > max) {
-            logger.warning("Only the first " + max + " player settings fit in " + NAME + ".yml; edit it to arrange the others");
+            Logger.warn("[zmenu]", "Only the first %max% player settings fit in %menu%.yml; edit it to arrange the others",
+                    Placeholder.of("max", String.valueOf(max), "menu", NAME));
         }
         int shown = Math.min(settings.size(), max);
         int rows = Math.max(1, (shown + COLUMNS - 1) / COLUMNS) + 2;

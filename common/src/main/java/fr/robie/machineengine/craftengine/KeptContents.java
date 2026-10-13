@@ -11,6 +11,8 @@ import fr.robie.machineengine.core.machine.CoreMachines;
 import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.text.Component;
 import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
@@ -98,7 +100,7 @@ public final class KeptContents {
         try {
             return DataBinary.read(bytes);
         } catch (IOException e) {
-            this.host.logger().warning("Ignored unreadable machine contents in an item: " + e.getMessage());
+            Logger.warn("[craftengine]", "Ignored unreadable machine contents in an item: %error%", Placeholder.of("error", e.getMessage()));
             return null;
         }
     }

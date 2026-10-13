@@ -44,6 +44,8 @@ import fr.robie.machineengine.core.resource.ItemTagSource;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
 import fr.robie.machineengine.core.resource.TagSnapshot;
 import fr.robie.machineengine.core.transfer.CoreTransactionManager;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.NotNull;
@@ -59,8 +61,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.function.Function;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** The engine: runs the startup phases of §8.2 and then serves the runtime API. */
 public final class CoreMachineEngine implements MachineEngine {
@@ -107,8 +107,8 @@ public final class CoreMachineEngine implements MachineEngine {
                 new EngineEvents.Frozen(engine.registries));
         ValidationReport report = engine.startupReport();
         if (report.hasErrors()) {
-            logger.warning("MachineEngine started with errors; disabled addons: " + engine.disabledAddons()
-                    + System.lineSeparator() + report.format());
+            logger.logWarn("[core]", "MachineEngine started with errors; disabled addons: %addons%\n%report%",
+                    Placeholder.of("addons", String.valueOf(engine.disabledAddons()), "report", report.format()));
         }
         return engine;
     }
@@ -195,7 +195,7 @@ public final class CoreMachineEngine implements MachineEngine {
             this.startupDiagnostics.add(diagnostic.source() == null ? diagnostic.withSource(record.id()) : diagnostic);
             return false;
         } catch (RuntimeException e) {
-            this.logger.log(Level.SEVERE, "Registration of " + record.id() + " failed", e);
+            this.logger.logError("[core]", "Registration of %addon% failed", e, Placeholder.of("addon", String.valueOf(record.id())));
             this.startupDiagnostics.add(Diagnostic.error(DiagnosticCodes.REGISTRATION_FAILED,
                             "Registration callback threw " + e.getClass().getSimpleName() + ": " + e.getMessage())
                     .source(record.id()).build());
@@ -369,7 +369,8 @@ public final class CoreMachineEngine implements MachineEngine {
             diagnostics.add(e.diagnostic().source() == null ? e.diagnostic().withSource(addon) : e.diagnostic());
             return;
         } catch (RuntimeException e) {
-            this.logger.log(Level.SEVERE, "A " + entry.type() + " provider of " + addon + " failed", e);
+            this.logger.logError("[core]", "A %type% provider of %addon% failed", e,
+                    Placeholder.of("type", String.valueOf(entry.type()), "addon", String.valueOf(addon)));
             diagnostics.add(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
                             "A " + entry.type() + " provider threw " + e.getClass().getSimpleName() + ": " + e.getMessage())
                     .source(addon).build());
@@ -483,7 +484,8 @@ public final class CoreMachineEngine implements MachineEngine {
         SnapshotBuild<T> build = buildSnapshot(type, Set.of());
         ValidationReport report = ValidationReport.of(build.diagnostics);
         if (report.hasErrors()) {
-            this.logger.warning("Reload of " + type + " rejected; the previous snapshot stays live" + System.lineSeparator() + report.format());
+            this.logger.logWarn("[core]", "Reload of %type% rejected; the previous snapshot stays live\n%report%",
+                    Placeholder.of("type", String.valueOf(type), "report", report.format()));
             ValidationReport rejected = report.merge(new ValidationReport(List.of(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
                     "Reload of " + type + " was rejected; the previous snapshot stays live").subject(type.key()).build())));
             this.events.post(EngineEvents.REGISTRY_RELOADED, EventPhase.POST,

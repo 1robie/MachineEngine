@@ -3,10 +3,10 @@ package fr.robie.machineengine.plugin;
 import fr.robie.machineengine.api.platform.NmsAccess;
 import fr.robie.machineengine.nms.ReflectiveNms;
 import org.bukkit.Bukkit;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Picks the nms module of the running Minecraft version (D24, D25). Only that module's class is
@@ -17,7 +17,7 @@ final class NmsLoader {
     private NmsLoader() {
     }
 
-    static @NotNull NmsAccess load(@NotNull Logger logger) {
+    static @NotNull NmsAccess load() {
         String version = Bukkit.getMinecraftVersion();
         String module = switch (version) {
             case "1.20.6" -> "v1_20_6";
@@ -25,16 +25,16 @@ final class NmsLoader {
             default -> null;
         };
         if (module == null) {
-            logger.info("No version module for Minecraft " + version + ": version-specific calls use reflection");
+            Logger.info("[nms]", "No version module for Minecraft %version%: version-specific calls use reflection", Placeholder.of("version", version));
             return new ReflectiveNms();
         }
         try {
             NmsAccess access = (NmsAccess) Class.forName("fr.robie.machineengine.nms." + module + ".VersionNms")
                     .getDeclaredConstructor().newInstance();
-            logger.info("Minecraft " + version + ": version module " + access.name());
+            Logger.info("[nms]", "Minecraft %version%: version module %module%", Placeholder.of("version", version, "module", access.name()));
             return access;
         } catch (ReflectiveOperationException | LinkageError e) {
-            logger.log(Level.WARNING, "Could not load the version module " + module + "; using reflection", e);
+            Logger.warn("[nms]", "Could not load the version module %module%; using reflection", e, Placeholder.of("module", module));
             return new ReflectiveNms();
         }
     }

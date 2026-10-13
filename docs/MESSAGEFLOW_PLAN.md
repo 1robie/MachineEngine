@@ -1,4 +1,4 @@
-# MessageFlow plan (2026-10-13, in progress: stages 1-7 done, MessageFlow 1.1.1 released)
+# MessageFlow plan (2026-10-13, in progress: stages 1-8 done, MessageFlow 1.1.1 released)
 
 MachineEngine's text and logging are spread across three systems:
 
@@ -209,6 +209,24 @@ The `line(label, value)` helpers become one message with `%label%` / `%value%` p
 - **`api`.** `ConfigFile` keeps its JUL parameter. The engine passes `logger.toJul()`.
 - **Tests.** `TestEngine` passes a logger with no manager (the JUL fallback, A5), so tests need no server.
 - **Debug.** `logging.debug` in `config.yml` drives MessageFlow's debug flag. It replaces any debug `if`s that exist today.
+- *Done (2026-10-13), as follows:*
+  - **Core** (`common/.../core`) takes an injected MessageFlow `Logger`.
+    - `MachineEngineBuilder.logger(Logger)` sets it.
+    - `julLogger(java.util.logging.Logger)` wraps a JUL logger. It is a separate name, not an overload, so `TestEngine` and addons compile without MessageFlow on their classpath.
+    - `TestEngine` is unchanged and silent, as before.
+  - **Paper side and `hooks:zmenu`** call MessageFlow's static `Logger`, the global logger the manager made. Their logger parameters are gone (`FilePlayerStorage`, `PdcPlayerStorage`, `CraftEngineProtection`, `CraftEngineUpgradeItems`, `PlayerSettingsMenu`, `NmsLoader`), and so is `CraftEngineMachineHost.logger()`.
+  - **Contexts:** `[core]`, `[events]`, `[networks]`, `[transactions]`, `[machines]`, `[players]`, `[craftengine]`, `[zmenu]`, `[nms]`, `[definitions]`, `[checks]`.
+  - **Placeholders.** Every line is a template with `%placeholders%`, so a `<` in a name, a path or an exception message is never read as a tag.
+  - **The plugin** builds the `MessageManager` first thing in `onLoad`:
+    - It has no messages yet; MessageFlow's own settings file is bypassed, and the `[INFO]` type name is hidden.
+    - The manager is closed last in `onDisable`.
+    - `ConfigFile` gets `logger.toJul()`.
+    - `logging.debug` is a new `config.yml` key; the config snapshot test is updated.
+  - **Checked:**
+    - `./gradlew check` passes.
+    - The Paper 1.20.6 and 26.3 dev servers log every MachineEngine line through MessageFlow (`[MachineEngine 0.1.0-SNAPSHOT] [nms] …`), with no errors, and `/machineengine reload config` works.
+  - **Found:** warnings and errors without an exception now reach the console at **INFO** level (`[Server thread/INFO]: [WARNING] …`). JUL logged them as WARN. MessageFlow's manager logger sends lines through the console sender. Fix in MessageFlow: log through Paper's `ComponentLogger` (`Plugin#getComponentLogger()`), which keeps the colours and the level.
+  - **Mekanized** needed `includeGroup("com.github.1robie.MessageFlow")` in its JitPack filter. Its test runtime gets MessageFlow through `machineengine-test`. With it, Mekanized's tests pass. The change is left uncommitted in Mekanized.
 
 **B5. CE `lang.yml` cleanup.**
 - Remove the keys that moved to the language files.
@@ -238,7 +256,7 @@ Not changed by this plan (decision 3). It keeps working: its `Component.translat
 | 5 ✅ | MessageFlow | A5 logger | tests: logs before manager reach JUL; debug off skips supplier |
 | 6 ✅ | MessageFlow | A6 tests, docs, tag 1.1.0 | JitPack build green |
 | 7 ✅ | MachineEngine | B0 wiring (1.1.1 from JitPack, no mavenLocal) | `./gradlew check` incl. `verifyRelocation`, `verifyBundledPaperBaseline` |
-| 8 | MachineEngine | B4 logging (first: B1 needs the manager built early anyway) | tests pass; dev server log looks right on 1.20.6 and 26.3 |
+| 8 ✅ | MachineEngine | B4 logging (first: B1 needs the manager built early anyway) | tests pass; dev server log looks right on 1.20.6 and 26.3 |
 | 9 | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
 | 10 | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
 | 11 | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |

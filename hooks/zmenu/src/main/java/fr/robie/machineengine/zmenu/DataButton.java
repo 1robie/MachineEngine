@@ -8,6 +8,8 @@ import fr.maxlego08.menu.api.utils.Placeholders;
 import fr.robie.machineengine.api.machine.MachineDataKey;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -96,7 +98,7 @@ final class DataButton extends Button {
         public @Nullable Button load(@NotNull YamlConfiguration configuration, @NotNull String path, @NotNull DefaultButtonValue defaultButtonValue) {
             String data = configuration.getString(path + "data");
             if (data == null) {
-                this.owner.getLogger().warning("The machineengine_data button at " + path + " needs 'data: <id>'");
+                Logger.warn("[zmenu]", "The machineengine_data button at %path% needs 'data: <id>'", Placeholder.of("path", path));
                 return null;
             }
             return new DataButton(this.menus, data, configuration.getStringList(path + "values"));

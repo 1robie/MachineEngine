@@ -1,12 +1,13 @@
 package fr.robie.machineengine.craftengine;
 
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.logging.Logger;
 
 /**
  * Asks CraftEngine's anti-grief integration (WorldGuard, Lands, GriefPrevention …) whether a player
@@ -17,15 +18,10 @@ import java.util.logging.Logger;
 final class CraftEngineProtection {
     private static final String LIBRARY = "net.momirealms.craftengine.libraries.antigrieflib.";
 
-    private final Logger logger;
     private boolean resolved;
     private Object provider;
     private Method test;
     private Object openContainer;
-
-    CraftEngineProtection(Logger logger) {
-        this.logger = logger;
-    }
 
     boolean canOpen(@NotNull Player player, @NotNull Location location) {
         if (!this.resolved) resolve();
@@ -33,7 +29,7 @@ final class CraftEngineProtection {
         try {
             return (Boolean) this.test.invoke(this.provider, player, this.openContainer, location);
         } catch (ReflectiveOperationException | RuntimeException e) {
-            this.logger.warning("CraftEngine's protection check failed (" + e + "); allowing access");
+            Logger.warn("[craftengine]", "CraftEngine's protection check failed (%error%); allowing access", Placeholder.of("error", e.toString()));
             return true;
         }
     }
@@ -50,8 +46,8 @@ final class CraftEngineProtection {
             this.openContainer = field.get(null);
             this.provider = provider;
         } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
-            this.logger.warning("CraftEngine's protection integration is not available (" + e
-                    + "); machine menus open without claim checks");
+            Logger.warn("[craftengine]", "CraftEngine's protection integration is not available (%error%); machine menus open without claim checks",
+                    Placeholder.of("error", e.toString()));
         }
     }
 }

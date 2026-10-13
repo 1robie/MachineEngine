@@ -32,6 +32,11 @@ import fr.robie.machineengine.paper.player.FilePlayerStorage;
 import fr.robie.machineengine.paper.player.PaperPlayers;
 import fr.robie.machineengine.paper.player.PdcPlayerStorage;
 import fr.robie.machineengine.paper.player.PlayerSettingsCommand;
+import fr.robie.messageflow.configuration.ConfigurationManager;
+import fr.robie.messageflow.configuration.lang.NormalLanguageConfiguration;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.impl.MessageManager;
+import fr.robie.messageflow.logger.Logger;
 import fr.robie.paperdispatch.manager.CommandManager;
 import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
 import net.kyori.adventure.text.Component;
@@ -45,6 +50,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.server.PluginEnableEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
@@ -52,7 +58,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.logging.Level;
+import java.util.Objects;
 
 /**
  * MachineEngine plugin entry point (§8.2).
@@ -75,17 +81,24 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable ZMenuMachineMenus menus;
     private @Nullable PaperPlayers players;
     private ConfigFile config;
+    private @Nullable MessageManager<MachineEnginePlugin, String> messages;
 
     @Override
     public void onLoad() {
-        getLogger().info("Loading MachineEngine " + getPluginMeta().getVersion() + " (API " + MachineEngineApi.version() + ")");
+        // First: everything logs through MessageFlow (MESSAGEFLOW_PLAN.md B4). Its settings come from config.yml.
+        ConfigurationManager.Setting.BYPASS_EXTERNAL_CONFIG.setValue(true);
+        Logger.LogType.INFO.setShowTypeName(false);
+        this.messages = new MessageManager<>(this, new NormalLanguageConfiguration("en_us"), List.of());
+        Logger.info("Loading MachineEngine %version% (API %api%)",
+                Placeholder.of("version", getPluginMeta().getVersion(), "api", MachineEngineApi.version()));
         // Before addons' onLoad: they may read MachineEngine.config().
-        this.config = ConfigFile.load(this, "config.yml", EngineConfig.SPEC);
+        this.config = ConfigFile.load(getDataFolder().toPath().resolve("config.yml"), EngineConfig.SPEC, logger().toJul());
+        Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
         MachineEngineAccess.installConfig(this.config);
         MachineEngineAccess.installSchedulers(FoliaLibScheduler.perPlugin());
         BuiltInResources.install(this.config);
         // The running version's nms class only (NmsLoader); another version's may not even load here.
-        Nms.install(NmsLoader.load(getLogger()));
+        Nms.install(NmsLoader.load());
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
         ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/", "fr/robie/machineengine/nms/v");
         CraftEngineIntegration.registerBehaviors();
@@ -107,7 +120,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
                 Files.createDirectories(destination.getParent());
                 Files.copy(in, destination, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             } catch (IOException e) {
-                getLogger().warning("Could not install the CraftEngine pack file " + file + ": " + e.getMessage());
+                Logger.warn("Could not install the CraftEngine pack file %file%: %error%", Placeholder.of("file", file, "error", e.getMessage()));
             }
         }
     }
@@ -118,15 +131,15 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         // against a broken or disabled CraftEngine.
         Plugin craftEngine = getServer().getPluginManager().getPlugin("CraftEngine");
         if (craftEngine == null || !craftEngine.isEnabled()) {
-            getLogger().severe("CraftEngine is required but is not enabled. Disabling MachineEngine.");
+            Logger.error("CraftEngine is required but is not enabled. Disabling MachineEngine.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        getLogger().info("Using CraftEngine " + craftEngine.getPluginMeta().getVersion());
-        getLogger().info("Scheduling with FoliaLib on " + (MachineEngine.scheduler(this).isFolia() ? "Folia" : "Paper"));
+        Logger.info("Using CraftEngine %version%", Placeholder.of("version", craftEngine.getPluginMeta().getVersion()));
+        Logger.info("Scheduling with FoliaLib on %platform%", Placeholder.of("platform", MachineEngine.scheduler(this).isFolia() ? "Folia" : "Paper"));
 
         List<AddonRegistration> registrations = MachineEngineAccess.closeRegistration();
-        MachineEngineBuilder builder = new MachineEngineBuilder().logger(getLogger());
+        MachineEngineBuilder builder = new MachineEngineBuilder().logger(logger());
         registrations.forEach(builder::addon);
         // Data-driven definitions (§29): plugins/MachineEngine/definitions/*.yml
         YamlDefinitions definitions = new YamlDefinitions(this);
@@ -144,7 +157,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         ItemResources.setAccess(PaperItemResources.ACCESS);
         getServer().getPluginManager().registerEvents(items, this);
         // Upgrade items: the machineengine:upgrade item behavior (D40).
-        CraftEngineUpgradeItems upgradeItems = new CraftEngineUpgradeItems(getLogger());
+        CraftEngineUpgradeItems upgradeItems = new CraftEngineUpgradeItems();
         UpgradeItems.setAccess(upgradeItems);
         getServer().getPluginManager().registerEvents(upgradeItems, this);
         MachineEngineAccess.install(started);
@@ -154,8 +167,11 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         this.players = PaperPlayers.install(this, started.players(), this.config);
         this.host = CraftEngineMachineHost.start(this, started);
         started.setMachineLookup(this.host::machineAt);
-        getLogger().info("Started with " + started.enabledAddons().size() + " addon(s) " + started.enabledAddons()
-                + (started.disabledAddons().isEmpty() ? "" : "; disabled: " + started.disabledAddons()));
+        Logger.info("Started with %count% addon(s) %addons%%disabled%", Placeholder.builder()
+                .register("count", String.valueOf(started.enabledAddons().size()))
+                .register("addons", String.valueOf(started.enabledAddons()))
+                .register("disabled", started.disabledAddons().isEmpty() ? "" : "; disabled: " + started.disabledAddons())
+                .build());
         checkContentBindings();
         enableMenus();
 
@@ -170,6 +186,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     /** {@code /machineengine reload config}: new values apply at once; menus are reloaded for {@code menus.*}. */
     private ConfigLoadResult reloadSettings() {
         ConfigLoadResult result = this.config.reload();
+        Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
         if (this.menus != null && result.error() == null) this.menus.reload();
         return result;
     }
@@ -178,7 +195,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private void enableMenus() {
         Plugin zMenu = getServer().getPluginManager().getPlugin("zMenu");
         if (zMenu == null || this.host == null) {
-            getLogger().info("zMenu is not installed: machines have no menus");
+            Logger.info("zMenu is not installed: machines have no menus");
             return;
         }
         // MachineEngine enables at STARTUP (before worlds); zMenu enables later, so wait for it.
@@ -188,7 +205,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
             this.host.setMenus(this.menus);
             MachineMenuService.setCurrent(this.menus);
         } catch (LinkageError | RuntimeException e) {
-            getLogger().log(Level.WARNING, "Could not enable zMenu machine menus", e);
+            Logger.warn("Could not enable zMenu machine menus", e);
         }
     }
 
@@ -205,6 +222,14 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         this.players = null;
         this.engine = null;
         MachineEngineAccess.reset();
+        // Last: lines logged after this go to plain java.util.logging.
+        if (this.messages != null) this.messages.close();
+        this.messages = null;
+    }
+
+    /** The MessageFlow logger the manager made (onLoad), for code that takes a logger. */
+    private static @NotNull Logger logger() {
+        return Objects.requireNonNull(Logger.getLogger(), "MessageFlow's logger is made in onLoad");
     }
 
     @EventHandler
@@ -251,6 +276,6 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
     private void checkContentBindings() {
         if (this.engine == null) return;
-        for (String problem : CraftEngineIntegration.unboundContent(this.engine.registries())) getLogger().warning(problem);
+        for (String problem : CraftEngineIntegration.unboundContent(this.engine.registries())) Logger.warn("[craftengine]", "%problem%", Placeholder.of("problem", problem));
     }
 }

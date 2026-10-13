@@ -4,6 +4,8 @@ import fr.robie.machineengine.api.item.UpgradeItem;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.api.upgrade.UpgradeItems;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import net.momirealms.craftengine.bukkit.api.BukkitAdaptor;
 import net.momirealms.craftengine.bukkit.api.CraftEngineItems;
@@ -19,20 +21,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.logging.Logger;
 
 /**
  * Upgrade items on Paper (D40): an item's {@link UpgradeItem} behavior ({@code machineengine:upgrade}) names
  * its upgrade. Which item gives an upgrade back is looked up once per CraftEngine load.
  */
 public final class CraftEngineUpgradeItems implements UpgradeItems.Access, Listener {
-    private final Logger logger;
     private final Map<Key, Optional<ResourceVariant>> items = new ConcurrentHashMap<>();
     private final Set<Key> reported = ConcurrentHashMap.newKeySet();
-
-    public CraftEngineUpgradeItems(@NotNull Logger logger) {
-        this.logger = logger;
-    }
 
     @Override
     public @Nullable Key upgradeOf(@NotNull ResourceVariant item) {
@@ -68,8 +64,8 @@ public final class CraftEngineUpgradeItems implements UpgradeItems.Access, Liste
     @Override
     public void usedIdFallback(@NotNull Key item) {
         if (this.reported.add(item)) {
-            this.logger.warning("Item " + item.asString() + " is used as an upgrade because its id is the upgrade's key;"
-                    + " give it the machineengine:upgrade item behavior (the id rule will be removed)");
+            Logger.warn("[craftengine]", "Item %item% is used as an upgrade because its id is the upgrade's key;"
+                    + " give it the machineengine:upgrade item behavior (the id rule will be removed)", Placeholder.of("item", item.asString()));
         }
     }
 

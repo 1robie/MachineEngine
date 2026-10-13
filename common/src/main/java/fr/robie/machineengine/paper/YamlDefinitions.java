@@ -9,6 +9,8 @@ import fr.robie.machineengine.api.error.MachineError;
 import fr.robie.machineengine.api.error.Result;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import fr.robie.machineengine.core.definition.DefinitionCompiler;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
@@ -54,7 +56,7 @@ public final class YamlDefinitions {
             files = walk.filter(path -> path.getFileName().toString().toLowerCase(Locale.ROOT).endsWith(".yml"))
                     .map(Path::toFile).filter(File::isFile).toArray(File[]::new);
         } catch (IOException | UncheckedIOException e) {
-            this.plugin.getLogger().warning("Could not list definitions: " + e.getMessage());
+            Logger.warn("[definitions]", "Could not list definitions: %error%", Placeholder.of("error", e.getMessage()));
             return List.of();
         }
         Arrays.sort(files, Comparator.comparing(file -> folder.toPath().relativize(file.toPath()).toString().replace('\\', '/')));
@@ -64,7 +66,7 @@ public final class YamlDefinitions {
             try {
                 yaml.load(file);
             } catch (IOException | InvalidConfigurationException e) {
-                this.plugin.getLogger().warning("Skipped definitions/" + relative(folder, file) + ": " + e.getMessage());
+                Logger.warn("[definitions]", "Skipped definitions/%file%: %error%", Placeholder.of("file", relative(folder, file), "error", e.getMessage()));
                 continue;
             }
             definitions.add(new DefinitionFile("definitions/" + relative(folder, file), toData(yaml)));

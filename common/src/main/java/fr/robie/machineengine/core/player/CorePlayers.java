@@ -19,6 +19,8 @@ import fr.robie.machineengine.api.player.PlayerEvents;
 import fr.robie.machineengine.api.player.PlayerSetting;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
@@ -36,7 +38,6 @@ import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 
 /**
  * The players' data (D37): the registered keys and settings, the online players, their saved form.
@@ -188,14 +189,16 @@ public final class CorePlayers implements MachinePlayers {
         Map<Key, DataValue> unknown = new LinkedHashMap<>();
         int version = saved.getInt("version").orElse(FORMAT_VERSION);
         if (version > FORMAT_VERSION) {
-            this.logger.warning("Player data of " + uuid + " is format " + version + ", newer than this MachineEngine ("
-                    + FORMAT_VERSION + "); reading what it can");
+            this.logger.logWarn("[players]", "Player data of %uuid% is format %version%, newer than this MachineEngine (%supported%); reading what it can",
+                    Placeholder.builder().register("uuid", uuid.toString()).register("version", String.valueOf(version))
+                            .register("supported", String.valueOf(FORMAT_VERSION)).build());
         }
         DataMap entries = saved.getMap("values").orElse(DataMap.EMPTY);
         for (Map.Entry<String, DataValue> entry : entries.entries().entrySet()) {
             Result<Key> id = Codecs.parseKey(entry.getKey());
             if (id.isErr()) {
-                this.logger.warning("Player data of " + uuid + " has an invalid key '" + entry.getKey() + "'; dropped");
+                this.logger.logWarn("[players]", "Player data of %uuid% has an invalid key '%key%'; dropped",
+                        Placeholder.of("uuid", uuid.toString(), "key", entry.getKey()));
                 continue;
             }
             PlayerDataKey<?> key = this.keys.get(id.value());
@@ -208,8 +211,9 @@ public final class CorePlayers implements MachinePlayers {
             if (value.isOk()) {
                 values.put(id.value(), value.value());
             } else {
-                this.logger.warning("Player data " + id.value().asString() + " of " + uuid + " could not be read ("
-                        + value.error().message() + "); kept as it is, the default is used");
+                this.logger.logWarn("[players]", "Player data %key% of %uuid% could not be read (%error%); kept as it is, the default is used",
+                        Placeholder.builder().register("key", id.value().asString()).register("uuid", uuid.toString())
+                                .register("error", value.error().message()).build());
                 unknown.put(id.value(), entry.getValue());
             }
         }
@@ -243,8 +247,9 @@ public final class CorePlayers implements MachinePlayers {
         T value = setting.parse(text);
         if (value == null) {
             if (this.reportedDefaults.add(setting.key().asString() + "=" + text)) {
-                this.logger.warning("players.setting-defaults: '" + text + "' is not a valid value of " + setting.key().asString()
-                        + " (" + setting.expected() + "); using " + setting.format(setting.defaultValue()));
+                this.logger.logWarn("[players]", "players.setting-defaults: '%value%' is not a valid value of %setting% (%expected%); using %default%",
+                        Placeholder.builder().register("value", text).register("setting", setting.key().asString())
+                                .register("expected", setting.expected()).register("default", setting.format(setting.defaultValue())).build());
             }
             return setting.defaultValue();
         }

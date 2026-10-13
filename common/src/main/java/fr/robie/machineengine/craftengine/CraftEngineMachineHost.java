@@ -20,6 +20,8 @@ import fr.robie.machineengine.paper.Messages;
 import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
 import fr.robie.machineengine.api.paper.event.PlayerMachineInteractEvent;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.sound.Sound;
 import net.momirealms.craftengine.bukkit.api.CraftEngineBlocks;
@@ -48,8 +50,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Hosts machines in CraftEngine block entities on Paper (§22, §23). Timers and cross-region
@@ -74,7 +74,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         this.plugin = plugin;
         this.scheduler = MachineEngine.scheduler(plugin);
         this.engine = engine;
-        this.protection = new CraftEngineProtection(plugin.getLogger());
+        this.protection = new CraftEngineProtection();
         this.keptContents = new KeptContents(plugin, this);
     }
 
@@ -173,7 +173,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
             try {
                 controller.detachForShutdown(gameTime(machine.position().world()));
             } catch (RuntimeException e) {
-                logger().log(Level.SEVERE, "Failed to save the machine at " + machine.position(), e);
+                Logger.error("[craftengine]", "Failed to save the machine at %position%", e,
+                        Placeholder.of("position", String.valueOf(machine.position())));
             }
         }
         this.controllers.clear();
@@ -182,10 +183,6 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
 
     public @NotNull CoreMachineEngine engine() {
         return this.engine;
-    }
-
-    @NotNull Logger logger() {
-        return this.plugin.getLogger();
     }
 
     WorldPosition position(BlockEntity blockEntity) {
@@ -309,8 +306,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     void blockConfigsReloaded() {
         this.controllers.forEach((position, controller) -> post(position, controller::optionsReloaded));
         this.transports.forEach((position, controller) -> post(position, () -> controller.typeReloaded(this)));
-        logger().info("Block configs reloaded: " + this.controllers.size() + " loaded machines and " + this.transports.size()
-                + " transports read them again");
+        Logger.info("[craftengine]", "Block configs reloaded: %machines% loaded machines and %transports% transports read them again",
+                Placeholder.of("machines", String.valueOf(this.controllers.size()), "transports", String.valueOf(this.transports.size())));
     }
 
     /** Loaded transport blocks, for their side modes. */
@@ -549,7 +546,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         List<ResourceStack> voided = PaperItems.drop(world, position.position().x(), position.position().y(),
                 position.position().z(), resources);
         // Only items have a world form; other resources (energy, fluids …) are lost with the block.
-        if (!voided.isEmpty()) logger().fine("Voided " + voided + " at " + position + ": no world form for these resources");
+        if (!voided.isEmpty()) Logger.debug("[craftengine]", () -> "Voided " + voided + " at " + position + ": no world form for these resources");
     }
 
     private static @Nullable World world(Key key) {

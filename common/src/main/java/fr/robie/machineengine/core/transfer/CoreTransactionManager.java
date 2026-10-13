@@ -3,13 +3,12 @@ package fr.robie.machineengine.core.transfer;
 import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.transfer.TransactionContext;
 import fr.robie.machineengine.api.transfer.TransactionManager;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /**
  * Nested snapshot/rollback transactions (D11). Each thread has its own stack; a transaction may only
@@ -138,7 +137,7 @@ public final class CoreTransactionManager implements TransactionManager {
                         try {
                             action.run();
                         } catch (RuntimeException e) {
-                            CoreTransactionManager.this.logger.log(Level.SEVERE, "A transaction commit action failed", e);
+                            CoreTransactionManager.this.logger.logError("[transactions]", "A transaction commit action failed", e);
                         }
                     }
                 }

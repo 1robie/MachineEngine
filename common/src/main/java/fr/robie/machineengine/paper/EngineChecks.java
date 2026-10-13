@@ -13,6 +13,8 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.transfer.Transaction;
 import fr.robie.machineengine.api.world.Direction;
 import fr.robie.machineengine.api.world.WorldPosition;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import fr.robie.paperdispatch.command.CommandDispatch;
 import fr.robie.paperdispatch.command.CommandResultType;
 import fr.robie.paperdispatch.command.SubCommand;
@@ -213,7 +215,7 @@ final class EngineChecks {
     }
 
     private void log(String message) {
-        this.plugin.getLogger().info(message);
+        Logger.info("[checks]", "%message%", Placeholder.of("message", message));
     }
 
     /** What a check does at its position, on the thread owning it. */

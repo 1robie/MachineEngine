@@ -7,13 +7,13 @@ import fr.robie.machineengine.api.player.PlayerDataStorage;
 import fr.robie.machineengine.api.version.Version;
 import fr.robie.machineengine.core.definition.DefinitionCompiler;
 import fr.robie.machineengine.core.resource.ItemTagSource;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 
 /**
  * Collects addon registrations and starts an engine: dependency resolution, registration,
@@ -22,7 +22,7 @@ import java.util.logging.Logger;
  */
 public final class MachineEngineBuilder {
     private final List<AddonRegistration> registrations = new ArrayList<>();
-    private Logger logger = Logger.getLogger("MachineEngine");
+    private Logger logger = Logger.jul(java.util.logging.Logger.getLogger("MachineEngine"));
     private Version apiVersion = Version.parse(MachineEngineApi.version());
     private Supplier<List<DefinitionFile>> definitions;
     private DefinitionCompiler.ItemResolver items =
@@ -50,6 +50,14 @@ public final class MachineEngineBuilder {
     public @NotNull MachineEngineBuilder logger(@NotNull Logger logger) {
         this.logger = Objects.requireNonNull(logger);
         return this;
+    }
+
+    /**
+     * Logs plain lines to a {@code java.util.logging} logger (tests, tools without a MessageFlow manager). Not an
+     * overload of {@link #logger(Logger)}: callers then compile without MessageFlow on their classpath.
+     */
+    public @NotNull MachineEngineBuilder julLogger(@NotNull java.util.logging.Logger logger) {
+        return this.logger(Logger.jul(Objects.requireNonNull(logger)));
     }
 
     /** Overrides the API version addons are checked against. For tests. */

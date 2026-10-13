@@ -54,6 +54,9 @@ public final class EngineConfig {
     public static final ConfigKey<List<String>> PLAYER_LOCKED_SETTINGS = ConfigKey.strings("players.locked-settings", List.of())
             .comment("Player settings players may not change: they keep the value of setting-defaults (or the built-in one).");
 
+    public static final ConfigKey<Boolean> LOGGING_DEBUG = ConfigKey.bool("logging.debug", false)
+            .comment("Log debug lines too: details for bug reports, too many for every day.");
+
     public static final ConfigSpec SPEC = ConfigSpec.builder()
             .header("MachineEngine configuration.",
                     "Missing settings are added with their defaults when the server starts and on /machineengine reload config.")
@@ -67,6 +70,7 @@ public final class EngineConfig {
             .key(PLAYER_LOAD_TIMEOUT)
             .key(PLAYER_SETTING_DEFAULTS)
             .key(PLAYER_LOCKED_SETTINGS)
+            .key(LOGGING_DEBUG)
             .section("resources", "Resources MachineEngine provides to every addon and definition:",
                     "machineengine:energy, and the fluids machineengine:fluid/water and machineengine:fluid/lava.",
                     "Restart to apply.")

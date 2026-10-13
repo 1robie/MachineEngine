@@ -64,6 +64,7 @@ import fr.robie.machineengine.core.machine.handoff.DedupeEntry;
 import fr.robie.machineengine.core.machine.handoff.Escrow;
 import fr.robie.machineengine.core.machine.handoff.Route;
 import fr.robie.machineengine.core.machine.handoff.TransferId;
+import fr.robie.messageflow.formatter.Placeholder;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.NotNull;
@@ -83,7 +84,6 @@ import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
-import java.util.logging.Level;
 import java.util.random.RandomGenerator;
 
 /**
@@ -414,7 +414,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             if (wake != null) this.behavior.onWake(this.context, wake);
             this.behavior.tick(this.context);
         } catch (RuntimeException e) {
-            this.services.logger().log(Level.SEVERE, "Machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            this.services.logger().logError("[machines]", "Machine %type% at %position% failed", e, this.logPlaceholders());
             this.lastError = new MachineError.Generic(MachineEngineKeys.key("behavior_failed"),
                     "The machine behavior threw " + e.getClass().getSimpleName() + ": " + e.getMessage(), Map.of());
             this.requestedState = SchedulerState.SLEEPING;
@@ -489,7 +489,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         try {
             action.run();
         } catch (RuntimeException e) {
-            this.services.logger().log(Level.SEVERE, "Machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            this.services.logger().logError("[machines]", "Machine %type% at %position% failed", e, this.logPlaceholders());
         }
     }
 
@@ -505,6 +505,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     @Override
     public @NotNull WorldPosition position() {
         return this.position;
+    }
+
+    /** {@code %type%} and {@code %position%} of this machine, for log lines. */
+    private @NotNull Placeholder logPlaceholders() {
+        return Placeholder.of("type", this.type.key().asString(), "position", String.valueOf(this.position));
     }
 
     @Override
@@ -654,7 +659,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         try {
             outcome = action.run(this.context, click);
         } catch (RuntimeException e) {
-            this.services.logger().log(Level.SEVERE, "Action " + id + " of machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            this.services.logger().logError("[machines]", "Action %id% of machine %type% at %position% failed", e,
+                    Placeholder.builder().registerAll(this.logPlaceholders()).register("id", String.valueOf(id)).build());
             return MachineAction.Outcome.refused(Component.text("That did not work (see the server log)"));
         }
         if (outcome.done() && this.services.events().hasListeners(MachineEvents.ACTION, EventPhase.POST)) {
@@ -670,7 +676,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         try {
             return List.copyOf(list.rows(this.context));
         } catch (RuntimeException e) {
-            this.services.logger().log(Level.SEVERE, "List " + id + " of machine " + this.type.key().asString() + " at " + this.position + " failed", e);
+            this.services.logger().logError("[machines]", "List %id% of machine %type% at %position% failed", e,
+                    Placeholder.builder().registerAll(this.logPlaceholders()).register("id", String.valueOf(id)).build());
             return List.of();
         }
     }

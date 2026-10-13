@@ -18,6 +18,7 @@ import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.handoff.HandoffService;
 import fr.robie.machineengine.core.network.CoreNetworks;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
+import fr.robie.messageflow.logger.Logger;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 
@@ -25,7 +26,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.function.Supplier;
-import java.util.logging.Logger;
 
 /**
  * Entry point for hosts: places, loads, saves, unloads and removes machines. One per engine.

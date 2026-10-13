@@ -6,12 +6,12 @@ import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.ValidationContext;
 import fr.robie.machineengine.api.diagnostic.Validator;
 import fr.robie.machineengine.api.registry.RegistryAccess;
+import fr.robie.messageflow.formatter.Placeholder;
+import fr.robie.messageflow.logger.Logger;
 import org.jetbrains.annotations.NotNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 /** Runs validators, attributing their findings and catching their failures. */
 final class ValidationRunner {
@@ -40,7 +40,7 @@ final class ValidationRunner {
             try {
                 owned.validator().validate(context);
             } catch (RuntimeException e) {
-                logger.log(Level.SEVERE, "A validator of " + owned.owner() + " failed", e);
+                logger.logError("[core]", "A validator of %owner% failed", e, Placeholder.of("owner", String.valueOf(owned.owner())));
                 diagnostics.add(Diagnostic.error(DiagnosticCodes.VALIDATOR_FAILED,
                                 "A validator threw " + e.getClass().getSimpleName() + ": " + e.getMessage())
                         .source(owned.owner()).build());
