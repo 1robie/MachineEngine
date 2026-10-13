@@ -27,9 +27,9 @@ dependencyResolutionManagement {
         maven("https://repo.momirealms.net/releases/") {
             mavenContent { releasesOnly() }
         }
-        // Paper-Dispatch (D35).
+        // JitPack (D35): Paper-Dispatch and MessageFlow, each in its own com.github.1robie.<repo> group.
         maven("https://jitpack.io") {
-            mavenContent { includeGroup("com.github.1robie.paper-dispatch") }
+            mavenContent { includeGroupByRegex("""com\.github\.1robie\..+""") }
         }
         // FoliaLib (D35).
         maven("https://repo.tcoded.com/releases") {

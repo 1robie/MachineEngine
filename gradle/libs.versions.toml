@@ -19,6 +19,8 @@ zmenu = "1.1.1.9"
 # still serves an older build. Switch to the release tag once there is one.
 paper-dispatch = "2fafd75"
 folialib = "0.5.1"
+# Messages, languages and logging (MESSAGEFLOW_PLAN.md).
+message-flow = "1.1.1"
 
 [libraries]
 paper-api = { module = "io.papermc.paper:paper-api", version.ref = "paper" }
@@ -28,6 +30,7 @@ jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "j
 zmenu-api = { module = "fr.maxlego08.menu:zmenu-api", version.ref = "zmenu" }
 paper-dispatch = { module = "com.github.1robie.paper-dispatch:paper-dispatch", version.ref = "paper-dispatch" }
 folialib = { module = "com.tcoded:FoliaLib", version.ref = "folialib" }
+messageflow = { module = "com.github.1robie.MessageFlow:message-flow", version.ref = "message-flow" }
 junit-bom = { module = "org.junit:junit-bom", version.ref = "junit" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }

@@ -26,6 +26,8 @@ dependencies {
     compileOnly(libs.zmenu.api)
     // Registers the commands; the classes come with :common (bundled, relocated: D35).
     compileOnly(libs.paper.dispatch)
+    // Messages and logging; the classes come with :common (bundled, relocated).
+    compileOnly(libs.messageflow)
 }
 
 paper {
@@ -87,6 +89,7 @@ tasks.shadowJar {
     // Bundled libraries are relocated (D35): another plugin may bundle other versions of them.
     relocate("fr.robie.paperdispatch", "fr.robie.machineengine.libs.paperdispatch")
     relocate("com.tcoded.folialib", "fr.robie.machineengine.libs.folialib")
+    relocate("fr.robie.messageflow", "fr.robie.machineengine.libs.messageflow")
 }
 
 tasks.assemble {
@@ -135,7 +138,7 @@ val verifyRelocation = tasks.register<VerifyRelocation>("verifyRelocation") {
     description = "Checks that the plugin jar holds no unrelocated bundled library (D35)."
     group = "verification"
     jar = tasks.shadowJar.flatMap { it.archiveFile }
-    packages = listOf("fr/robie/paperdispatch/", "com/tcoded/folialib/")
+    packages = listOf("fr/robie/paperdispatch/", "com/tcoded/folialib/", "fr/robie/messageflow/")
     report = layout.buildDirectory.file("reports/relocation.txt")
 }
 
