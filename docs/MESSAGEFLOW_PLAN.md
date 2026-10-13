@@ -1,4 +1,4 @@
-# MessageFlow plan (2026-10-13, in progress: stages 1-10 done, MessageFlow 1.1.2 released)
+# MessageFlow plan (2026-10-13, in progress: stages 1-11 done, MessageFlow 1.1.2 released)
 
 MachineEngine's text and logging are spread across three systems:
 
@@ -267,6 +267,20 @@ The `line(label, value)` helpers become one message with `%label%` / `%value%` p
 - Existing servers keep their old copy, because `MachineEnginePlugin` never overwrites it. The moved keys are then just unused, which is harmless: server-side translation happens first.
 - Note the change in the CHANGELOG.
 
+*B3 and B5 done (2026-10-13), as follows:*
+- **Refusals.** They are `Component.translatable` with an English fallback: the `UpgradeActions` refusals (`machineengine.upgrade.not_upgrade`, `.refused`, `.no_item`) and the two in `MachineInstanceImpl` (`machineengine.machine.no_action`, `.action_failed`). Their `EngineMessage`s and French text exist, and argument `i` is `%i%`.
+  - The two `install` refusals carry the engine's own `Result` text (`upgradeRoom` / `installUpgrade`), as `%0%` of `upgrade.refused`. The message's style can be translated, but that text stays English: it is the API's error text, which addons also read.
+- **CraftEngine `lang.yml`** keeps only what clients still translate:
+  - `contents.*` and `lore.*`;
+  - `settings.title`, `menu_value` and `menu_click`;
+  - `settings.none`, which the settings menu also shows through `<lang:…>`.
+
+  Its header points to `plugins/MachineEngine/lang/`. MachineEngine has no CHANGELOG; this plan records the change.
+- **Checked:**
+  - `./gradlew check` passes.
+  - On Paper 1.20.6 (Adventure 4.17) and 26.3 (Adventure 5.2), the console renders `machineengine inspect` (no position) from a marked line of the server's `en_us.yml`. So the translator answers on both versions, which closes the A4 dev-server item.
+  - Left to the owner: an upgrade refusal for a French client.
+
 **B6. Docs.**
 - `ARCHITECTURE.md`:
   - **D44**: messages via MessageFlow, per-player language and the translator bridge. It amends D23.
@@ -292,7 +306,7 @@ Not changed by this plan (decision 3). It keeps working: its `Component.translat
 | 8 ✅ | MachineEngine | B4 logging (first: B1 needs the manager built early anyway) | tests pass; dev server log looks right on 1.20.6 and 26.3 |
 | 9 ✅ (owner: in-game check) | MachineEngine | B1 engine messages | dev server: `/machinesettings` in en_us and fr_fr clients |
 | 10 ✅ | MachineEngine | B2 admin output | every `/machineengine` sub-command once |
-| 11 | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |
+| 11 ✅ (owner: in-game check) | MachineEngine | B3 refusals + B5 lang.yml cleanup | upgrade refusal shows in French for a fr_fr client |
 | 12 | MachineEngine | pin 1.1.0, drop mavenLocal, B6 docs | `./gradlew check`; docs site builds |
 
 The dev-server checks run headless and with no build while a server runs. The owner checks the French client in game.

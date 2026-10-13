@@ -24,6 +24,13 @@ public enum EngineMessage implements Message {
     DEBUG_OFF("machineengine.debug.off", "<gray>Debug view off."),
     ITEM_FILLED("machineengine.item.filled", MessageType.ACTION_BAR, "<green>Filled %amount% of %resource%"),
     UPGRADE_INSTALLED("machineengine.upgrade.installed", MessageType.ACTION_BAR, "<green>Installed %count% × %upgrade%"),
+    // Refusals (MachineAction.Outcome), sent as translatable components by the API and the core: %0% is the argument.
+    UPGRADE_NOT_UPGRADE("machineengine.upgrade.not_upgrade", "<red>That is not an upgrade"),
+    /** {@code %0%}: why (the engine's own text). */
+    UPGRADE_REFUSED("machineengine.upgrade.refused", "<red>%0%"),
+    UPGRADE_NO_ITEM("machineengine.upgrade.no_item", "<red>No item installs %0%; it stays in the machine"),
+    MACHINE_NO_ACTION("machineengine.machine.no_action", "This machine has no action %0%"),
+    MACHINE_ACTION_FAILED("machineengine.machine.action_failed", "That did not work (see the server log)"),
     WRENCH_BUSY("machineengine.wrench.busy", MessageType.ACTION_BAR, "<red>The machine is busy; try again"),
     READER_NOT_MACHINE("machineengine.reader.not_machine", "<gray>Not a machine"),
     READER_MACHINE("machineengine.reader.machine", "<gold>%machine%:"),

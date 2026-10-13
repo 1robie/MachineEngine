@@ -3,6 +3,8 @@ machineengine:
     missing_addon: "<red>Cette machine appartient à un addon qui n'est pas installé (%type%)."
     placeholder_break_denied: "<red>Cette machine (%type%) appartient à un addon qui n'est pas installé. La casser détruirait ses données."
     chunk_limit: "<red>Ce chunk contient déjà %count% machines (limite %limit%)."
+    no_action: "Cette machine n'a pas d'action %0%"
+    action_failed: "Cela n'a pas marché (voir le journal du serveur)"
   debug:
     "on": "<gold>Vue de débogage activée : les points montrent l'état des machines (vert actif, jaune planifié, cyan en attente, orange bloqué, bleu en veille, gris désactivé, magenta en attente de son addon, rouge erreur), les ports (bleu entrée, orange sortie, violet les deux) et les réseaux ; regardez une machine pour les détails."
     "off": "<gray>Vue de débogage désactivée."
@@ -11,6 +13,9 @@ machineengine:
       type: ACTION_BAR
       message: "<green>%amount% de %resource% ajoutés"
   upgrade:
+    not_upgrade: "<red>Ce n'est pas une amélioration"
+    refused: "<red>%0%"
+    no_item: "<red>Aucun objet n'installe %0% ; elle reste dans la machine"
     installed:
       type: ACTION_BAR
       message: "<green>%count% × %upgrade% installé(s)"

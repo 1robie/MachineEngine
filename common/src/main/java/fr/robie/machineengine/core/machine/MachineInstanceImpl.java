@@ -653,7 +653,11 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     @Override
     public @NotNull MachineAction.Outcome runAction(@NotNull String id, @NotNull MachineAction.Click click) {
         MachineAction action = this.type.actions().get(id);
-        if (action == null) return MachineAction.Outcome.refused(Component.text("This machine has no action " + id));
+        // Translatable: MachineEngine renders them in the player's language (MESSAGEFLOW_PLAN.md B3).
+        if (action == null) {
+            return MachineAction.Outcome.refused(Component.translatable("machineengine.machine.no_action", "This machine has no action %s",
+                    Component.text(id)));
+        }
         if (!isValid()) return MachineAction.Outcome.nothing();
         MachineAction.Outcome outcome;
         try {
@@ -661,7 +665,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         } catch (RuntimeException e) {
             this.services.logger().logError("[machines]", "Action %id% of machine %type% at %position% failed", e,
                     Placeholder.builder().registerAll(this.logPlaceholders()).register("id", String.valueOf(id)).build());
-            return MachineAction.Outcome.refused(Component.text("That did not work (see the server log)"));
+            return MachineAction.Outcome.refused(Component.translatable("machineengine.machine.action_failed",
+                    "That did not work (see the server log)"));
         }
         if (outcome.done() && this.services.events().hasListeners(MachineEvents.ACTION, EventPhase.POST)) {
             this.services.events().post(MachineEvents.ACTION, EventPhase.POST, new MachineEvents.Action(this, id, click, outcome));

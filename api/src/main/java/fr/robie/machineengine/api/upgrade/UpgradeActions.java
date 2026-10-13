@@ -12,6 +12,7 @@ import fr.robie.machineengine.api.registry.Registry;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceVariant;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.ComponentLike;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.jetbrains.annotations.NotNull;
 
@@ -72,14 +73,14 @@ public final class UpgradeActions {
     /** Installs as many of the held upgrade as fit ({@code one}: a single one). */
     public static @NotNull MachineAction.Outcome install(@NotNull MachineContext context, @NotNull ResourceStack held, boolean one) {
         UpgradeType upgrade = UpgradeItems.upgradeOf(held.variant(), context.registries().registry(Registries.UPGRADE_TYPE));
-        if (upgrade == null) return MachineAction.Outcome.refused(Component.text("That is not an upgrade", NamedTextColor.RED));
+        if (upgrade == null) return refused("machineengine.upgrade.not_upgrade", "That is not an upgrade");
         MachineInstance machine = context.machine();
         Result<Integer> room = machine.upgradeRoom(upgrade);
-        if (room.isErr()) return MachineAction.Outcome.refused(Component.text(room.error().message(), NamedTextColor.RED));
+        if (room.isErr()) return refused("machineengine.upgrade.refused", "%s", Component.text(room.error().message()));
         int count = (int) Math.min(room.value(), one ? 1 : held.amount());
         if (count <= 0) return MachineAction.Outcome.nothing();
         Result<InstalledUpgrade> installed = machine.installUpgrade(upgrade, count);
-        if (installed.isErr()) return MachineAction.Outcome.refused(Component.text(installed.error().message(), NamedTextColor.RED));
+        if (installed.isErr()) return refused("machineengine.upgrade.refused", "%s", Component.text(installed.error().message()));
         return MachineAction.Outcome.used(count);
     }
 
@@ -88,8 +89,8 @@ public final class UpgradeActions {
         if (installed(machine, upgrade) == 0) return MachineAction.Outcome.nothing();
         ResourceVariant item = UpgradeItems.itemOf(upgrade);
         if (item == null) {
-            return MachineAction.Outcome.refused(Component.text("No item installs " + upgrade.key().asString()
-                    + "; it stays in the machine", NamedTextColor.RED));
+            return refused("machineengine.upgrade.no_item", "No item installs %s; it stays in the machine",
+                    Component.text(upgrade.key().asString()));
         }
         int removed = machine.removeUpgrade(upgrade, count);
         return removed <= 0 ? MachineAction.Outcome.nothing() : MachineAction.Outcome.give(new ResourceStack(item, removed));
@@ -108,5 +109,14 @@ public final class UpgradeActions {
 
     private static int installed(MachineInstance machine, UpgradeType upgrade) {
         return machine.upgrades().stream().filter(u -> u.type().equals(upgrade)).mapToInt(InstalledUpgrade::count).findFirst().orElse(0);
+    }
+
+    /**
+     * A refusal in the player's language: MachineEngine renders the key from its lang/*.yml files (MESSAGEFLOW_PLAN.md B3),
+     * else the client shows the English fallback.
+     */
+    private static MachineAction.Outcome refused(String key, String fallback, ComponentLike... arguments) {
+        // Not the builder: its build() has another erased return type in the Adventure of 1.20.6.
+        return MachineAction.Outcome.refused(Component.translatable(key, fallback, arguments).color(NamedTextColor.RED));
     }
 }
