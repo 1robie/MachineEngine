@@ -180,7 +180,7 @@ public final class ConfigFile implements ConfigValues {
     private static List<String> spaced(YamlConfiguration yaml, String path, List<String> comment) {
         if (path.indexOf('.') >= 0 || yaml.getKeys(false).isEmpty()) return comment;
         List<String> lines = new ArrayList<>(comment.size() + 1);
-        lines.add(null); // Bukkit writes null as an empty line
+        lines.add(null);
         lines.addAll(comment);
         return lines;
     }

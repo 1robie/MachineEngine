@@ -7,6 +7,7 @@ import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.config.ConfigFile;
 import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.config.EngineConfig;
+import fr.robie.machineengine.api.permission.Permission;
 import fr.robie.machineengine.api.resource.BuiltInResources;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
@@ -68,13 +69,10 @@ import java.util.Objects;
  *   <li>{@code onDisable}: snapshot machines into their block entities for CraftEngine's final save.</li>
  * </ol>
  */
-@SuppressWarnings("UnstableApiUsage")
 public final class MachineEnginePlugin extends JavaPlugin implements Listener {
-    public static final String BREAK_PLACEHOLDERS = "machineengine.admin.breakplaceholders";
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
-    /** Paper-Dispatch's (D35). */
     private final CommandManager<MachineEnginePlugin> commandManager = new CommandManager<>(this);
     private @Nullable ZMenuMachineMenus menus;
     private @Nullable PaperPlayers players;
@@ -82,19 +80,15 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onLoad() {
-        // First: everything logs through MessageFlow (MESSAGEFLOW_PLAN.md B4). Its settings come from config.yml.
         EngineMessages.create(this);
         Logger.info("Loading MachineEngine %version% (API %api%)",
                 Placeholder.of("version", getPluginMeta().getVersion(), "api", MachineEngineApi.version()));
-        // Before addons' onLoad: they may read MachineEngine.config().
         this.config = ConfigFile.load(getDataFolder().toPath().resolve("config.yml"), EngineConfig.SPEC, logger().toJul());
         Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
-        // Chat and action bar messages, in each player's language (lang/*.yml).
         EngineMessages.load(this, this.config);
         MachineEngineAccess.installConfig(this.config);
         MachineEngineAccess.installSchedulers(FoliaLibScheduler.perPlugin());
         BuiltInResources.install(this.config);
-        // The running version's nms class only (NmsLoader); another version's may not even load here.
         Nms.install(NmsLoader.load());
         // Every class now: if the jar is replaced while the server runs, the shutdown save still works.
         ClassPreloader.preload(MachineEnginePlugin.class, "fr/robie/machineengine/", "fr/robie/machineengine/nms/v");
@@ -251,7 +245,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         LoadedMachine machine = this.host.machine(WorldPosition.of(location.getWorld().getKey(),
                 location.getBlockX(), location.getBlockY(), location.getBlockZ()));
         if (machine instanceof PlaceholderMachine placeholder && !this.config.get(EngineConfig.ALLOW_BREAKING_PLACEHOLDERS)
-                && !event.getPlayer().hasPermission(BREAK_PLACEHOLDERS)) {
+                && !event.getPlayer().hasPermission(Permission.BREAK_PLACEHOLDER_MACHINE.permission())) {
             event.setCancelled(true);
             EngineMessages.send(event.getPlayer(), EngineMessage.PLACEHOLDER_BREAK_DENIED, Placeholder.of("type", placeholder.missingType().asString()));
         }

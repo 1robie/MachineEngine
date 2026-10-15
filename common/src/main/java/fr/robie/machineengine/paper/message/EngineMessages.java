@@ -20,19 +20,6 @@ import java.io.File;
 import java.util.Locale;
 import java.util.Objects;
 
-/**
- * MachineEngine's messages and log lines through MessageFlow (MESSAGEFLOW_PLAN.md B1, B4). {@link #create} comes first
- * in {@code onLoad} (it makes the logger); {@link #load} reads the language files once {@code config.yml} is loaded,
- * and again on {@code /machineengine reload config}; {@link #close} comes last in {@code onDisable}.
- * <p>
- * Each player reads {@code plugins/MachineEngine/lang/<their client's language>.yml}, else the same language in another
- * country, else {@code messages.default-language}. {@code en_us.yml} is written from the defaults in
- * {@link EngineMessage}, {@code fr_fr.yml} comes with MachineEngine, and server owners may add any other language.
- * {@code Component.translatable("machineengine.<key>")} renders from the same files (the translator), so code that
- * can't reach this class (the API) can still send these messages.
- * <p>
- * Sends happen on the caller's thread: callers already own the player (D35).
- */
 public final class EngineMessages {
     private static final String FOLDER = "lang";
     /** Bundled with MachineEngine; English comes from {@link EngineMessage}. */
@@ -45,7 +32,6 @@ public final class EngineMessages {
     private EngineMessages() {
     }
 
-    /** Makes the message manager and with it the logger. Its own settings file is bypassed: config.yml has them. */
     public static synchronized void create(@NotNull Plugin plugin) {
         ConfigurationManager.Setting.BYPASS_EXTERNAL_CONFIG.setValue(true);
         Logger.LogType.INFO.setShowTypeName(false);
@@ -56,9 +42,8 @@ public final class EngineMessages {
         manager = created;
     }
 
-    /** (Re)reads the language files and the {@code messages.*} settings. */
     public static synchronized void load(@NotNull Plugin plugin, @NotNull ConfigValues config) {
-        MessageManager<Plugin, String> current = Objects.requireNonNull(manager, "EngineMessages.create comes first");
+        MessageManager<Plugin, String> messageFormatter = Objects.requireNonNull(manager, "EngineMessages.create comes first");
         NormalLanguageConfiguration languages = Objects.requireNonNull(EngineMessages.languages);
         for (String language : BUNDLED) languages.addLanguage(language, FOLDER + "/" + language + ".yml");
         File[] files = new File(plugin.getDataFolder(), FOLDER).listFiles((dir, name) -> name.toLowerCase(Locale.ROOT).endsWith(".yml"));
@@ -68,18 +53,17 @@ public final class EngineMessages {
                 languages.addLanguage(language, FOLDER + "/" + file.getName());
             }
         }
-        current.formatter().setPrefix(config.get(EngineConfig.MESSAGES_PREFIX));
-        current.reload();
+        messageFormatter.formatter().setPrefix(config.get(EngineConfig.MESSAGES_PREFIX));
+        messageFormatter.reload();
         String language = languages.getNormalizedLanguage(config.get(EngineConfig.MESSAGES_DEFAULT_LANGUAGE));
         if (languages.getRelativePath(language) == null) {
             Logger.warn("[messages]", "messages.default-language: no lang/%language%.yml; using en_us", Placeholder.of("language", language));
             language = DEFAULT_LANGUAGE;
         }
-        if (!language.equals(languages.getActiveLanguage())) current.setActiveLanguage(language);
-        current.registerTranslator("machineengine.");
+        if (!language.equals(languages.getActiveLanguage())) messageFormatter.setActiveLanguage(language);
+        messageFormatter.registerTranslator("machineengine.");
     }
 
-    /** Releases the logger and the translator; log lines then go to plain java.util.logging. */
     public static synchronized void close() {
         MessageManager<Plugin, String> current = manager;
         manager = null;
@@ -87,12 +71,10 @@ public final class EngineMessages {
         if (current != null) current.close();
     }
 
-    /** Sends a message (chat, action bar... as its language file says) in the recipient's language. */
     public static void send(@NotNull CommandSender to, @NotNull EngineMessage message) {
         send(to, message, Placeholder.empty());
     }
 
-    /** Sends a message in the recipient's language; values are inserted as text (components keep their style). */
     public static void send(@NotNull CommandSender to, @NotNull EngineMessage message, @NotNull Placeholder placeholders) {
         MessageManager<Plugin, String> current = manager;
         if (current != null) {
