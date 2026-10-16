@@ -180,6 +180,22 @@ class FluidPackTest {
     }
 
     @Test
+    void aBucketTextureRecolorsOnlyTheWater() throws Exception {
+        BufferedImage water = new BufferedImage(2, 1, BufferedImage.TYPE_INT_ARGB);
+        water.setRGB(0, 0, 0xFF3F76E4); // water: blue
+        water.setRGB(1, 0, 0xFFA8A8A8); // the bucket: grey metal
+        Method bucket = FluidPackBuilder.class.getDeclaredMethod("bucket", BufferedImage.class, int.class);
+        bucket.setAccessible(true);
+        BufferedImage out = (BufferedImage) bucket.invoke(null, water, 0xC8B88A);
+
+        int r = (out.getRGB(0, 0) >> 16) & 255, b = out.getRGB(0, 0) & 255;
+        assertTrue(r > b, "the water takes the fluid's (cream) color");
+        assertEquals(0xFFA8A8A8, out.getRGB(1, 0), "the bucket stays");
+        assertEquals(Key.key("machineengine", "item/fluid_bucket/mekanized/fluid/brine"),
+                FluidPackBuilder.bucketTexture(Key.key("mekanized", "fluid/brine")));
+    }
+
+    @Test
     void aLookWithoutTextureIsWaterTinted() {
         FluidLook look = FluidKeys.resolved(FluidLook.TINTED_WATER, 0x2A2238);
         assertEquals(0x2A2238, look.tint().intValue());

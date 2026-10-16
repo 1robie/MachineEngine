@@ -11,11 +11,15 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.Plugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 /**
@@ -30,6 +34,7 @@ public final class FluidPackService {
     private final Path pack;
     private final Path resources;
     private final Path cache;
+    private volatile @Nullable CompletableFuture<Void> running;
 
     public FluidPackService(@NotNull Plugin plugin, @NotNull ConfigValues config, @NotNull FluidKeys keys) {
         this.plugin = plugin;
@@ -46,7 +51,7 @@ public final class FluidPackService {
         warnIfCraftEngineDropsShaders();
         Path cached = this.cache.resolve("minecraft-client-" + Bukkit.getMinecraftVersion() + ".jar");
         String setting = this.config.get(WorldFluidConfig.CLIENT_JAR);
-        if (!this.config.get(WorldFluidConfig.SHADER) || !setting.equalsIgnoreCase("download") || Files.isRegularFile(cached)) {
+        if (!setting.equalsIgnoreCase("download") || Files.isRegularFile(cached)) {
             build(message -> Logger.info("[fluids]", "%message%", Placeholder.of("message", message)));
             return;
         }
@@ -57,25 +62,42 @@ public final class FluidPackService {
 
     /** Builds off the main thread; {@code done} gets a line to show. */
     public @NotNull CompletableFuture<Void> rebuild(@NotNull Consumer<String> done) {
-        return CompletableFuture.runAsync(() -> build(done), command -> MachineEngine.scheduler(this.plugin).runAsync(command));
+        CompletableFuture<Void> build = CompletableFuture.runAsync(() -> build(done), command -> MachineEngine.scheduler(this.plugin).runAsync(command));
+        this.running = build;
+        return build;
+    }
+
+    /** MachineEngine disables: a build still running (a download) gets a few seconds to finish. */
+    public void stop() {
+        CompletableFuture<Void> build = this.running;
+        if (build == null || build.isDone()) return;
+        try {
+            build.get(5, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } catch (ExecutionException | TimeoutException e) {
+            Logger.warn("[fluids]", "The world fluids pack was still being written at shutdown; it is written at the next start");
+        }
     }
 
     private void build(Consumer<String> done) {
         try {
-            if (!this.config.get(WorldFluidConfig.SHADER)) {
-                FluidPackBuilder.remove(this.pack);
-                done.accept("world-fluids.shader is off: no fluid shader in the pack; fluids show their key colors.");
-                return;
-            }
             Path jar = VanillaClient.locate(this.config.get(WorldFluidConfig.CLIENT_JAR), Bukkit.getMinecraftVersion(), this.cache);
             try (VanillaClient client = VanillaClient.open(jar)) {
+                int buckets = FluidPackBuilder.buckets(client, this.keys.fluids(), this.pack);
+                if (!this.config.get(WorldFluidConfig.SHADER)) {
+                    FluidPackBuilder.remove(this.pack);
+                    done.accept("world-fluids.shader is off: no fluid shader in the pack (fluids show their key colors); " + buckets + " bucket textures.");
+                    return;
+                }
                 FluidPackBuilder.Result result = FluidPackBuilder.build(client, this.keys, WorldFluids::look, new FluidPackBuilder.Settings(
                         this.config.get(WorldFluidConfig.NEUTRAL_COLOR), this.config.get(WorldFluidConfig.UNIFORM_WATER),
                         this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID)),
                         this.resources, this.pack);
                 result.notes().forEach(note -> Logger.warn("[fluids]", "%note%", Placeholder.of("note", note)));
                 done.accept("World fluids pack written: " + result.looks() + " looks, " + result.textures() + " textures ("
-                        + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, pack format " + result.format() + ".");
+                        + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, pack format " + result.format()
+                        + ", " + buckets + " bucket textures.");
             }
         } catch (IOException | ShaderPatch.MismatchException | RuntimeException e) {
             Logger.warn("[fluids]", "The world fluids pack could not be written; fluids show their key colors: %error%",

@@ -4,6 +4,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import fr.robie.machineengine.api.resource.fluid.FluidItems;
 import fr.robie.machineengine.api.resource.fluid.FluidLook;
 import fr.robie.machineengine.api.resource.fluid.FluidTexture;
 import fr.robie.machineengine.api.resource.fluid.FluidType;
@@ -158,6 +159,74 @@ public final class FluidPackBuilder {
         Files.writeString(shaders.resolve(shader + ".fsh"), fragment, StandardCharsets.UTF_8);
         writeMeta(pack, format, true);
         return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, notes);
+    }
+
+    /** Where the bucket texture of a fluid is: {@code machineengine:item/fluid_bucket/<namespace>/<path>}. */
+    public static @NotNull Key bucketTexture(@NotNull Key fluid) {
+        return Key.key("machineengine", "item/fluid_bucket/" + fluid.namespace() + "/" + fluid.value());
+    }
+
+    /**
+     * Draws a bucket texture for every fluid with its own bucket item ({@code bucket: <item>}): the vanilla
+     * bucket with the water in it recolored to the fluid's color, at {@link #bucketTexture}. The item's model
+     * points at it (Mekanized: {@code mekanized:<fluid>_bucket}).
+     *
+     * @return how many were written
+     */
+    public static int buckets(@NotNull VanillaClient client, @NotNull List<FluidType> fluids, @NotNull Path pack) throws IOException {
+        Path root = pack.resolve("resourcepack/assets/machineengine/textures/item/fluid_bucket");
+        deleteTree(root);
+        BufferedImage water = client.texture("item/water_bucket");
+        int count = 0;
+        for (FluidType fluid : fluids) {
+            if (!(fluid.items().bucket() instanceof FluidItems.Bucket.Item)) continue;
+            int color = fluid.color() != null ? fluid.color() : fluid.look().tintFor(null);
+            BufferedImage out = bucket(water, color);
+            Path file = root.resolve(fluid.key().namespace()).resolve(fluid.key().value() + ".png");
+            Files.createDirectories(file.getParent());
+            ImageIO.write(out, "png", file.toFile());
+            count++;
+        }
+        return count;
+    }
+
+    /** The vanilla water bucket with its water shaded with {@code color}; the bucket itself stays. */
+    static BufferedImage bucket(BufferedImage water, int color) {
+        int width = water.getWidth(), height = water.getHeight();
+        BufferedImage out = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
+        boolean[][] liquid = new boolean[height][width];
+        double brightest = 1;
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                liquid[y][x] = isWater(water.getRGB(x, y));
+                if (liquid[y][x]) brightest = Math.max(brightest, luminance(water.getRGB(x, y)));
+            }
+        }
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                int pixel = water.getRGB(x, y);
+                if (!liquid[y][x]) {
+                    out.setRGB(x, y, pixel);
+                    continue;
+                }
+                double shade = 0.35 + 0.65 * luminance(pixel) / brightest;
+                int r = (int) Math.round(((color >> 16) & 255) * shade), g = (int) Math.round(((color >> 8) & 255) * shade),
+                        b = (int) Math.round((color & 255) * shade);
+                out.setRGB(x, y, (pixel & 0xFF000000) | (Math.min(255, r) << 16) | (Math.min(255, g) << 8) | Math.min(255, b));
+            }
+        }
+        return out;
+    }
+
+    /** Water in the vanilla water bucket: blue (the bucket itself is grey metal). */
+    private static boolean isWater(int argb) {
+        if ((argb >>> 24) == 0) return false;
+        int r = (argb >> 16) & 255, g = (argb >> 8) & 255, b = argb & 255;
+        return b - Math.max(r, g) > 20;
+    }
+
+    private static double luminance(int rgb) {
+        return 0.299 * ((rgb >> 16) & 255) + 0.587 * ((rgb >> 8) & 255) + 0.114 * (rgb & 255);
     }
 
     /** Removes the overlay ({@code world-fluids.shader: false}): players see the plain key colors. */

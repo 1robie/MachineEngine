@@ -4,6 +4,7 @@ import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.config.ConfigValues;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
+import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.api.paper.ResourceNames;
 import fr.robie.machineengine.api.paper.WorldFluids;
 import fr.robie.machineengine.api.paper.event.WorldFluidPlaceEvent;
@@ -214,6 +215,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     /** Stops answering and saves what changed (MachineEngine disables). */
     public void uninstall() {
+        this.pack.stop();
         this.nms.uninstall();
         if (this.remapper != null) this.remapper.stop();
         this.tasks.forEach(Task::cancel);
@@ -298,16 +300,6 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     }
 
     @Override
-    public boolean place(@NotNull Block block, @NotNull FluidType fluid) {
-        return place(block, fluid, WorldFluidPlaceEvent.Cause.API);
-    }
-
-    @Override
-    public @Nullable ResourceType take(@NotNull Block block) {
-        return take(block, WorldFluidRemoveEvent.Cause.API);
-    }
-
-    @Override
     public @NotNull FluidPhysics physics(@NotNull FluidType fluid) {
         return fluid.physics();
     }
@@ -365,7 +357,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     }
 
     /** Places a source of {@code fluid}, firing {@link WorldFluidPlaceEvent}. */
-    boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause) {
+    @Override
+    public boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause) {
         if (refusal(block, fluid) != null) return false;
         if (!new WorldFluidPlaceEvent(block, fluid, cause).callEvent()) return false;
         if (fluid == Fluids.lava()) {
@@ -378,7 +371,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     }
 
     /** Removes a source; fires {@link WorldFluidRemoveEvent} for placeable fluids. */
-    @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause) {
+    @Override
+    public @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause) {
         if (block.getType() == Material.LAVA && block.getBlockData() instanceof Levelled lava && lava.getLevel() == 0) {
             block.setType(Material.AIR);
             return Fluids.lava();
@@ -745,23 +739,35 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         new WorldFluidRemoveEvent(block, fluid, WorldFluidRemoveEvent.Cause.BUCKET).callEvent();
     }
 
-    /** The fluid a bucket places, or {@code null} for plain water. */
+    /** The fluid a bucket places, or {@code null} for plain water (or not a fluid bucket). */
     @Nullable FluidType bucketFluid(@Nullable ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return null;
-        String key = item.getItemMeta().getPersistentDataContainer().get(BUCKET, PersistentDataType.STRING);
-        if (key == null) return null;
+        if (item == null || item.getType().isAir()) return null;
+        Key id = PaperItems.idOf(item);
+        String tagged = item.hasItemMeta() ? item.getItemMeta().getPersistentDataContainer().get(BUCKET, PersistentDataType.STRING) : null;
         for (FluidType fluid : this.keys.fluids()) {
-            if (fluid.key().asString().equals(key)) return fluid;
+            FluidItems.Bucket bucket = fluid.items().bucket();
+            if (bucket instanceof FluidItems.Bucket.Item own && own.item().equals(id)) return fluid;
+            if (bucket instanceof FluidItems.Bucket.Auto && fluid.key().asString().equals(tagged)) return fluid;
         }
         return null;
     }
 
-    /** A bucket of {@code fluid}, or {@code null} when the fluid has none ({@code bucket: none}). */
+    /**
+     * A bucket of {@code fluid}: its own item ({@code bucket: <item>}, a CraftEngine item on a water bucket),
+     * or a water bucket named and tagged for it ({@code auto}); {@code null} with {@code bucket: none}.
+     */
     @Nullable ItemStack bucket(@NotNull FluidType fluid) {
-        if (!(fluid.items().bucket() instanceof FluidItems.Bucket.Auto)) return null;
+        FluidItems.Bucket kind = fluid.items().bucket();
+        if (kind instanceof FluidItems.Bucket.Item own) {
+            ItemStack item = PaperItems.itemOf(own.item());
+            if (item == null) Logger.warn("[fluids]", "The bucket item %item% of %fluid% does not exist", Placeholder.of(
+                    "item", own.item().asString(), "fluid", fluid.key().asString()));
+            return item;
+        }
+        if (!(kind instanceof FluidItems.Bucket.Auto)) return null;
         ItemStack bucket = new ItemStack(Material.WATER_BUCKET);
         ItemMeta meta = bucket.getItemMeta();
-        meta.displayName(EngineMessages.component(EngineMessage.FLUID_BUCKET_NAME, null, Placeholder.of("fluid", name(fluid))));
+        meta.displayName(EngineMessages.component(EngineMessage.FLUID_BUCKET_NAME, null, Placeholder.builder().register("fluid", name(fluid)).build()));
         meta.getPersistentDataContainer().set(BUCKET, PersistentDataType.STRING, fluid.key().asString());
         bucket.setItemMeta(meta);
         return bucket;

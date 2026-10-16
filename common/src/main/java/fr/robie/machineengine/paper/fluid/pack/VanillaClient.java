@@ -19,6 +19,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
@@ -77,7 +78,8 @@ public final class VanillaClient implements Closeable {
         Path partial = cache.resolve("minecraft-client-" + version + ".jar.part");
         try {
             HttpResponse<Path> response = http.send(HttpRequest.newBuilder(URI.create(client.get("url").getAsString()))
-                    .timeout(Duration.ofMinutes(5)).build(), HttpResponse.BodyHandlers.ofFile(partial));
+                    .timeout(Duration.ofMinutes(5)).build(), HttpResponse.BodyHandlers.ofFile(partial,
+                    StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING));
             if (response.statusCode() != 200) throw new IOException("client jar download: HTTP " + response.statusCode());
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

@@ -1,5 +1,7 @@
 package fr.robie.machineengine.api.paper;
 
+import fr.robie.machineengine.api.paper.event.WorldFluidPlaceEvent;
+import fr.robie.machineengine.api.paper.event.WorldFluidRemoveEvent;
 import fr.robie.machineengine.api.resource.Fluids;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.fluid.FluidEffect;
@@ -34,9 +36,9 @@ public final class WorldFluids {
 
         @NotNull Placement canPlace(@NotNull Block block, @NotNull FluidType fluid);
 
-        boolean place(@NotNull Block block, @NotNull FluidType fluid);
+        boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause);
 
-        @Nullable ResourceType take(@NotNull Block block);
+        @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause);
 
         @NotNull FluidPhysics physics(@NotNull FluidType fluid);
 
@@ -71,12 +73,12 @@ public final class WorldFluids {
         }
 
         @Override
-        public boolean place(@NotNull Block block, @NotNull FluidType fluid) {
+        public boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause) {
             return false;
         }
 
         @Override
-        public @Nullable ResourceType take(@NotNull Block block) {
+        public @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause) {
             return null;
         }
 
@@ -137,7 +139,12 @@ public final class WorldFluids {
      * @return whether it was placed
      */
     public static boolean place(@NotNull Block block, @NotNull FluidType fluid) {
-        return access.place(block, fluid);
+        return access.place(block, fluid, WorldFluidPlaceEvent.Cause.API);
+    }
+
+    /** {@link #place(Block, FluidType)} with the cause the event reports (a machine, a command …). */
+    public static boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause) {
+        return access.place(block, fluid, cause);
     }
 
     /**
@@ -146,7 +153,12 @@ public final class WorldFluids {
      * @return the fluid taken, or {@code null} if the block held no source
      */
     public static @Nullable ResourceType take(@NotNull Block block) {
-        return access.take(block);
+        return access.take(block, WorldFluidRemoveEvent.Cause.API);
+    }
+
+    /** {@link #take(Block)} with the cause the event reports. */
+    public static @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause) {
+        return access.take(block, cause);
     }
 
     /** The physics in effect for {@code fluid} (its definition, overridden by {@code fluids.yml}). */

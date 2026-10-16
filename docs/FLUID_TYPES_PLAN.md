@@ -332,7 +332,23 @@ Three layers, each overriding the one before:
    - Grid, generated textures, shader templates per version band, the Sodium overlay;
    - the client jar download and cache;
    - checks (the startup format checks of the spike, a GLSL check in CI if `glslangValidator` is present).
-6. **Mekanized.**
+6. **Mekanized.** Done (2026-10-16), branches `feature/fluid-types` in both repos; checked headless, the owner's in-game check is open.
+   - **Engine:**
+     - Machines' world access (`CraftEngineMachineHost`: `fluidAt`, `placeFluid`, `takeFluid`) goes through `WorldFluids`, so the pump and the plenisher handle placeable fluids with no change in Mekanized. Their events carry `MACHINE`: `WorldFluids.place`/`take` gained overloads with a cause.
+     - `bucket: <item>` works: a CraftEngine item on a water bucket, recognized by its id (`PaperItems`).
+     - The pack builder draws a texture for each such bucket from the vanilla water bucket, the water recolored to the fluid's color, at `machineengine:item/fluid_bucket/<namespace>/<path>`. Water is found by color, because 26.3's empty bucket is a greyscale PNG that Java reads back with other values.
+     - A build still downloading at shutdown gets 5 seconds, and a leftover `.part` file is truncated.
+   - **Mekanized:**
+     - Its 22 fluids are placeable `FluidType`s, made in code from `fluids.txt`, not a definitions file as drafted: `config.yml` `colors` keep working, and `fluids.yml` changes the rest.
+     - Look: Mekanism's liquid texture (`mek_liquid/liquid`, `liquid_flow`; steam has its own), tinted with the fluid's color, frame time 2. The texture objects are shared, so the grid holds 2 textures for 22 looks.
+     - Buckets: `configuration/buckets.yml` (one `config_factory`, items `mekanized:<fluid>_bucket`, tags `c:buckets` and `mekanized:fluid_buckets`); names in `lang.yml` (en_us `<Name> Bucket`, fr_fr `Seau de …`); 44 tank bucket recipes in `definitions/recipes_buckets.yml`.
+   - **Checks:**
+     - Mekanized's Paper 26.3 dev server: 22 placeable fluids, 22 looks, 66 key biomes; pack written with 2 textures and 22 bucket textures.
+     - glslang on that 22-key shader: every 26.3 variant compiles.
+     - `ceSnapshot`: the 22 buckets expand as intended. Its reference (2026-10-09) was already out of date before this stage (ghost items, module `max-level`, block state numbers), so it was not accepted; the owner decides.
+   - **Known limit:** an `auto` bucket is a tagged water bucket, so item recipes that match `minecraft:water_bucket` (tank bucket slots) take it as water. Use `bucket: <item>` for fluids that go into tanks.
+
+   The draft for this stage:
    - `fluids.txt` replaced by a definitions file with `fluid:` sections for the placeable fluids;
    - textures from Mekanism's fluid textures (MIT; the notice is already shipped);
    - bucket recipes; pump and plenisher checked with custom fluids.

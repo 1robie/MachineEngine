@@ -6,6 +6,8 @@ import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.DiagnosticCodes;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.paper.WorldFluids;
+import fr.robie.machineengine.api.paper.event.WorldFluidPlaceEvent;
+import fr.robie.machineengine.api.paper.event.WorldFluidRemoveEvent;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.fluid.FluidEffect;
@@ -115,13 +117,13 @@ public final class FluidSettingsFile {
             }
 
             @Override
-            public boolean place(@NotNull Block block, @NotNull FluidType fluid) {
-                return blocks.place(block, fluid);
+            public boolean place(@NotNull Block block, @NotNull FluidType fluid, WorldFluidPlaceEvent.@NotNull Cause cause) {
+                return blocks.place(block, fluid, cause);
             }
 
             @Override
-            public @Nullable ResourceType take(@NotNull Block block) {
-                return blocks.take(block);
+            public @Nullable ResourceType take(@NotNull Block block, WorldFluidRemoveEvent.@NotNull Cause cause) {
+                return blocks.take(block, cause);
             }
 
             @Override

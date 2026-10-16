@@ -5,8 +5,16 @@ import fr.robie.machineengine.api.config.BlockOptions;
 import fr.robie.machineengine.api.machine.MachineEnvironment;
 import fr.robie.machineengine.api.machine.WakeReason;
 import fr.robie.machineengine.api.network.TransportSideMode;
+import fr.robie.machineengine.api.paper.PaperItems;
+import fr.robie.machineengine.api.paper.WorldFluids;
+import fr.robie.machineengine.api.paper.event.PlayerMachineInteractEvent;
+import fr.robie.machineengine.api.paper.event.WorldFluidPlaceEvent;
+import fr.robie.machineengine.api.paper.event.WorldFluidRemoveEvent;
 import fr.robie.machineengine.api.platform.Scheduler;
+import fr.robie.machineengine.api.resource.Fluids;
 import fr.robie.machineengine.api.resource.ResourceStack;
+import fr.robie.machineengine.api.resource.ResourceType;
+import fr.robie.machineengine.api.resource.fluid.FluidType;
 import fr.robie.machineengine.api.transfer.ResourceHandler;
 import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
@@ -16,9 +24,7 @@ import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import fr.robie.machineengine.paper.MachineLocator;
 import fr.robie.machineengine.paper.MachineMenuService;
-import fr.robie.machineengine.api.paper.PaperItems;
 import fr.robie.machineengine.paper.PaperWorlds;
-import fr.robie.machineengine.api.paper.event.PlayerMachineInteractEvent;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.messageflow.formatter.Placeholder;
@@ -287,7 +293,11 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         Block block = ownedBlock(position);
         if (block == null || !(block.getBlockData() instanceof Levelled levelled)) return null;
         Key fluid = fluidKey(block.getType());
-        return fluid == null ? null : new WorldFluid(fluid, levelled.getLevel() == 0);
+        if (fluid == null) return null;
+        // A placeable fluid (D46) is water MachineEngine tracks: its own key.
+        ResourceType held = WorldFluids.at(block);
+        Key placeable = held == null ? null : Fluids.worldFluid(held);
+        return new WorldFluid(placeable != null ? placeable : fluid, levelled.getLevel() == 0);
     }
 
     @Override
@@ -296,6 +306,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         if (fluid == null || !fluid.source()) return false;
         Block block = ownedBlock(position);
         if (block == null) return false;
+        if (WorldFluids.take(block, WorldFluidRemoveEvent.Cause.MACHINE) != null) return true;
         block.setType(Material.AIR, true);
         return true;
     }
@@ -417,6 +428,12 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
     public boolean placeWorldFluid(@NotNull WorldPosition position, @NotNull Key fluid) {
         Block block = ownedBlock(position);
         if (block == null || this.controllers.containsKey(position)) return false;
+        ResourceType type = Fluids.fromWorld(fluid);
+        if (type instanceof FluidType placeable && placeable.placeable()) {
+            boolean air = block.getType().isAir();
+            boolean flowing = block.getType() == Material.WATER && block.getBlockData() instanceof Levelled levelled && levelled.getLevel() != 0;
+            return (air || flowing) && WorldFluids.place(block, placeable, WorldFluidPlaceEvent.Cause.MACHINE);
+        }
         Material material = fluidMaterial(fluid);
         if (material == null) return false;
         boolean air = block.getType().isAir();
