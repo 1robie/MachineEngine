@@ -57,6 +57,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
     private final Supplier<MachineLocator> locator;
     private final Supplier<ConfigLoadResult> reloadConfig;
     private final Supplier<@Nullable FluidSettingsFile> fluids;
+    private final Supplier<@Nullable WorldFluidRuntime> worldFluids;
     private final MachineDebugView debugView;
     private final FluidAdminCommand fluidCommand;
 
@@ -69,6 +70,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         this.locator = locator;
         this.reloadConfig = reloadConfig;
         this.fluids = fluids;
+        this.worldFluids = worldFluids;
         this.debugView = new MachineDebugView(plugin, engine, locator);
         this.fluidCommand = new FluidAdminCommand(plugin, worldFluids);
         setDescription("MachineEngine admin commands");
@@ -429,6 +431,10 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         EngineMessages.send(sender, EngineMessage.ADMIN_FLUIDS_RELOADED,
                 Placeholder.of("count", String.valueOf(settings.current().overridden().size())));
         sendReport(sender, report);
+        WorldFluidRuntime running = this.worldFluids.get();
+        if (running != null) {
+            running.pack().rebuild(message -> EngineMessages.send(sender, EngineMessage.ADMIN_FLUIDS_PACK, Placeholder.of("message", message)));
+        }
         return report.hasErrors() ? CommandResultType.FAILURE : CommandResultType.SUCCESS;
     }
 

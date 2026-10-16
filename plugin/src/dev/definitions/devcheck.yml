@@ -48,7 +48,10 @@ resource-types:
     color: "#2A2238"
     fluid:
       world: placeable
-      look: { fog: "#0B0806" }
+      look:
+        texture: { source: recolor, pattern: lava, from: "#0A080E", to: "#4E3E60" }
+        opacity: 0.96
+        fog: "#0B0806"
       physics:
         viscosity: { speed: 0.5, gravity: 1.6, jump: 0.5, damping: 0.35, entity-drag: 0.3 }
         spread: { ticks: 15, range: 5 }

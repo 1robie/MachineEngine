@@ -24,3 +24,7 @@ Thumbs.db
 # Local Claude settings
 .claude/settings.local.json
 .claude/worktrees/
+
+# World fluids shader checks: extracted vanilla files and patched packs (tools/world-fluids/README.md)
+tools/world-fluids/vanilla/
+tools/world-fluids/packs/

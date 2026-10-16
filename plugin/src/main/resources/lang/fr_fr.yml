@@ -80,6 +80,7 @@ machineengine:
     config_error: "<red>config.yml n'a pas pu être lu ; les réglages précédents restent actifs : %error%"
     config_reloaded: "<green>config.yml rechargé."
     fluids_reloaded: "<green>fluids.yml rechargé : %count% fluide(s) modifié(s). La physique, les mélanges et les effets s'appliquent tout de suite ; l'apparence après la reconstruction du pack de ressources ; le brouillard quand les joueurs se reconnectent."
+    fluids_pack: "<gray>%message% Envoyez-le aux joueurs avec /ce reload pack."
     fluids_off: "<gray>Les fluides dans le monde sont désactivés (world-fluids.enabled dans config.yml)."
     fluid_status: "<gray>Fluides dans le monde : %fluids% plaçables, %looks% apparences (%missing% sans clé), eau uniforme %uniform%, biomes client %base% + %entries% ; %updates% mises à jour de biomes envoyées ; %tracked% blocs de fluide chargés ici."
     fluid_block: "<gray>%x% %y% %z% : <white>%fluid%</white> ; sa zone de couleur %cell% montre %area%."

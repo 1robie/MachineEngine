@@ -29,6 +29,7 @@ import fr.robie.machineengine.paper.fluid.client.Cells;
 import fr.robie.machineengine.paper.fluid.client.FluidBiomeRemapper;
 import fr.robie.machineengine.paper.fluid.client.FluidCells;
 import fr.robie.machineengine.paper.fluid.client.FluidKeys;
+import fr.robie.machineengine.paper.fluid.pack.FluidPackService;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.messageflow.formatter.Placeholder;
@@ -113,6 +114,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     private final AtomicLong updatesSent = new AtomicLong();
     private final List<Task> tasks = new ArrayList<>();
     private final FluidEntities entities;
+    private final FluidPackService pack;
     private @Nullable FluidBiomeRemapper remapper;
     private volatile boolean biomeUpdates = true;
 
@@ -126,6 +128,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         boolean uniform = config.get(WorldFluidConfig.UNIFORM_WATER);
         this.cells = new FluidCells(this::zoomSeed, keys, uniform ? 0 : config.get(WorldFluidConfig.NEUTRAL_RINGS));
         this.entities = new FluidEntities(this, this.scheduler);
+        this.pack = new FluidPackService(plugin, config, keys);
     }
 
     /**
@@ -204,6 +207,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         for (World world : Bukkit.getWorlds()) {
             for (Chunk chunk : world.getLoadedChunks()) this.scheduler.run(world, chunk.getX(), chunk.getZ(), () -> load(chunk));
         }
+        this.pack.start();
         Logger.info("[fluids]", "World fluids: %fluids% placeable fluids, %looks% looks", Placeholder.of(
                 "fluids", String.valueOf(this.keys.fluidCount()), "looks", String.valueOf(this.keys.keyCount())));
     }
@@ -228,6 +232,11 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     public @NotNull FluidKeys keys() {
         return this.keys;
+    }
+
+    /** The resource pack side (stage 5): textures and the shader. */
+    public @NotNull FluidPackService pack() {
+        return this.pack;
     }
 
     @NotNull WorldFluidNms nms() {

@@ -305,7 +305,30 @@ Three layers, each overriding the one before:
    - admin commands.
 
    Tests in the `test` module: codec, palette, mixing rules, gap and conflict rules (the `canPlace` reasons).
-5. **Pack builder in Java.**
+5. **Pack builder in Java.** Done (2026-10-16), branch `feature/fluid-types`; checked headless, the owner's in-game check is open. In the code (`common` `paper.fluid.pack`):
+   - `VanillaClient`: the official client jar of the server's version, downloaded once from Mojang's version list into `plugins/MachineEngine/cache` and checked by SHA-1 (`world-fluids.client-jar: download`), or a path. Shaders, water textures, biome water colors and the pack format (`version.json`) all come from it, so there is no table to keep up to date.
+   - `TextureGrid`: the water sprites as grids. A frame holds `columns × columns` tiles, and tile 0 is vanilla water. The alpha of every texel carries the 2×2 position code (§4.3). Only fluids with a texture take a tile; frames are fitted to the water animation by each look's `frame-time`.
+   - `ShaderPatch`: one patcher for every version. It relies only on the skeleton all of them share (`out vec2 texCoord0`, `vertexColor = Color * <light>`, `vec4 color = <sample> * vertexColor[ * ColorModulator]`), and finds the rest in the file:
+     - explicit varying locations (26.3);
+     - the lightmap expression;
+     - the alpha-only translucency pass (26.3 `OIT_ALPHA_ONLY`).
+
+     A shader that doesn't match is refused, never guessed.
+   - **Version bands found** (13 versions extracted, grouped by identical files): `rendertype_translucent` 1.20.6–1.21.1; `terrain` 1.21.2–1.21.5, 1.21.6–1.21.8, 1.21.9–1.21.10, 1.21.11, 26.1–26.2, 26.3.
+   - `FluidPackBuilder` writes `CraftEngine/resources/machineengine/resourcepack/machineengine_world_fluids/` (grids, `.mcmeta`, patched shaders) and the overlay entry in `pack.mcmeta`, for exactly the server's pack format. A client of another version gets no overlay and sees key colors.
+   - `FluidPackService`:
+     - at enable, writes the pack at once when the jar is cached, so CraftEngine sends it as usual; on the first start, writes it after the download, then `/ce reload pack`;
+     - `/machineengine reload fluids` rebuilds it;
+     - `world-fluids.shader: false` removes it;
+     - warns when CraftEngine's `resource-pack.exclude-core-shaders` is on.
+   - **Checks:**
+     - `FluidPackTest` covers the grid code round trip in an atlas with padding, the patch, locations, and refusals. With `-Pmachineengine.vanilla`, it also patches all 13 versions.
+     - `tools/world-fluids/` holds the vanilla extractor and a glslang check: 13 versions, 88 define sets (cutout; on 26.3 multidraw and every OIT pass), vertex and fragment linked, **0 failures**.
+     - Headless: Paper 26.3 and Folia 26.2 download the jar and write the pack; CraftEngine validates and merges the overlay, and nothing else in the pack touches the terrain shader or water textures.
+   - **Not covered:** the Vulkan backend of 26.2+ (glslang checks OpenGL rules; in game only). Sodium is left for later (owner, 2026-10-16), so Sodium players see key colors. Bucket textures wait for stage 6.
+   - **Dev servers:** the spike's old pack (`resources/machineengine_fluids`, overlay `me_fluids_88`) was removed from `run/folia-26.2` and `run/paper-26.2`. It replaced the same files and came after ours.
+
+   The draft for this stage:
    - Grid, generated textures, shader templates per version band, the Sodium overlay;
    - the client jar download and cache;
    - checks (the startup format checks of the spike, a GLSL check in CI if `glslangValidator` is present).

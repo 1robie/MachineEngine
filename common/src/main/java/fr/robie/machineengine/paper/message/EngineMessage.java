@@ -92,6 +92,8 @@ public enum EngineMessage implements Message {
     ADMIN_RELOADED("machineengine.admin.reloaded", "<green>Reloaded %type%."),
     ADMIN_FLUIDS_RELOADED("machineengine.admin.fluids_reloaded",
             "<green>Reloaded fluids.yml: %count% fluid(s) overridden. Physics, mixing and effects apply now; looks after the resource pack is rebuilt; fog after players rejoin."),
+    /** {@code %message%}: what the pack builder did (the console has the details). */
+    ADMIN_FLUIDS_PACK("machineengine.admin.fluids_pack", "<gray>%message% Send it to players with /ce reload pack."),
     ADMIN_FLUIDS_OFF("machineengine.admin.fluids_off", "<gray>World fluids are off (world-fluids.enabled in config.yml)."),
     ADMIN_FLUID_STATUS("machineengine.admin.fluid_status", "<gray>World fluids: %fluids% placeable, %looks% looks (%missing% without a key), "
             + "uniform water %uniform%, client biomes %base% + %entries%; %updates% biome updates sent; %tracked% fluid blocks loaded here."),
