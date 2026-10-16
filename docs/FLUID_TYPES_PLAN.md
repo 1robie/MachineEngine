@@ -330,6 +330,11 @@ Three layers, each overriding the one before:
      - `SodiumShaders` takes the newest Sodium for the server's version from Modrinth (a release, else a beta), checked by SHA-1 and cached. Only Sodium 0.9 and later (26.2, 26.3) read shaders from resource packs; older Sodium loads them from its jar (checked in each jar's `ShaderLoader`), so 1.20.6–26.1 Sodium players still see the grid. `world-fluids.shader: false` avoids that.
      - `ShaderPatch` has two dialects (vanilla, Sodium) sharing one GLSL body. Sodium's names are `v_TexCoord`, `_vert_color`, `v_Color` and `u_BlockTex`, and its color is set over two lines. Under Sodium's Vulkan backend the fluid code is skipped (`#ifndef VULKAN`), not checked.
      - glslang: 68 Sodium define sets (vertex compression, fog, cutout, every 26.3 OIT pass), 0 failures; the vanilla 88 are still 0 failures.
+   - **Other uses of vanilla water (2026-10-16, owner saw it):** the overlay replaces `minecraft:block/water_still`/`water_flow`, so Mekanized's menu fluid bars showed the grid.
+     - The overlay now also holds the vanilla water unchanged (`machineengine:block/water_still`/`water_flow`, from the client jar).
+     - It also holds a copy of every model of the CraftEngine packs that uses the vanilla water, redirected to that copy: Mekanized has 55 fluid bars, plus `block/heavy_water` and `chemical/dummy`.
+     - Only while the grid is there; Mekanized itself is unchanged.
+     - Not covered: vanilla's own models and particles that use the water sprite.
      - The owner's Sodium 0.9.1 has the same shaders as 0.9.2. A future 0.9.x that changes them would break Sodium players until the pack is rebuilt (`/machineengine reload fluids`).
    - **Dev servers:** the spike's old pack (`resources/machineengine_fluids`, overlay `me_fluids_88`) was removed from `run/folia-26.2` and `run/paper-26.2`. It replaced the same files and came after ours.
 

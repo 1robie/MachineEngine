@@ -209,6 +209,33 @@ class FluidPackTest {
     }
 
     @Test
+    void modelsThatDrawVanillaWaterAreRedirectedInTheOverlay(@TempDir Path temp) throws Exception {
+        Path vanilla = temp.resolve("vanilla/assets/minecraft/textures/block");
+        Files.createDirectories(vanilla);
+        Files.write(vanilla.resolve("water_still.png"), new byte[]{1});
+        Files.write(vanilla.resolve("water_still.png.mcmeta"), new byte[]{2});
+        Files.write(vanilla.resolve("water_flow.png"), new byte[]{3});
+        Path models = temp.resolve("resources/mekanized/resourcepack/assets/mekanized/models/gui/bar/fluid");
+        Files.createDirectories(models);
+        Files.writeString(models.resolve("0_1.json"), "{\"textures\":{\"fill\":\"minecraft:block/water_still\",\"particle\":\"block/water_flow\"}}");
+        Files.writeString(models.resolve("other.json"), "{\"textures\":{\"all\":\"mekanized:block/steel\"}}");
+        Path overlay = temp.resolve("overlay");
+        Method plain = FluidPackBuilder.class.getDeclaredMethod("plainWater", VanillaClient.class, Path.class, Path.class);
+        plain.setAccessible(true);
+        int count;
+        try (VanillaClient client = VanillaClient.open(temp.resolve("vanilla"))) {
+            count = (int) plain.invoke(null, client, temp.resolve("resources"), overlay);
+        }
+
+        assertEquals(1, count, "only the model drawing water");
+        assertEquals("{\"textures\":{\"fill\":\"machineengine:block/water_still\",\"particle\":\"machineengine:block/water_flow\"}}",
+                Files.readString(overlay.resolve("assets/mekanized/models/gui/bar/fluid/0_1.json")));
+        assertTrue(Files.isRegularFile(overlay.resolve("assets/machineengine/textures/block/water_still.png")));
+        assertTrue(Files.isRegularFile(overlay.resolve("assets/machineengine/textures/block/water_still.png.mcmeta")));
+        assertTrue(Files.notExists(overlay.resolve("assets/mekanized/models/gui/bar/fluid/other.json")));
+    }
+
+    @Test
     void onlySodiumFromZeroNineTakesShadersFromPacks() {
         assertTrue(SodiumShaders.overridable("mc26.2-0.9.2-fabric"));
         assertTrue(SodiumShaders.overridable("mc26.3-0.9.3-beta.1-fabric"));

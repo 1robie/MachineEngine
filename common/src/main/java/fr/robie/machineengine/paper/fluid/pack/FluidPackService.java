@@ -108,7 +108,7 @@ public final class FluidPackService {
                 result.notes().forEach(note -> Logger.warn("[fluids]", "%note%", Placeholder.of("note", note)));
                 done.accept("World fluids pack written: " + result.looks() + " looks, " + result.textures() + " textures ("
                         + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, " + result.sodium() + ", pack format " + result.format()
-                        + ", " + buckets + " bucket textures.");
+                        + ", " + buckets + " bucket textures, " + result.waterModels() + " models redirected to plain water.");
             }
         } catch (IOException | ShaderPatch.MismatchException | RuntimeException e) {
             Logger.warn("[fluids]", "The world fluids pack could not be written; fluids show their key colors: %error%",

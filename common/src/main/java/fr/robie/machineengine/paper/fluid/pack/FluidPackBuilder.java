@@ -47,7 +47,7 @@ public final class FluidPackBuilder {
 
     /** What was written. */
     public record Result(@NotNull String format, int looks, int textures, int columns, @NotNull String shader, @NotNull String sodium,
-                         @NotNull List<String> notes) {
+                         int waterModels, @NotNull List<String> notes) {
     }
 
     private FluidPackBuilder() {
@@ -72,7 +72,7 @@ public final class FluidPackBuilder {
         deleteTree(overlay);
         if (keys.keyCount() == 0) {
             writeMeta(pack, format, false);
-            return new Result(formatText(format), 0, 0, 0, shader, "no Sodium shader", List.of("no placeable fluid: nothing to draw"));
+            return new Result(formatText(format), 0, 0, 0, shader, "no Sodium shader", 0, List.of("no placeable fluid: nothing to draw"));
         }
 
         // One look per key: the look of the first fluid that has it (fluids sharing a key look the same).
@@ -170,8 +170,55 @@ public final class FluidPackBuilder {
                     ShaderPatch.fragment(sodium.fragment(), constants, ShaderPatch.Dialect.SODIUM), StandardCharsets.UTF_8);
             sodiumNote = "Sodium " + sodium.version();
         }
+        int redirected = plainWater(client, resources, overlay);
         writeMeta(pack, format, true);
-        return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, notes);
+        return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, redirected, notes);
+    }
+
+    private static final java.util.regex.Pattern WATER_TEXTURE =
+            java.util.regex.Pattern.compile("\"(?:minecraft:)?block/water_(still|flow)\"");
+
+    /**
+     * The overlay replaces {@code minecraft:block/water_still} and {@code water_flow} with the texture grid,
+     * so whatever else draws water with them (menu fluid bars, particles) would show the grid. The overlay
+     * therefore also holds the vanilla water as it is, at {@code machineengine:block/water_still} and
+     * {@code water_flow}, and a copy of every model of the CraftEngine packs that uses the vanilla ones,
+     * pointed at these. Overlay files replace the pack's at the same path, and only while the grid is there.
+     *
+     * @return how many models were redirected
+     */
+    static int plainWater(VanillaClient client, Path resources, Path overlay) throws IOException {
+        Path folder = overlay.resolve("assets/machineengine/textures/block");
+        Files.createDirectories(folder);
+        for (String name : List.of("water_still", "water_flow")) {
+            byte[] png = client.read("assets/minecraft/textures/block/" + name + ".png");
+            byte[] meta = client.read("assets/minecraft/textures/block/" + name + ".png.mcmeta");
+            if (png == null) throw new IOException("the client jar has no block/" + name);
+            Files.write(folder.resolve(name + ".png"), png);
+            if (meta != null) Files.write(folder.resolve(name + ".png.mcmeta"), meta);
+        }
+        if (!Files.isDirectory(resources)) return 0;
+        int count = 0;
+        try (Stream<Path> packs = Files.list(resources)) {
+            for (Path pack : packs.sorted().toList()) {
+                Path assets = pack.resolve("resourcepack/assets");
+                if (!Files.isDirectory(assets)) continue;
+                try (Stream<Path> files = Files.walk(assets)) {
+                    for (Path model : files.filter(file -> file.toString().endsWith(".json")).toList()) {
+                        Path relative = assets.relativize(model);
+                        if (relative.getNameCount() < 3 || !relative.getName(1).toString().equals("models")) continue;
+                        String json = Files.readString(model, StandardCharsets.UTF_8);
+                        String redirected = WATER_TEXTURE.matcher(json).replaceAll("\"machineengine:block/water_$1\"");
+                        if (redirected.equals(json)) continue;
+                        Path target = overlay.resolve("assets").resolve(relative.toString());
+                        Files.createDirectories(target.getParent());
+                        Files.writeString(target, redirected, StandardCharsets.UTF_8);
+                        count++;
+                    }
+                }
+            }
+        }
+        return count;
     }
 
     /** Where the bucket texture of a fluid is: {@code machineengine:item/fluid_bucket/<namespace>/<path>}. */
