@@ -214,6 +214,9 @@ fun RunServer.devServer(minecraftVersion: String, javaVersion: Int, folia: Boole
 
 registerDevServer("1.20.6", javaVersion = 21)
 registerDevServer("26.3", javaVersion = 25)
+// 1.21.x: no version module, so world fluids use ReflectiveWorldFluids (1.21.11: Identifier names).
+registerDevServer("1.21.4", javaVersion = 21)
+registerDevServer("1.21.11", javaVersion = 21)
 registerDevServer("1.20.6", javaVersion = 21, folia = true)
 registerDevServer("26.2", javaVersion = 25, folia = true)
 

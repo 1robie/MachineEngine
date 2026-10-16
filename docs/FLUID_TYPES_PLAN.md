@@ -293,7 +293,7 @@ Three layers, each overriding the one before:
    - **Older CraftEngine** (no biome hook): a chunk a player loads gets its fluid colors right after, as a biome-only update.
    - **Failures:** a world fluids failure at start never stops MachineEngine. It is reported, and fluids stay in tanks and pipes.
    - **Dev fixture:** `devcheck.yml` has two placeable fluids (`devcheck:fluid/oil`, `devcheck:fluid/brine`).
-   - **Checked headless:** Paper 26.3, Paper 1.20.6 and Folia 26.2 start world fluids, and the biome format check passes. The reflective version starts on 1.20.6 and 26.2 too, the oldest and newest names it handles. No 1.21.x server was run: a new dev server needs the EULA accepted.
+   - **Checked headless:** Paper 26.3, Paper 1.20.6 and Folia 26.2 start world fluids, and the biome format check passes. The reflective version starts on Paper 1.21.4 and 1.21.11 (new dev servers `runPaper-1.21.4`, `runPaper-1.21.11`), and when forced on 1.20.6 and 26.2.
    - **Open:**
      - custom bucket items (`bucket: <item>`): only `auto` and `none` work; stage 6;
      - looks changed in `fluids.yml` get new keys only at the next start;
