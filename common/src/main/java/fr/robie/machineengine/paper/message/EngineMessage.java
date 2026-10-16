@@ -90,6 +90,9 @@ public enum EngineMessage implements Message {
     ADMIN_CONFIG_INVALID("machineengine.admin.config_invalid", "<yellow>Invalid, using the default (see the console): %keys%"),
     ADMIN_RELOAD_REJECTED("machineengine.admin.reload_rejected", "<red>Reload of %type% rejected; the previous content stays live."),
     ADMIN_RELOADED("machineengine.admin.reloaded", "<green>Reloaded %type%."),
+    ADMIN_FLUIDS_RELOADED("machineengine.admin.fluids_reloaded",
+            "<green>Reloaded fluids.yml: %count% fluid(s) overridden. Physics, mixing and effects apply now; looks after the resource pack is rebuilt; fog after players rejoin."),
+    ADMIN_FLUIDS_OFF("machineengine.admin.fluids_off", "<gray>World fluids are off (world-fluids.enabled in config.yml)."),
     ADMIN_NO_PROBLEMS("machineengine.admin.no_problems", "<green>No problems found."),
     /** A problem of a report; the text is data (diagnostic codes and details). */
     ADMIN_PROBLEM_ERROR("machineengine.admin.problem_error", "<red>%problem%"),

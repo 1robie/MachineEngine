@@ -128,6 +128,30 @@ public final class FluidType extends ResourceType {
             return this;
         }
 
+        /**
+         * Every value of {@code fluid} except its key: to make a fluid like another, or to apply a
+         * server owner's overrides on top of a registered fluid.
+         */
+        public @NotNull Builder copy(@NotNull FluidType fluid) {
+            this.category = fluid.category();
+            this.color = fluid.color();
+            this.components = fluid.defaultComponents();
+            this.world = fluid.world();
+            look(fluid.look());
+            physics(fluid.physics());
+            mixing(fluid.mixing());
+            this.effects.clear();
+            this.effects.addAll(fluid.effects());
+            this.items = fluid.items();
+            return this;
+        }
+
+        /** Removes every effect. */
+        public @NotNull Builder clearEffects() {
+            this.effects.clear();
+            return this;
+        }
+
         /** The menu color ({@code 0xRRGGBB}), also the look of a fluid without a texture. */
         public @NotNull Builder color(int value) {
             this.color = value & 0xFFFFFF;

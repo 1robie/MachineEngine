@@ -7,37 +7,40 @@ import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.config.ConfigFile;
 import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.config.EngineConfig;
+import fr.robie.machineengine.api.diagnostic.Diagnostic;
+import fr.robie.machineengine.api.item.ItemResources;
+import fr.robie.machineengine.api.paper.ClassPreloader;
+import fr.robie.machineengine.api.paper.PaperItemResources;
 import fr.robie.machineengine.api.permission.Permission;
+import fr.robie.machineengine.api.platform.Nms;
 import fr.robie.machineengine.api.resource.BuiltInResources;
+import fr.robie.machineengine.api.resource.fluid.WorldFluidConfig;
+import fr.robie.machineengine.api.upgrade.UpgradeItems;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.lifecycle.MachineEngineBuilder;
 import fr.robie.machineengine.core.machine.LoadedMachine;
 import fr.robie.machineengine.core.machine.PlaceholderMachine;
 import fr.robie.machineengine.craftengine.CraftEngineIntegration;
-import fr.robie.machineengine.api.item.ItemResources;
-import fr.robie.machineengine.api.paper.PaperItemResources;
 import fr.robie.machineengine.craftengine.CraftEngineItemBridge;
-import fr.robie.machineengine.craftengine.item.CraftEngineUpgradeItems;
-import fr.robie.machineengine.api.upgrade.UpgradeItems;
 import fr.robie.machineengine.craftengine.CraftEngineMachineHost;
-import fr.robie.machineengine.api.platform.Nms;
-import fr.robie.machineengine.api.paper.ClassPreloader;
+import fr.robie.machineengine.craftengine.item.CraftEngineUpgradeItems;
 import fr.robie.machineengine.paper.FoliaLibScheduler;
 import fr.robie.machineengine.paper.MachineEngineCommands;
 import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
+import fr.robie.machineengine.paper.fluid.FluidSettingsFile;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.FilePlayerStorage;
 import fr.robie.machineengine.paper.player.PaperPlayers;
 import fr.robie.machineengine.paper.player.PdcPlayerStorage;
 import fr.robie.machineengine.paper.player.PlayerSettingsCommand;
+import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
 import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.messageflow.logger.Logger;
 import fr.robie.paperdispatch.manager.CommandManager;
-import fr.robie.machineengine.zmenu.ZMenuMachineMenus;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.momirealms.craftengine.bukkit.api.event.CraftEngineReloadEvent;
@@ -56,6 +59,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -73,6 +77,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable CoreMachineEngine engine;
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
+    private @Nullable FluidSettingsFile fluidSettings;
     private final CommandManager<MachineEnginePlugin> commandManager = new CommandManager<>(this);
     private @Nullable ZMenuMachineMenus menus;
     private @Nullable PaperPlayers players;
@@ -168,7 +173,13 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
         getServer().getPluginManager().registerEvents(this, this);
         getServer().getPluginManager().registerEvents(this.host.leftClicks(), this);
-        this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings);
+        // Fluids in the world (D46, D47): the server owner's overrides from fluids.yml.
+        if (this.config.get(WorldFluidConfig.ENABLED)) {
+            List<Diagnostic> problems = new ArrayList<>();
+            this.fluidSettings = FluidSettingsFile.install(getDataFolder().toPath(), started, problems);
+            problems.forEach(problem -> Logger.warn("%problem%", Placeholder.of("problem", problem.format())));
+        }
+        this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings, () -> this.fluidSettings);
         this.commandManager.trackCommand(this.commands);
         this.commandManager.trackCommand(new PlayerSettingsCommand(this, () -> this.engine));
         this.commandManager.flushRegistrations();
@@ -204,6 +215,8 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     @Override
     public void onDisable() {
         if (this.commands != null) this.commands.debugView().stopAll();
+        if (this.fluidSettings != null) FluidSettingsFile.uninstall();
+        this.fluidSettings = null;
         this.commandManager.unregisterAll(this);
         if (this.menus != null) this.menus.disable();
         this.menus = null;

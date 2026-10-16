@@ -236,7 +236,13 @@ Three layers, each overriding the one before:
    - `ResourceType` opened (protected constructor; the D9/D41 text updated).
    - `FluidType`, the records, the builder, `WorldMode`, `Fluids` changes, registries, `WorldFluids` interface, events.
    - Tests: identity, builder defaults, the built-ins as `FluidType`, an old addon's plain fluid type still accepted.
-2. **Definitions and config.**
+2. **Definitions and config.** Done (2026-10-16), branch `feature/fluid-types`. In the code:
+   - `FluidSpecParser` reads the `fluid:` section (world, bucket, look, physics, mixing, effects); unknown fields are refused with their full path (`physics.viscosity.sped`). A resource type with a `fluid:` section defaults to the fluid category.
+   - Built-in types (`BuiltInFluidTypes`, namespace `machineengine`): effects `potion`, `damage`, `fire`, `freeze`; reactions `stop`, `flow`, `block`, `fluid`; textures `file`, `vanilla`, `recolor`, `crystals`, `bubbles`.
+   - `fluids.yml` (`FluidSettingsFile`, `FluidOverrides`): written on first start with every placeable fluid's values as comments; `world` and `bucket` can't be overridden there (definition only, restart). An unreadable file keeps the previous overrides. `/machineengine reload fluids` reloads it.
+   - `world-fluids.*` keys in `WorldFluidConfig` (enabled, uniform-water, neutral-color, neutral-rings, shader, sodium, edge, conflict, fluid-gap, padding, dispersion, client-jar, texture-grid).
+
+   The draft for this stage:
    - The `fluid:` section in `DefinitionCompiler`, with validation (unknown keys and invalid values reported, the D30 style).
    - `fluids.yml` overrides (generated, reloadable parts), the `world-fluids.*` keys.
    - Tests: parsing, overrides, reload of physics.

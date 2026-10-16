@@ -174,8 +174,8 @@ class FluidTypeTest {
         CoreMachineEngine engine = TestEngine.builder().addon("mymod", ctx -> ctx.fluidEffectTypes().register(burn)).start();
 
         assertSame(burn, engine.registries().registry(Registries.FLUID_EFFECT_TYPE).getOrThrow(Key.key("mymod", "burn")));
-        assertTrue(engine.registries().registry(Registries.FLUID_REACTION_TYPE).keys().isEmpty());
-        assertTrue(engine.registries().registry(Registries.FLUID_TEXTURE_TYPE).keys().isEmpty());
+        assertTrue(engine.registries().registry(Registries.FLUID_EFFECT_TYPE).contains(Key.key("machineengine", "potion")),
+                "next to MachineEngine's own");
     }
 
     @Test

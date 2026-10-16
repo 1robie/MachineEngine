@@ -106,6 +106,12 @@ public final class WorldFluids {
     private WorldFluids() {
     }
 
+    /** What answers while MachineEngine's world fluids don't run: vanilla water and lava only. */
+    @ApiStatus.Internal
+    public static @NotNull Access vanillaOnly() {
+        return VANILLA_ONLY;
+    }
+
     @ApiStatus.Internal
     public static void setAccess(@Nullable Access value) {
         access = value == null ? VANILLA_ONLY : value;

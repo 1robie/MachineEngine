@@ -43,6 +43,7 @@ import fr.robie.machineengine.core.resource.CoreConverterLookup;
 import fr.robie.machineengine.core.resource.ItemTagSource;
 import fr.robie.machineengine.core.resource.ResourceCodecs;
 import fr.robie.machineengine.core.resource.TagSnapshot;
+import fr.robie.machineengine.core.resource.fluid.BuiltInFluidTypes;
 import fr.robie.machineengine.core.transfer.CoreTransactionManager;
 import fr.robie.messageflow.formatter.Placeholder;
 import fr.robie.messageflow.logger.Logger;
@@ -129,6 +130,8 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.RECIPE, Registries.RESOURCE_TAG, Registries.ITEM_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
         }
+        // Kinds of fluid effect, reaction and texture definitions use by key (D47).
+        BuiltInFluidTypes.register(this.registries);
         // Infrastructure MachineEngine itself provides (never meanings, §4).
         this.registries.staticRegistry(Registries.CAPABILITY_TYPE).register(AddonId.MACHINE_ENGINE, Capabilities.RESOURCE_HANDLER);
         this.registries.staticRegistry(Registries.BEHAVIOR_TYPE).register(AddonId.MACHINE_ENGINE,

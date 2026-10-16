@@ -2,6 +2,7 @@ package fr.robie.machineengine.api.config;
 
 import fr.robie.machineengine.api.resource.Energy;
 import fr.robie.machineengine.api.resource.Fluids;
+import fr.robie.machineengine.api.resource.fluid.WorldFluidConfig;
 
 import java.util.List;
 import java.util.Map;
@@ -91,6 +92,20 @@ public final class EngineConfig {
             .key(Fluids.BUCKET)
             .key(Fluids.WATER_COLOR)
             .key(Fluids.LAVA_COLOR)
+            .section("world-fluids", "Fluids placed in the world (each fluid's own settings are in its definition and fluids.yml).")
+            .key(WorldFluidConfig.ENABLED)
+            .key(WorldFluidConfig.UNIFORM_WATER)
+            .key(WorldFluidConfig.NEUTRAL_COLOR)
+            .key(WorldFluidConfig.NEUTRAL_RINGS)
+            .key(WorldFluidConfig.SHADER)
+            .key(WorldFluidConfig.SODIUM)
+            .key(WorldFluidConfig.EDGE)
+            .key(WorldFluidConfig.CONFLICT)
+            .key(WorldFluidConfig.FLUID_GAP)
+            .key(WorldFluidConfig.PADDING)
+            .key(WorldFluidConfig.DISPERSION)
+            .key(WorldFluidConfig.CLIENT_JAR)
+            .key(WorldFluidConfig.TEXTURE_GRID)
             .build();
 
     private EngineConfig() {

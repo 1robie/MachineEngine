@@ -32,15 +32,18 @@ import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.RegistryAccess;
 import fr.robie.machineengine.api.registry.RegistryType;
 import fr.robie.machineengine.api.registry.ReloadContext;
+import fr.robie.machineengine.api.resource.Fluids;
 import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceStack;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.ResourceVariant;
+import fr.robie.machineengine.api.resource.fluid.FluidType;
 import fr.robie.machineengine.api.resource.match.ResourceMatcher;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
 import fr.robie.machineengine.api.version.Version;
 import fr.robie.machineengine.api.world.RelativeSide;
+import fr.robie.machineengine.core.resource.fluid.FluidSpecParser;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.key.Keyed;
 import org.jetbrains.annotations.NotNull;
@@ -66,6 +69,8 @@ import java.util.function.Supplier;
  * <pre>{@code
  * resource-categories:  { <key>: { unit: FE, scale: 0 } }
  * resource-types:       { <key>: { category: <key>, color: "#RRGGBB" } }   # color optional
+ *                       { <key>: { color: "#RRGGBB", fluid: { world: placeable, look: …, physics: … } } }
+ *                       # a fluid (D47): category machineengine:fluid by default; fluid: see FluidSpecParser
  * recipe-types:         [ <key>, … ]
  * machines:
  *   <key>:
@@ -156,7 +161,9 @@ public final class DefinitionCompiler {
             entries(file, "resource-types", report, (key, spec, where) -> {
                 DataMap map = asMap(spec, where, report);
                 if (map == null) return;
-                Result<ResourceCategory> category = map.getString("category").flatMap(Codecs::parseKey)
+                boolean fluidSection = map.has("fluid");
+                Result<ResourceCategory> category = !map.has("category") && fluidSection ? Result.ok(Fluids.category())
+                        : map.getString("category").flatMap(Codecs::parseKey)
                         .flatMap(id -> lookup(context.registries(), Registries.RESOURCE_CATEGORY, id));
                 if (category.isErr()) {
                     skip(report, where, category.error().message());
@@ -166,6 +173,26 @@ public final class DefinitionCompiler {
                 Integer color = text == null ? null : ResourceType.parseColor(text);
                 if (text != null && color == null) {
                     skip(report, where, "color must be \"#RRGGBB\" but is " + text);
+                    return;
+                }
+                if (fluidSection || category.value() == Fluids.category()) {
+                    // A fluid (D47): every resource type in the fluid category is a FluidType.
+                    if (category.value() != Fluids.category()) {
+                        skip(report, where, "a fluid section needs the fluid category " + Fluids.CATEGORY_KEY.asString());
+                        return;
+                    }
+                    FluidType.Builder builder = FluidType.builder(key);
+                    if (color != null) builder.color(color);
+                    if (fluidSection) {
+                        DataMap fluid = asMap(map.get("fluid").orElseThrow(), where + ".fluid", report);
+                        if (fluid == null) return;
+                        Result<FluidType.Builder> applied = FluidSpecParser.apply(builder, fluid, context.registries(), null);
+                        if (applied.isErr()) {
+                            skip(report, where + ".fluid", applied.error().message());
+                            return;
+                        }
+                    }
+                    context.resourceTypes().register(builder.build());
                     return;
                 }
                 context.resourceTypes().register(color == null

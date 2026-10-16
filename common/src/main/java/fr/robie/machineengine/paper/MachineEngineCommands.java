@@ -2,13 +2,13 @@ package fr.robie.machineengine.paper;
 
 import com.mojang.brigadier.arguments.StringArgumentType;
 import fr.robie.machineengine.api.MachineEngine;
-import fr.robie.machineengine.api.paper.PositionArguments;
 import fr.robie.machineengine.api.config.ConfigLoadResult;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
 import fr.robie.machineengine.api.diagnostic.ValidationReport;
 import fr.robie.machineengine.api.machine.MachineInspection;
 import fr.robie.machineengine.api.machine.SchedulerState;
 import fr.robie.machineengine.api.machine.WakeReason;
+import fr.robie.machineengine.api.paper.PositionArguments;
 import fr.robie.machineengine.api.registry.Registries;
 import fr.robie.machineengine.api.registry.Registry;
 import fr.robie.machineengine.api.registry.RegistryType;
@@ -16,6 +16,7 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.paper.fluid.FluidSettingsFile;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.PlayerAdminCommand;
@@ -53,14 +54,17 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
     private final Supplier<ConfigLoadResult> reloadConfig;
+    private final Supplier<@Nullable FluidSettingsFile> fluids;
     private final MachineDebugView debugView;
 
     public MachineEngineCommands(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
-                                 @NotNull Supplier<MachineLocator> locator, @NotNull Supplier<ConfigLoadResult> reloadConfig) {
+                                 @NotNull Supplier<MachineLocator> locator, @NotNull Supplier<ConfigLoadResult> reloadConfig,
+                                 @NotNull Supplier<@Nullable FluidSettingsFile> fluids) {
         super(plugin, "machineengine");
         this.engine = engine;
         this.locator = locator;
         this.reloadConfig = reloadConfig;
+        this.fluids = fluids;
         this.debugView = new MachineDebugView(plugin, engine, locator);
         setDescription("MachineEngine admin commands");
         setPermission(PERMISSION);
@@ -84,7 +88,8 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
                     reload(dispatch.getSender(), Registries.ITEM_TAG);
                     return reload(dispatch.getSender(), Registries.RESOURCE_TAG);
                 }))
-                .executes(dispatch -> usage(dispatch, "Usage: /machineengine reload <config|recipes|tags>"))
+                .addSubCommand(simple("fluids", dispatch -> reloadFluids(dispatch.getSender())))
+                .executes(dispatch -> usage(dispatch, "Usage: /machineengine reload <config|recipes|tags|fluids>"))
                 .build());
     }
 
@@ -401,6 +406,19 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
             EngineMessages.send(sender, EngineMessage.ADMIN_CONFIG_INVALID, Placeholder.of("keys", String.join(", ", result.invalid())));
         }
         return CommandResultType.SUCCESS;
+    }
+
+    private CommandResultType reloadFluids(CommandSender sender) {
+        FluidSettingsFile settings = this.fluids.get();
+        if (settings == null) {
+            EngineMessages.send(sender, EngineMessage.ADMIN_FLUIDS_OFF);
+            return CommandResultType.FAILURE;
+        }
+        ValidationReport report = settings.reload();
+        EngineMessages.send(sender, EngineMessage.ADMIN_FLUIDS_RELOADED,
+                Placeholder.of("count", String.valueOf(settings.current().overridden().size())));
+        sendReport(sender, report);
+        return report.hasErrors() ? CommandResultType.FAILURE : CommandResultType.SUCCESS;
     }
 
     private CommandResultType reload(CommandSender sender, RegistryType<?> type) {

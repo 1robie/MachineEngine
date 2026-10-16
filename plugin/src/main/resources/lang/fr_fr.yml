@@ -69,6 +69,8 @@ machineengine:
     registry_alias: "<gray>%from% → %to% : <white>alias de %owner%"
     config_error: "<red>config.yml n'a pas pu être lu ; les réglages précédents restent actifs : %error%"
     config_reloaded: "<green>config.yml rechargé."
+    fluids_reloaded: "<green>fluids.yml rechargé : %count% fluide(s) modifié(s). La physique, les mélanges et les effets s'appliquent tout de suite ; l'apparence après la reconstruction du pack de ressources ; le brouillard quand les joueurs se reconnectent."
+    fluids_off: "<gray>Les fluides dans le monde sont désactivés (world-fluids.enabled dans config.yml)."
     config_changed: "<gray>Modifiés : <white>%keys%"
     config_added: "<gray>Ajoutés avec leur valeur par défaut : <white>%keys%"
     config_restart: "<yellow>Redémarrez pour appliquer : %keys%"

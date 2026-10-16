@@ -73,3 +73,37 @@ resources:
     water-color: '#3F76E4'
     # Color of lava in menus, "#RRGGBB" (quote it).
     lava-color: '#E0641A'
+
+# Fluids placed in the world (each fluid's own settings are in its definition and fluids.yml).
+world-fluids:
+  # Placeable fluids in the world. Off: fluids only live in tanks and pipes.
+  enabled: true
+  # Every biome's water gets the neutral color for players (swamps and oceans lose their tint).
+  # Needed for more than 6 different fluid looks. Players must rejoin.
+  uniform-water: true
+  # The neutral water color, "#RRGGBB" (quote it). Players must rejoin.
+  neutral-color: '#3F76E4'
+  # Only without uniform-water: 4-block areas around a fluid that get the neutral color.
+  neutral-rings: 6
+  # Draw fluids with their own textures (a core shader in the resource pack).
+  # Off: fluids are water tinted with a code color.
+  shader: true
+  # Also draw them for players using Sodium (its shader, in the resource pack).
+  sodium: true
+  # Where a fluid meets water: soft (fades) or sharp (a line). Applies after the pack is rebuilt.
+  edge: soft
+  # stop: a fluid and plain water never share a 4-block color area (a small gap between them).
+  # allow: they may, and the fluid fades into the water around it (dispersion).
+  conflict: stop
+  # 4-block areas kept between two different fluids (2 = about 8 blocks).
+  # Closer, the client blends both and the blocks between them show plain water.
+  fluid-gap: 2
+  # 4-block areas around a fluid (where no water is) that get its color: cleaner corners.
+  padding: 1
+  # With conflict: allow, rings of 4-block areas where a fluid fades into plain water (half, then a quarter).
+  dispersion: 2
+  # Where vanilla's water textures and shaders come from to build the pack:
+  # "download" (the official client jar, from Mojang, cached) or the path of a client jar.
+  client-jar: download
+  # Most fluid textures per side of the texture grid: 8 holds 63 textures, 16 holds 255 (more memory).
+  texture-grid: 8
