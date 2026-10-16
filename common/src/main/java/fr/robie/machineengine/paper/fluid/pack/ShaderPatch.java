@@ -1,6 +1,7 @@
 package fr.robie.machineengine.paper.fluid.pack;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Locale;
@@ -8,11 +9,12 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Adds world fluids to a version's vanilla water shader (docs/FLUID_TYPES_PLAN.md §7.1). Every version
- * from 1.20.6 to 26.3 has the same skeleton, which is all this relies on:
+ * Adds world fluids to a water shader (docs/FLUID_TYPES_PLAN.md §7.1): the game's own, or Sodium's
+ * (which draws terrain with its own shaders, and reads them from resource packs from Sodium 0.9, 26.2).
+ * Each {@link Dialect} has the same skeleton, which is all this relies on:
  * <ul>
- *   <li>vertex: {@code out vec2 texCoord0;}, {@code vertexColor = Color * <light>;}, {@code texCoord0 = UV0;};</li>
- *   <li>fragment: {@code in vec2 texCoord0;} and {@code vec4 color = <sample> * vertexColor[ * ColorModulator];}.</li>
+ *   <li>vertex: {@code out vec2 <texcoord>;}, {@code <vertex color> = <color> * <light>;}, {@code <texcoord> = ...;};</li>
+ *   <li>fragment: {@code in vec2 <texcoord>;} and the line(s) that sample the texture and multiply by the vertex color.</li>
  * </ul>
  * The rest is found in the file: explicit varying locations (26.3), the lightmap expression, the alpha-only
  * pass without a lightmap (26.3 {@code OIT_ALPHA_ONLY}). A shader that doesn't match is refused, never
@@ -23,13 +25,49 @@ import java.util.regex.Pattern;
  * draws the fluid's tile with its tint, opacity and glow.</p>
  */
 public final class ShaderPatch {
-    private static final Pattern OUT_TEXCOORD = Pattern.compile("^(layout\\(location = \\d+\\) )?out vec2 texCoord0;\\R", Pattern.MULTILINE);
-    private static final Pattern IN_TEXCOORD = Pattern.compile("^(layout\\(location = \\d+\\) )?in vec2 texCoord0;\\R", Pattern.MULTILINE);
-    private static final Pattern LIGHT = Pattern.compile("vertexColor = Color \\* (.+);");
-    private static final Pattern MAIN_TEXCOORD = Pattern.compile("^(\\s*)texCoord0 = UV0;\\R", Pattern.MULTILINE);
-    private static final Pattern COLOR = Pattern.compile("^(\\s*)vec4 color = (.+?) \\* vertexColor( \\* ColorModulator)?;\\R", Pattern.MULTILINE);
     private static final Pattern LOCATION = Pattern.compile("layout\\(location = (\\d+)\\) out ");
-    private static final Pattern SAMPLER0 = Pattern.compile("uniform sampler2D Sampler0;");
+
+    /** Whose shader: the names it uses, and how its fragment colors a texel. */
+    public enum Dialect {
+        /** The game's terrain shader ({@code rendertype_translucent} before 1.21.2). */
+        VANILLA("texCoord0", "UV0", "Color", "vertexColor", "Sampler0", null,
+                Pattern.compile("^(\\s*)vec4 color = (.+?) \\* vertexColor( \\* ColorModulator)?;\\R", Pattern.MULTILINE)),
+        /** Sodium 0.9's {@code blocks/block_layer_opaque}; left as it is under Vulkan (not checked there). */
+        SODIUM("v_TexCoord", "v_TexCoord", "_vert_color", "v_Color", "u_BlockTex", "VULKAN",
+                Pattern.compile("^(\\s*)vec4 color = (.+);\\R\\s*color \\*= v_Color;.*\\R", Pattern.MULTILINE));
+
+        private final String texCoord;
+        private final String uv;
+        private final String color;
+        private final String vertexColor;
+        private final String sampler;
+        private final @Nullable String skipWhen;
+        private final Pattern colorLine;
+
+        Dialect(String texCoord, String uv, String color, String vertexColor, String sampler, @Nullable String skipWhen, Pattern colorLine) {
+            this.texCoord = texCoord;
+            this.uv = uv;
+            this.color = color;
+            this.vertexColor = vertexColor;
+            this.sampler = sampler;
+            this.skipWhen = skipWhen;
+            this.colorLine = colorLine;
+        }
+
+        /** The shared GLSL with this shader's names. */
+        String names(String glsl) {
+            return glsl.replace("Sampler0", this.sampler).replace("UV0", this.uv)
+                    .replaceAll("\\bColor\\.rgb", this.color + ".rgb").replace("vertexColor.a", this.vertexColor + ".a");
+        }
+
+        String open() {
+            return this.skipWhen == null ? "" : "#ifndef " + this.skipWhen + "\n";
+        }
+
+        String close() {
+            return this.skipWhen == null ? "" : "#endif\n";
+        }
+    }
 
     /** What the patch needs to know about the fluids (index 0 is plain water, 1..n the keys). */
     public record Constants(@NotNull List<Integer> keys, int neutral, @NotNull List<Integer> backgrounds, double cut,
@@ -42,7 +80,7 @@ public final class ShaderPatch {
         }
     }
 
-    /** A vanilla shader the patch does not fit. */
+    /** A shader the patch does not fit. */
     public static final class MismatchException extends Exception {
         MismatchException(String message) {
             super(message);
@@ -53,40 +91,57 @@ public final class ShaderPatch {
     }
 
     public static @NotNull String vertex(@NotNull String vanilla, @NotNull Constants constants) throws MismatchException {
-        Matcher light = once(LIGHT, vanilla, "vertexColor = Color * <light>;");
+        return vertex(vanilla, constants, Dialect.VANILLA);
+    }
+
+    public static @NotNull String fragment(@NotNull String vanilla, @NotNull Constants constants) throws MismatchException {
+        return fragment(vanilla, constants, Dialect.VANILLA);
+    }
+
+    public static @NotNull String vertex(@NotNull String original, @NotNull Constants constants, @NotNull Dialect dialect) throws MismatchException {
+        Pattern lightPattern = Pattern.compile(Pattern.quote(dialect.vertexColor + " = " + dialect.color + " * ") + "(.+);");
+        Matcher light = once(lightPattern, original, dialect.vertexColor + " = " + dialect.color + " * <light>;");
         String lightExpression = light.group(1);
-        int location = nextLocation(vanilla);
-        StringBuilder declarations = new StringBuilder("\n// ---- MachineEngine world fluids (docs/FLUID_TYPES_PLAN.md §7) ----\n");
-        if (!SAMPLER0.matcher(vanilla).find()) declarations.append("uniform sampler2D Sampler0;\n");
+        int location = nextLocation(original);
+        StringBuilder declarations = new StringBuilder("\n// ---- MachineEngine world fluids (docs/FLUID_TYPES_PLAN.md §7) ----\n").append(dialect.open());
+        if (!original.contains("uniform sampler2D " + dialect.sampler + ";")) declarations.append("uniform sampler2D ").append(dialect.sampler).append(";\n");
         String[][] varyings = varyings();
         for (int i = 0; i < varyings.length; i++) {
             declarations.append(location < 0 ? "" : "layout(location = " + (location + i) + ") ").append(varyings[i][0]).append("out ")
                     .append(varyings[i][1]).append(";\n");
         }
-        declarations.append(vertexConstants(constants)).append(VERTEX_FUNCTIONS).append("// ---- end world fluids ----\n");
-        String withDeclarations = insertAfter(OUT_TEXCOORD, vanilla, "out vec2 texCoord0;", declarations.toString());
-        Matcher main = once(MAIN_TEXCOORD, withDeclarations, "texCoord0 = UV0;");
-        String body = VERTEX_MAIN.replace("@LIGHT@", lightExpression).replace("\n", "\n" + main.group(1)).stripTrailing();
+        declarations.append(vertexConstants(constants)).append(dialect.names(VERTEX_FUNCTIONS)).append(dialect.close())
+                .append("// ---- end world fluids ----\n");
+        Pattern out = Pattern.compile("^(layout\\(location = \\d+\\) )?out vec2 " + dialect.texCoord + ";.*\\R", Pattern.MULTILINE);
+        String withDeclarations = insertAfter(out, original, "out vec2 " + dialect.texCoord + ";", declarations.toString());
+        Pattern assigned = Pattern.compile("^(\\s*)" + dialect.texCoord + " = .+;.*\\R", Pattern.MULTILINE);
+        Matcher main = once(assigned, withDeclarations, dialect.texCoord + " = ...;");
+        String body = dialect.open() + dialect.names(VERTEX_MAIN.replace("@LIGHT@", lightExpression)) + dialect.close();
+        body = body.replace("\n", "\n" + main.group(1)).stripTrailing();
         return withDeclarations.substring(0, main.end()) + main.group(1) + body.strip() + "\n" + withDeclarations.substring(main.end());
     }
 
-    public static @NotNull String fragment(@NotNull String vanilla, @NotNull Constants constants) throws MismatchException {
-        int location = nextLocation(vanilla.replace(") in ", ") out "));
-        StringBuilder declarations = new StringBuilder("\n// ---- MachineEngine world fluids (docs/FLUID_TYPES_PLAN.md §7) ----\n");
+    public static @NotNull String fragment(@NotNull String original, @NotNull Constants constants, @NotNull Dialect dialect) throws MismatchException {
+        int location = nextLocation(original.replace(") in ", ") out "));
+        StringBuilder declarations = new StringBuilder("\n// ---- MachineEngine world fluids (docs/FLUID_TYPES_PLAN.md §7) ----\n").append(dialect.open());
         String[][] varyings = varyings();
         for (int i = 0; i < varyings.length; i++) {
             declarations.append(location < 0 ? "" : "layout(location = " + (location + i) + ") ").append(varyings[i][0]).append("in ")
                     .append(varyings[i][1]).append(";\n");
         }
-        declarations.append(fragmentConstants(constants)).append("// ---- end world fluids ----\n");
-        String withDeclarations = insertAfter(IN_TEXCOORD, vanilla, "in vec2 texCoord0;", declarations.toString());
-        Matcher color = once(COLOR, withDeclarations, "vec4 color = <sample> * vertexColor;");
+        declarations.append(dialect.names(fragmentConstants(constants))).append(dialect.close()).append("// ---- end world fluids ----\n");
+        Pattern in = Pattern.compile("^(layout\\(location = \\d+\\) )?in vec2 " + dialect.texCoord + ";.*\\R", Pattern.MULTILINE);
+        String withDeclarations = insertAfter(in, original, "in vec2 " + dialect.texCoord + ";", declarations.toString());
+        Matcher color = once(dialect.colorLine, withDeclarations, "the line coloring a texel");
         String indent = color.group(1);
-        String modulator = color.group(3) == null ? "" : color.group(3);
-        String branch = FRAGMENT_COLOR.replace("@VANILLA@", color.group(2) + " * vertexColor" + modulator)
-                .replace("@MODULATE@", modulator.isEmpty() ? "" : "\n        color *= ColorModulator;")
-                .replace("\n", "\n" + indent);
-        return withDeclarations.substring(0, color.start()) + indent + branch.strip() + "\n" + withDeclarations.substring(color.end());
+        String modulator = color.groupCount() >= 3 && color.group(3) != null ? color.group(3) : "";
+        String unchanged = color.group(2) + " * " + dialect.vertexColor + modulator;
+        String fluid = dialect.names(FRAGMENT_FLUID).replace("@MODULATE@", modulator.isEmpty() ? "" : "\n    color *= ColorModulator;");
+        String branch = "vec4 color;\n" + dialect.open() + fluid + "\n} else {\n" + dialect.close()
+                + "    color = " + unchanged + ";\n" + dialect.open() + "}\n" + dialect.close()
+                + "// ---- end world fluids ----\n";
+        branch = branch.replace("\n", "\n" + indent).stripTrailing();
+        return withDeclarations.substring(0, color.start()) + indent + branch + "\n" + withDeclarations.substring(color.end());
     }
 
     /** {qualifier, declaration} of what the vertex passes to the fragment. */
@@ -315,8 +370,7 @@ public final class ShaderPatch {
             // ---- end world fluids ----
             """;
 
-    private static final String FRAGMENT_COLOR = """
-            vec4 color;
+    private static final String FRAGMENT_FLUID = """
             // ---- MachineEngine world fluids ----
             if (meSprite > 0) {
                 int meK = meShare > 0.001 ? int(meKeyShare / meShare + 0.5) : 0;
@@ -338,10 +392,6 @@ public final class ShaderPatch {
                     color = meT >= 1.0 ? meFluid : mix(meWater, meFluid, meT);
                 } else {
                     color = meWater;
-                }@MODULATE@
-            } else {
-            // ---- end world fluids ----
-                color = @VANILLA@;
-            }
-            """;
+                }@MODULATE@""";
+
 }

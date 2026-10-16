@@ -46,7 +46,8 @@ public final class FluidPackBuilder {
     }
 
     /** What was written. */
-    public record Result(@NotNull String format, int looks, int textures, int columns, @NotNull String shader, @NotNull List<String> notes) {
+    public record Result(@NotNull String format, int looks, int textures, int columns, @NotNull String shader, @NotNull String sodium,
+                         @NotNull List<String> notes) {
     }
 
     private FluidPackBuilder() {
@@ -58,7 +59,8 @@ public final class FluidPackBuilder {
      * @param pack       MachineEngine's CraftEngine pack folder (the overlay is written into its {@code resourcepack/})
      */
     public static @NotNull Result build(@NotNull VanillaClient client, @NotNull FluidKeys keys, @NotNull Function<FluidType, FluidLook> look,
-                                        @NotNull Settings settings, @NotNull Path resources, @NotNull Path pack)
+                                        @NotNull Settings settings, @NotNull Path resources, @NotNull Path pack,
+                                        @Nullable SodiumShaders sodium)
             throws IOException, ShaderPatch.MismatchException {
         List<String> notes = new ArrayList<>();
         int[] format = packFormat(client);
@@ -70,7 +72,7 @@ public final class FluidPackBuilder {
         deleteTree(overlay);
         if (keys.keyCount() == 0) {
             writeMeta(pack, format, false);
-            return new Result(formatText(format), 0, 0, 0, shader, List.of("no placeable fluid: nothing to draw"));
+            return new Result(formatText(format), 0, 0, 0, shader, "no Sodium shader", List.of("no placeable fluid: nothing to draw"));
         }
 
         // One look per key: the look of the first fluid that has it (fluids sharing a key look the same).
@@ -157,8 +159,19 @@ public final class FluidPackBuilder {
         Files.createDirectories(shaders);
         Files.writeString(shaders.resolve(shader + ".vsh"), vertex, StandardCharsets.UTF_8);
         Files.writeString(shaders.resolve(shader + ".fsh"), fragment, StandardCharsets.UTF_8);
+        String sodiumNote = "no Sodium shader";
+        if (sodium != null) {
+            // The same fluids for players using Sodium (0.9+), which draws terrain with its own shader.
+            Path sodiumShaders = overlay.resolve("assets/sodium/shaders/blocks");
+            Files.createDirectories(sodiumShaders);
+            Files.writeString(sodiumShaders.resolve("block_layer_opaque.vsh"),
+                    ShaderPatch.vertex(sodium.vertex(), constants, ShaderPatch.Dialect.SODIUM), StandardCharsets.UTF_8);
+            Files.writeString(sodiumShaders.resolve("block_layer_opaque.fsh"),
+                    ShaderPatch.fragment(sodium.fragment(), constants, ShaderPatch.Dialect.SODIUM), StandardCharsets.UTF_8);
+            sodiumNote = "Sodium " + sodium.version();
+        }
         writeMeta(pack, format, true);
-        return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, notes);
+        return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, notes);
     }
 
     /** Where the bucket texture of a fluid is: {@code machineengine:item/fluid_bucket/<namespace>/<path>}. */

@@ -5,6 +5,7 @@ import fr.robie.machineengine.api.resource.fluid.FluidType;
 import fr.robie.machineengine.paper.fluid.client.FluidKeys;
 import fr.robie.machineengine.paper.fluid.pack.FluidPackBuilder;
 import fr.robie.machineengine.paper.fluid.pack.ShaderPatch;
+import fr.robie.machineengine.paper.fluid.pack.SodiumShaders;
 import fr.robie.machineengine.paper.fluid.pack.TextureGrid;
 import fr.robie.machineengine.paper.fluid.pack.VanillaClient;
 import net.kyori.adventure.key.Key;
@@ -141,7 +142,8 @@ class FluidPackTest {
 
     @Test
     void aShaderWithoutTheSkeletonIsRefused() {
-        assertThrows(ShaderPatch.MismatchException.class, () -> ShaderPatch.vertex(VERTEX.replace("texCoord0 = UV0;", "texCoord0 = UV0 * 2.0;"), constants()));
+        assertThrows(ShaderPatch.MismatchException.class, () -> ShaderPatch.vertex(VERTEX.replace("    texCoord0 = UV0;\n", ""), constants()),
+                "no texCoord0 assignment");
         assertThrows(ShaderPatch.MismatchException.class, () -> ShaderPatch.fragment(FRAGMENT.replace("* vertexColor", "+ vertexColor"), constants()));
         assertThrows(ShaderPatch.MismatchException.class, () -> ShaderPatch.vertex(VERTEX + VERTEX.substring(VERTEX.indexOf("out vec2")), constants()),
                 "twice is refused too");
@@ -170,7 +172,7 @@ class FluidPackTest {
                 try (VanillaClient client = VanillaClient.open(version)) {
                     Path pack = out.resolve(version.getFileName().toString());
                     FluidPackBuilder.Result result = FluidPackBuilder.build(client, keys, FluidType::look,
-                            new FluidPackBuilder.Settings(NEUTRAL, true, false, 8), out.resolve("none"), pack);
+                            new FluidPackBuilder.Settings(NEUTRAL, true, false, 8), out.resolve("none"), pack, sodium(version.getFileName().toString()));
                     assertEquals(2, result.looks(), version.toString());
                     assertTrue(Files.isRegularFile(pack.resolve("resourcepack/" + FluidPackBuilder.OVERLAY + "/assets/minecraft/shaders/core/"
                             + result.shader() + ".vsh")), version.toString());
@@ -193,6 +195,26 @@ class FluidPackTest {
         assertEquals(0xFFA8A8A8, out.getRGB(1, 0), "the bucket stays");
         assertEquals(Key.key("machineengine", "item/fluid_bucket/mekanized/fluid/brine"),
                 FluidPackBuilder.bucketTexture(Key.key("mekanized", "fluid/brine")));
+    }
+
+    /** Sodium's shaders of a version, from {@code -Dmachineengine.sodium=<folder of versions>} (fetch_sodium.py); null without. */
+    private static SodiumShaders sodium(String version) throws Exception {
+        String folder = System.getProperty("machineengine.sodium");
+        if (folder == null) return null;
+        Path root = Path.of(folder, version);
+        if (!Files.isRegularFile(root.resolve(SodiumShaders.VERTEX))) return null;
+        String name = Files.readString(root.resolve("version.txt")).lines().findFirst().orElse("?");
+        if (!SodiumShaders.overridable(name)) return null; // as the builder: before 0.9 a pack can't replace them
+        return new SodiumShaders(name, Files.readString(root.resolve(SodiumShaders.VERTEX)), Files.readString(root.resolve(SodiumShaders.FRAGMENT)));
+    }
+
+    @Test
+    void onlySodiumFromZeroNineTakesShadersFromPacks() {
+        assertTrue(SodiumShaders.overridable("mc26.2-0.9.2-fabric"));
+        assertTrue(SodiumShaders.overridable("mc26.3-0.9.3-beta.1-fabric"));
+        assertTrue(SodiumShaders.overridable("1.0.0"));
+        assertTrue(!SodiumShaders.overridable("mc26.1.1-0.8.9-fabric"));
+        assertTrue(!SodiumShaders.overridable("mc1.21.4-0.6.13-fabric"));
     }
 
     @Test

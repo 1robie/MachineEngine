@@ -19,7 +19,7 @@ dependencies {
 // Dev check of the world fluids pack on every version's vanilla shaders (FluidPackTest):
 // -Pmachineengine.vanilla=<folder of extracted client files> [-Pmachineengine.vanillaOut=<folder>]
 tasks.test {
-    for (name in listOf("machineengine.vanilla", "machineengine.vanillaOut")) {
+    for (name in listOf("machineengine.vanilla", "machineengine.vanillaOut", "machineengine.sodium")) {
         providers.gradleProperty(name).orNull?.let { systemProperty(name, it) }
     }
 }

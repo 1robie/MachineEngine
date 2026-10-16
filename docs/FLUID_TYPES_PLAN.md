@@ -325,7 +325,12 @@ Three layers, each overriding the one before:
      - `FluidPackTest` covers the grid code round trip in an atlas with padding, the patch, locations, and refusals. With `-Pmachineengine.vanilla`, it also patches all 13 versions.
      - `tools/world-fluids/` holds the vanilla extractor and a glslang check: 13 versions, 88 define sets (cutout; on 26.3 multidraw and every OIT pass), vertex and fragment linked, **0 failures**.
      - Headless: Paper 26.3 and Folia 26.2 download the jar and write the pack; CraftEngine validates and merges the overlay, and nothing else in the pack touches the terrain shader or water textures.
-   - **Not covered:** the Vulkan backend of 26.2+ (glslang checks OpenGL rules; in game only). Sodium is left for later (owner, 2026-10-16), so Sodium players see key colors. Bucket textures wait for stage 6.
+   - **Not covered:** the Vulkan backend of 26.2+ (glslang checks OpenGL rules; in game only). Bucket textures wait for stage 6.
+   - **Sodium (added 2026-10-16, owner):** without it, Sodium players saw the raw texture grid on all water, because Sodium draws terrain with its own shader. That's why "later" was not an option.
+     - `SodiumShaders` takes the newest Sodium for the server's version from Modrinth (a release, else a beta), checked by SHA-1 and cached. Only Sodium 0.9 and later (26.2, 26.3) read shaders from resource packs; older Sodium loads them from its jar (checked in each jar's `ShaderLoader`), so 1.20.6–26.1 Sodium players still see the grid. `world-fluids.shader: false` avoids that.
+     - `ShaderPatch` has two dialects (vanilla, Sodium) sharing one GLSL body. Sodium's names are `v_TexCoord`, `_vert_color`, `v_Color` and `u_BlockTex`, and its color is set over two lines. Under Sodium's Vulkan backend the fluid code is skipped (`#ifndef VULKAN`), not checked.
+     - glslang: 68 Sodium define sets (vertex compression, fog, cutout, every 26.3 OIT pass), 0 failures; the vanilla 88 are still 0 failures.
+     - The owner's Sodium 0.9.1 has the same shaders as 0.9.2. A future 0.9.x that changes them would break Sodium players until the pack is rebuilt (`/machineengine reload fluids`).
    - **Dev servers:** the spike's old pack (`resources/machineengine_fluids`, overlay `me_fluids_88`) was removed from `run/folia-26.2` and `run/paper-26.2`. It replaced the same files and came after ours.
 
    The draft for this stage:

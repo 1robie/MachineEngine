@@ -14,5 +14,9 @@ Minecraft version comes out. Nothing from Mojang is kept in git: the files are e
    Every version, every define set the game uses (cutout, and on 26.3 multidraw and each OIT pass), vertex and
    fragment linked. Vanilla is compiled first: a set where vanilla fails too is "skipped", never "ok".
 
-Result on 2026-10-16: 13 versions (1.20.6 to 26.3), 88 define sets, 0 failures. glslang checks OpenGL
+4. Sodium (0.9+, 26.2 and 26.3; older Sodium reads its shaders from its jar only): `python -I tools/world-fluids/fetch_sodium.py`
+   writes `tools/world-fluids/sodium/<version>/` (git-ignored); add `-Pmachineengine.sodium=tools/world-fluids/sodium` to step 2, then
+   `python -I tools/world-fluids/validate_sodium.py <glslang.exe> tools/world-fluids/vanilla tools/world-fluids/sodium tools/world-fluids/packs`.
+
+Result on 2026-10-16: 13 versions (1.20.6 to 26.3), 88 define sets, 0 failures; Sodium 0.9.2 (26.2) and 0.9.3-beta.1 (26.3), 68 define sets, 0 failures. glslang checks OpenGL
 rules; 26.2+ can also run on Vulkan, which only an in-game check covers.

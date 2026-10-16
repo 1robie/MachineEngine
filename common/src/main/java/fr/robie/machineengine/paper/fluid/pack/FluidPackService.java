@@ -90,13 +90,24 @@ public final class FluidPackService {
                     done.accept("world-fluids.shader is off: no fluid shader in the pack (fluids show their key colors); " + buckets + " bucket textures.");
                     return;
                 }
+                SodiumShaders sodium = null;
+                if (this.config.get(WorldFluidConfig.SODIUM)) {
+                    try {
+                        sodium = SodiumShaders.load(Bukkit.getMinecraftVersion(), this.cache);
+                        if (sodium == null) Logger.info("[fluids]", "No Sodium for Minecraft %version% reads shaders from resource packs (Sodium 0.9, 26.2+): Sodium players see the texture grid on water",
+                                Placeholder.of("version", Bukkit.getMinecraftVersion()));
+                    } catch (IOException e) {
+                        Logger.warn("[fluids]", "Sodium's shader could not be downloaded; Sodium players see the texture grid on water: %error%",
+                                Placeholder.of("error", String.valueOf(e.getMessage())));
+                    }
+                }
                 FluidPackBuilder.Result result = FluidPackBuilder.build(client, this.keys, WorldFluids::look, new FluidPackBuilder.Settings(
                         this.config.get(WorldFluidConfig.NEUTRAL_COLOR), this.config.get(WorldFluidConfig.UNIFORM_WATER),
                         this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID)),
-                        this.resources, this.pack);
+                        this.resources, this.pack, sodium);
                 result.notes().forEach(note -> Logger.warn("[fluids]", "%note%", Placeholder.of("note", note)));
                 done.accept("World fluids pack written: " + result.looks() + " looks, " + result.textures() + " textures ("
-                        + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, pack format " + result.format()
+                        + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, " + result.sodium() + ", pack format " + result.format()
                         + ", " + buckets + " bucket textures.");
             }
         } catch (IOException | ShaderPatch.MismatchException | RuntimeException e) {
