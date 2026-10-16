@@ -223,6 +223,32 @@ Three layers, each overriding the one before:
 - **Proposal:** download the official client jar for the configured client versions from Mojang's version manifest, check its SHA-1, and keep it in `plugins/MachineEngine/cache/`. A config key can point to a local jar instead.
 - **Sodium:** its shader is LGPL-3.0. The plan keeps our patched copy per Sodium version in the repo, with its license notice, instead of reading a player's jar.
 
+### 4.4 Uniform water, whole chain (researched 2026-10-16)
+
+- **What was tested:** the spike's whole-chain simulation, with every cell outside a fluid sent as the neutral water and no neutral ring. The 22-key palette was used, with a share cut of 20%. The chain covered the server cells, the client's exact zoom (vanilla jitter), the box blend, the face shade with Sodium-like darkening, 8-bit colors and the shader's decode. There were 88 pools (radius 3, 6 and 9) at random places and heights, and about 114,000 blocks per row.
+- **One fluid:**
+
+  | Biome Blend | Dispersion | Pool blocks shown | at full strength | Wrong fluid | Plain water read as a fluid |
+  |---|---|---|---|---|---|
+  | 1×1 | 0 / 1 / 2 | 100% | 100% | 0 / 1 / 5 | never |
+  | 5×5 (default) | 0 / 1 / 2 | 100% | 82% / 91% / 91% | 1 / 5 / 19 | never |
+  | 15×15 | 0 / 1 / 2 | 99.9% / 100% / 100% | 12% / 23% / 20% | 15 / 15 / 22 | never |
+
+  - "Full strength" matters only with `edge: soft`. With `edge: sharp`, a shown block is drawn fully.
+  - Wrong fluids come from the weak tail (shares close to the cut).
+  - Dispersion 2 reaches 12–16 blocks around a pool, because the 25% ring is above the 20% cut.
+- **Two different fluids, gap between pools** (blocks wrong / shown):
+
+  | Biome Blend | 4 blocks | 8 blocks (2 areas) | 12 | 16 | 20 |
+  |---|---|---|---|---|---|
+  | 5×5 | 103 / 6,243 | 22 / 6,656 (0.3%) | 3 | 1 | 1 |
+  | 15×15 | 871 / 7,136 | 563 / 8,758 (6.4%) | 41 | 0 | 4 |
+
+  - **A pool never shows the wrong fluid.** Every error is a third fluid's color in the open water between the two pools: a mix of keys A and B with the neutral points in a direction between them, where another key lies. The shader can't avoid it, because a two-key fit is ambiguous with 22 keys.
+  - These wrong pixels are faint. At 15×15 with an 8-block gap, none is above a 60% share, and half are under 30%.
+- **Decision:** `fluid-gap: 2` (8 blocks) stays the default, clean at the default 5×5 blend. Players with 15×15 can see a faint third color between two different fluids closer than 16 blocks. A server that wants none sets `fluid-gap: 4`. The docs page says so.
+- **The neutral ring is not needed** with uniform water (`neutral-rings` only applies to `uniform-water: false`).
+
 ## 5. Stages
 
 1. **API.** Done (2026-10-16), branch `feature/fluid-types`. Names in the code (they differ from the draft above):
@@ -249,7 +275,7 @@ Three layers, each overriding the one before:
 3. **Research before the runtime:**
    - key palette size: **done** (§4.3);
    - texture grid code for more than 7 textured fluids: **done** (§4.3, 63 by default, up to 255);
-   - uniform water: the whole-chain simulation re-run without the neutral ring.
+   - uniform water: the whole-chain simulation re-run without the neutral ring: **done** (§4.4).
 4. **Runtime.** Ported from the spike into `common`:
    - tracker, codec, flow, mixing (effect and mixing registries), buckets, viscosity, effects;
    - key biomes, neutral ring, remapper, biome-only updates, conflict and gap rules;
