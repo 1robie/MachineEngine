@@ -1,8 +1,5 @@
 package fr.robie.machineengine.api.registry;
 
-import fr.robie.machineengine.api.resource.fluid.FluidEffectType;
-import fr.robie.machineengine.api.resource.fluid.FluidReactionType;
-import fr.robie.machineengine.api.resource.fluid.FluidTextureType;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.data.VersionedCodec;
@@ -22,6 +19,9 @@ import fr.robie.machineengine.api.resource.ResourceCategory;
 import fr.robie.machineengine.api.resource.ResourceComponentType;
 import fr.robie.machineengine.api.resource.ResourceType;
 import fr.robie.machineengine.api.resource.convert.ResourceConverter;
+import fr.robie.machineengine.api.resource.fluid.FluidEffectType;
+import fr.robie.machineengine.api.resource.fluid.FluidReactionType;
+import fr.robie.machineengine.api.resource.fluid.FluidTextureType;
 import fr.robie.machineengine.api.resource.tag.ResourceTagContribution;
 import fr.robie.machineengine.api.upgrade.ModifierType;
 import fr.robie.machineengine.api.upgrade.UpgradeType;
