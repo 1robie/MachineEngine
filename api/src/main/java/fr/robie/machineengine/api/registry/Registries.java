@@ -1,5 +1,8 @@
 package fr.robie.machineengine.api.registry;
 
+import fr.robie.machineengine.api.resource.fluid.FluidEffectType;
+import fr.robie.machineengine.api.resource.fluid.FluidReactionType;
+import fr.robie.machineengine.api.resource.fluid.FluidTextureType;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.data.VersionedCodec;
@@ -61,6 +64,18 @@ public final class Registries {
     /** Behaviors data-driven machine definitions can use by key (§29). */
     public static final RegistryType<BehaviorType> BEHAVIOR_TYPE =
             RegistryType.createStatic(MachineEngineKeys.key("behavior_type"), BehaviorType.class);
+
+    /** Kinds of effect a placed fluid has on entities inside it (D47), usable by key in definitions. */
+    public static final RegistryType<FluidEffectType> FLUID_EFFECT_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("fluid_effect_type"), FluidEffectType.class);
+
+    /** Kinds of reaction when a placed fluid meets another (D47), usable by key in definitions. */
+    public static final RegistryType<FluidReactionType> FLUID_REACTION_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("fluid_reaction_type"), FluidReactionType.class);
+
+    /** Kinds of fluid texture source (D47), usable by key in definitions. */
+    public static final RegistryType<FluidTextureType> FLUID_TEXTURE_TYPE =
+            RegistryType.createStatic(MachineEngineKeys.key("fluid_texture_type"), FluidTextureType.class);
 
     /** Values kept per player (D37). */
     public static final RegistryType<PlayerDataKey<?>> PLAYER_DATA =

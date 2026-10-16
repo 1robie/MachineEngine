@@ -1,5 +1,8 @@
 package fr.robie.machineengine.api.addon;
 
+import fr.robie.machineengine.api.resource.fluid.FluidEffectType;
+import fr.robie.machineengine.api.resource.fluid.FluidReactionType;
+import fr.robie.machineengine.api.resource.fluid.FluidTextureType;
 import fr.robie.machineengine.api.capability.CapabilityType;
 import fr.robie.machineengine.api.definition.BehaviorType;
 import fr.robie.machineengine.api.diagnostic.Diagnostic;
@@ -137,6 +140,18 @@ public interface RegistrationContext {
     }
 
     /** Values kept per player (D37). */
+    default @NotNull WritableRegistry<FluidEffectType> fluidEffectTypes() {
+        return registry(Registries.FLUID_EFFECT_TYPE);
+    }
+
+    default @NotNull WritableRegistry<FluidReactionType> fluidReactionTypes() {
+        return registry(Registries.FLUID_REACTION_TYPE);
+    }
+
+    default @NotNull WritableRegistry<FluidTextureType> fluidTextureTypes() {
+        return registry(Registries.FLUID_TEXTURE_TYPE);
+    }
+
     default @NotNull WritableRegistry<PlayerDataKey<?>> playerData() {
         return registry(Registries.PLAYER_DATA);
     }

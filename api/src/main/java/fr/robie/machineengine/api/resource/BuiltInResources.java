@@ -2,6 +2,9 @@ package fr.robie.machineengine.api.resource;
 
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.config.ConfigValues;
+import fr.robie.machineengine.api.resource.fluid.FluidType;
+import fr.robie.machineengine.api.resource.fluid.WorldMode;
+import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
@@ -23,7 +26,7 @@ public final class BuiltInResources {
 
     /** The resources, units, scales and bucket size built from {@code config}. */
     public record Built(@NotNull ResourceCategory energyCategory, @NotNull ResourceType energy,
-                        @NotNull ResourceCategory fluidCategory, @NotNull ResourceType water, @NotNull ResourceType lava, long bucket) {
+                        @NotNull ResourceCategory fluidCategory, @NotNull FluidType water, @NotNull FluidType lava, long bucket) {
         boolean sameSettings(Built other) {
             return same(this.energyCategory, other.energyCategory) && same(this.fluidCategory, other.fluidCategory) && this.bucket == other.bucket
                     && Objects.equals(this.water.color(), other.water.color()) && Objects.equals(this.lava.color(), other.lava.color());
@@ -41,9 +44,13 @@ public final class BuiltInResources {
         ResourceCategory fluidCategory = ResourceCategory.builder(Fluids.CATEGORY_KEY)
                 .unit(config.get(Fluids.UNIT)).scale(config.get(Fluids.SCALE)).build();
         return new Built(energyCategory, ResourceType.of(Energy.KEY, energyCategory), fluidCategory,
-                ResourceType.of(Fluids.WATER_KEY, fluidCategory, config.get(Fluids.WATER_COLOR)),
-                ResourceType.of(Fluids.LAVA_KEY, fluidCategory, config.get(Fluids.LAVA_COLOR)),
+                vanilla(Fluids.WATER_KEY, fluidCategory, config.get(Fluids.WATER_COLOR)),
+                vanilla(Fluids.LAVA_KEY, fluidCategory, config.get(Fluids.LAVA_COLOR)),
                 config.get(Fluids.BUCKET));
+    }
+
+    private static FluidType vanilla(Key key, ResourceCategory category, int color) {
+        return FluidType.builder(key).category(category).color(color).world(WorldMode.VANILLA).build();
     }
 
     /**

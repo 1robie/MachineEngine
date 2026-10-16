@@ -1,7 +1,11 @@
 package fr.robie.machineengine.api.resource;
 
+import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.MachineEngineKeys;
 import fr.robie.machineengine.api.config.ConfigKey;
+import fr.robie.machineengine.api.registry.Registries;
+import fr.robie.machineengine.api.resource.fluid.FluidType;
+import fr.robie.machineengine.api.resource.fluid.WorldMode;
 import fr.robie.machineengine.api.resource.match.ResourcePredicate;
 import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
@@ -12,6 +16,10 @@ import org.jetbrains.annotations.Nullable;
  * MachineEngine registers water and lava; addons create their own fluids in the same category with
  * {@link #create}, so a pipe or port accepting {@link #any()} moves every registered fluid. Fluid
  * keys are {@code <namespace>:fluid/<name>}.
+ *
+ * <p>Every fluid MachineEngine and addons make is a {@link FluidType} (D47): water and lava are
+ * vanilla fluids, others live in tanks and pipes, or are placeable in the world too
+ * ({@link FluidType#builder}).</p>
  *
  * <p>The unit, scale and bucket size are set in {@code config.yml} ({@code resources.fluid}) and read
  * when the fluids are built.</p>
@@ -45,12 +53,12 @@ public final class Fluids {
     }
 
     /** {@code machineengine:fluid/water}. */
-    public static @NotNull ResourceType water() {
+    public static @NotNull FluidType water() {
         return BuiltInResources.get().water();
     }
 
     /** {@code machineengine:fluid/lava}. */
-    public static @NotNull ResourceType lava() {
+    public static @NotNull FluidType lava() {
         return BuiltInResources.get().lava();
     }
 
@@ -65,34 +73,63 @@ public final class Fluids {
     }
 
     /**
-     * A new fluid in the global category, e.g. {@code Fluids.create(Key.key("mymod", "fluid/oil"))}.
-     * Register it with {@code context.resourceTypes().register(...)} like any resource type.
+     * A new fluid in the global category that lives only in tanks, pipes and items, e.g.
+     * {@code Fluids.create(Key.key("mymod", "fluid/oil"))}. Register it with
+     * {@code context.resourceTypes().register(...)} like any resource type. For a fluid that can be
+     * placed in the world, use {@link FluidType#builder}.
      */
-    public static @NotNull ResourceType create(@NotNull Key key) {
-        return ResourceType.of(key, category());
+    public static @NotNull FluidType create(@NotNull Key key) {
+        return FluidType.builder(key).build();
     }
 
     /** A new fluid with a menu color ({@code 0xRRGGBB}), as {@link #create(Key)}. */
-    public static @NotNull ResourceType create(@NotNull Key key, int color) {
-        return ResourceType.of(key, category(), color);
+    public static @NotNull FluidType create(@NotNull Key key, int color) {
+        return FluidType.builder(key).color(color).build();
     }
 
-    /** Whether {@code type} is in the global fluid category. */
+    /** Whether {@code type} is a fluid: a {@link FluidType}, or a plain type in the global fluid category (older addons). */
     public static boolean isFluid(@NotNull ResourceType type) {
-        return type.category() == category();
+        return type instanceof FluidType || type.category() == category();
     }
 
-    /** The world fluid ({@code minecraft:water} or {@code minecraft:lava}) of a fluid; {@code null} for fluids with no block. */
+    /** {@code type} as a {@link FluidType}, or {@code null} if it is not one. */
+    public static @Nullable FluidType asFluid(@NotNull ResourceType type) {
+        return type instanceof FluidType fluid ? fluid : null;
+    }
+
+    /** Whether {@code key} is MachineEngine's water or lava. */
+    public static boolean isVanillaKey(@NotNull Key key) {
+        return key.equals(WATER_KEY) || key.equals(LAVA_KEY);
+    }
+
+    /**
+     * The world fluid of a fluid, as {@code WorldFluid} and the {@code MachineWorld} fluid calls name
+     * them: {@code minecraft:water} or {@code minecraft:lava} for those, the fluid's own key for a
+     * placeable fluid (D46), {@code null} for fluids with no block.
+     */
     public static @Nullable Key worldFluid(@NotNull ResourceType type) {
         if (type == water()) return WORLD_WATER;
         if (type == lava()) return WORLD_LAVA;
+        if (type instanceof FluidType fluid && fluid.world() == WorldMode.PLACEABLE) return fluid.key();
         return null;
     }
 
-    /** The fluid of a world fluid ({@code minecraft:water} or {@code minecraft:lava}); {@code null} for others. */
+    /**
+     * The fluid of a world fluid: water or lava for {@code minecraft:water} / {@code minecraft:lava},
+     * the placeable fluid registered under that key, {@code null} for others (or while MachineEngine
+     * is not running).
+     */
     public static @Nullable ResourceType fromWorld(@NotNull Key worldFluid) {
         if (worldFluid.equals(WORLD_WATER)) return water();
         if (worldFluid.equals(WORLD_LAVA)) return lava();
-        return null;
+        MachineEngine engine;
+        try {
+            engine = MachineEngine.get();
+        } catch (IllegalStateException notRunning) {
+            return null;
+        }
+        return engine.registries().registry(Registries.RESOURCE_TYPE).get(worldFluid)
+                .filter(type -> type instanceof FluidType fluid && fluid.world() == WorldMode.PLACEABLE)
+                .orElse(null);
     }
 }

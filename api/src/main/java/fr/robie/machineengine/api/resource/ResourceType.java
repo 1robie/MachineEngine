@@ -14,8 +14,13 @@ import java.util.Objects;
  * <p>A type may carry its menu {@linkplain #color() color}, set once when it is built and never changed:
  * a server owner sets it in {@code config.yml} (water, lava) or a definition's {@code color:}, and code
  * passes it to the factories. Menus draw tinted bars with it ({@code api.paper.ResourceColors}).</p>
+ *
+ * <p>Subclasses may add data that belongs to a kind of resource, as
+ * {@link fr.robie.machineengine.api.resource.fluid.FluidType} does for fluids (D47). They keep the
+ * identity of the registered object: {@code equals} and {@code hashCode} are {@link Object}'s and
+ * must not be overridden, and every field stays final.</p>
  */
-public final class ResourceType implements Keyed {
+public class ResourceType implements Keyed {
     private final Key key;
     private final ResourceCategory category;
     private final ResourceComponents defaultComponents;
@@ -23,11 +28,17 @@ public final class ResourceType implements Keyed {
     // Created lazily: building it in the constructor would leak `this`. Benign race (immutable value).
     private ResourceVariant defaultVariant;
 
-    private ResourceType(Key key, ResourceCategory category, ResourceComponents defaultComponents, @Nullable Integer color) {
-        this.key = key;
-        this.category = category;
-        this.defaultComponents = defaultComponents;
-        this.color = color;
+    /**
+     * For subclasses (D47); plain types are built with the {@code of} factories.
+     *
+     * @param color the menu color ({@code 0xRRGGBB}; bits above 24 are ignored), or {@code null} for none
+     */
+    protected ResourceType(@NotNull Key key, @NotNull ResourceCategory category, @NotNull ResourceComponents defaultComponents,
+                           @Nullable Integer color) {
+        this.key = Objects.requireNonNull(key);
+        this.category = Objects.requireNonNull(category);
+        this.defaultComponents = Objects.requireNonNull(defaultComponents);
+        this.color = color == null ? null : color & 0xFFFFFF;
     }
 
     public static @NotNull ResourceType of(@NotNull Key key, @NotNull ResourceCategory category) {
@@ -96,6 +107,17 @@ public final class ResourceType implements Keyed {
 
     public @NotNull ResourceStack stack(long amount) {
         return new ResourceStack(variant(), amount);
+    }
+
+    // Identity (D9): the registered object is the type.
+    @Override
+    public final boolean equals(Object other) {
+        return this == other;
+    }
+
+    @Override
+    public final int hashCode() {
+        return System.identityHashCode(this);
     }
 
     @Override

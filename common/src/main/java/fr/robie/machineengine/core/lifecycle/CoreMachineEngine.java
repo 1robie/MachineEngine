@@ -124,6 +124,7 @@ public final class CoreMachineEngine implements MachineEngine {
                 Registries.EVENT_TYPE, Registries.CAPABILITY_TYPE, Registries.MACHINE_TYPE, Registries.RECIPE_TYPE,
                 Registries.MODIFIER_TYPE, Registries.UPGRADE_TYPE, Registries.NETWORK_TYPE, Registries.TRANSPORT_TYPE,
                 Registries.MULTIBLOCK_TYPE, Registries.BEHAVIOR_TYPE,
+                Registries.FLUID_EFFECT_TYPE, Registries.FLUID_REACTION_TYPE, Registries.FLUID_TEXTURE_TYPE,
                 Registries.PLAYER_DATA, Registries.PLAYER_SETTING, Registries.PLAYER_STORAGE,
                 Registries.RECIPE, Registries.RESOURCE_TAG, Registries.ITEM_TAG)) {
             this.registries.create(AddonId.MACHINE_ENGINE, type);
