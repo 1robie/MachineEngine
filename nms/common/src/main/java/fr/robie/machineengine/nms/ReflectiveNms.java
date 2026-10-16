@@ -2,6 +2,8 @@ package fr.robie.machineengine.nms;
 
 import fr.robie.machineengine.api.platform.NmsAccess;
 import fr.robie.machineengine.api.platform.PlayerInput;
+import fr.robie.machineengine.api.platform.WorldFluidNms;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -22,6 +24,8 @@ import java.lang.reflect.Method;
 public final class ReflectiveNms implements NmsAccess {
     private static final MethodHandle GET_OPEN_INVENTORY;
     private static final MethodHandle GET_TOP_INVENTORY;
+    private volatile @Nullable WorldFluidNms worldFluids;
+    private volatile boolean worldFluidsLoaded;
 
     static {
         try {
@@ -58,6 +62,29 @@ public final class ReflectiveNms implements NmsAccess {
         } catch (ReflectiveOperationException | RuntimeException e) {
             return null;
         }
+    }
+
+    /**
+     * 26.1 and 26.2 use the 26.3 module's world fluids (the server classes it uses are the same; Java 25
+     * like every 26.x server); 1.21.x uses {@link ReflectiveWorldFluids}.
+     */
+    @Override
+    public @Nullable WorldFluidNms worldFluids() {
+        WorldFluidNms current = this.worldFluids;
+        if (current != null || this.worldFluidsLoaded) return current;
+        this.worldFluidsLoaded = true;
+        if (Bukkit.getMinecraftVersion().startsWith("26.")) {
+            try {
+                current = (WorldFluidNms) Class.forName("fr.robie.machineengine.nms.v26_3.WorldFluidAccess")
+                        .getDeclaredConstructor().newInstance();
+            } catch (ReflectiveOperationException | LinkageError e) {
+                current = null;
+            }
+        } else {
+            current = ReflectiveWorldFluids.create(message -> Bukkit.getLogger().warning("[MachineEngine] [nms] " + message));
+        }
+        this.worldFluids = current;
+        return current;
     }
 
     private static boolean is(Class<?> type, Object input, String method) throws ReflectiveOperationException {

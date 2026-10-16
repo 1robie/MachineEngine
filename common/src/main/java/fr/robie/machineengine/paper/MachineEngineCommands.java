@@ -16,7 +16,9 @@ import fr.robie.machineengine.api.transfer.StorageView;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.lifecycle.CoreMachineEngine;
 import fr.robie.machineengine.core.machine.LoadedMachine;
+import fr.robie.machineengine.paper.fluid.FluidAdminCommand;
 import fr.robie.machineengine.paper.fluid.FluidSettingsFile;
+import fr.robie.machineengine.paper.fluid.WorldFluidRuntime;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.PlayerAdminCommand;
@@ -49,23 +51,26 @@ import java.util.function.Supplier;
 @SuppressWarnings("UnstableApiUsage")
 public final class MachineEngineCommands extends BaseCommand<Plugin> {
     public static final String PERMISSION = "machineengine.admin";
-    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|fill|drain|wake|placeholders|network|registry|player|reload|check>";
+    private static final String USAGE = "Usage: /machineengine <status|report|debug|inspect|fill|drain|wake|placeholders|network|registry|player|fluid|reload|check>";
 
     private final Supplier<CoreMachineEngine> engine;
     private final Supplier<MachineLocator> locator;
     private final Supplier<ConfigLoadResult> reloadConfig;
     private final Supplier<@Nullable FluidSettingsFile> fluids;
     private final MachineDebugView debugView;
+    private final FluidAdminCommand fluidCommand;
 
     public MachineEngineCommands(@NotNull Plugin plugin, @NotNull Supplier<CoreMachineEngine> engine,
                                  @NotNull Supplier<MachineLocator> locator, @NotNull Supplier<ConfigLoadResult> reloadConfig,
-                                 @NotNull Supplier<@Nullable FluidSettingsFile> fluids) {
+                                 @NotNull Supplier<@Nullable FluidSettingsFile> fluids,
+                                 @NotNull Supplier<@Nullable WorldFluidRuntime> worldFluids) {
         super(plugin, "machineengine");
         this.engine = engine;
         this.locator = locator;
         this.reloadConfig = reloadConfig;
         this.fluids = fluids;
         this.debugView = new MachineDebugView(plugin, engine, locator);
+        this.fluidCommand = new FluidAdminCommand(plugin, worldFluids);
         setDescription("MachineEngine admin commands");
         setPermission(PERMISSION);
         addSubCommand(simple("status", this::status));
@@ -81,6 +86,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         addSubCommand(new PlayerAdminCommand(plugin, this.engine));
         MachineStorageCommands.commands(plugin, this.engine, this.locator).forEach(this::addSubCommand);
         addSubCommand(EngineChecks.command(plugin));
+        addSubCommand(this.fluidCommand);
         addSubCommand(SubCommand.builder(plugin, "reload")
                 .addSubCommand(simple("config", dispatch -> reloadConfig(dispatch.getSender())))
                 .addSubCommand(simple("recipes", dispatch -> reload(dispatch.getSender(), Registries.RECIPE)))
@@ -91,6 +97,11 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
                 .addSubCommand(simple("fluids", dispatch -> reloadFluids(dispatch.getSender())))
                 .executes(dispatch -> usage(dispatch, "Usage: /machineengine reload <config|recipes|tags|fluids>"))
                 .build());
+    }
+
+    /** {@code /machineengine fluid}; the plugin stops its placement grids on disable. */
+    public @NotNull FluidAdminCommand fluidCommand() {
+        return this.fluidCommand;
     }
 
     /** The in-world debug view; the plugin stops it on disable. */

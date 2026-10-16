@@ -4,6 +4,7 @@ import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.ApiStatus;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
@@ -29,4 +30,10 @@ public interface NmsAccess {
      * @return false where the server has no such item property (before 1.21.2)
      */
     boolean setGlider(@NotNull ItemMeta meta, boolean glider);
+
+    /** What world fluids need from the server (D46), or {@code null} where they can't run. */
+    @ApiStatus.Internal
+    default @Nullable WorldFluidNms worldFluids() {
+        return null;
+    }
 }

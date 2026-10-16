@@ -31,6 +31,7 @@ import fr.robie.machineengine.paper.MachineMenuService;
 import fr.robie.machineengine.paper.YamlDefinitions;
 import fr.robie.machineengine.paper.event.BukkitEventBridge;
 import fr.robie.machineengine.paper.fluid.FluidSettingsFile;
+import fr.robie.machineengine.paper.fluid.WorldFluidRuntime;
 import fr.robie.machineengine.paper.message.EngineMessage;
 import fr.robie.machineengine.paper.message.EngineMessages;
 import fr.robie.machineengine.paper.player.FilePlayerStorage;
@@ -78,6 +79,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
     private @Nullable CraftEngineMachineHost host;
     private @Nullable MachineEngineCommands commands;
     private @Nullable FluidSettingsFile fluidSettings;
+    private @Nullable WorldFluidRuntime worldFluids;
     private final CommandManager<MachineEnginePlugin> commandManager = new CommandManager<>(this);
     private @Nullable ZMenuMachineMenus menus;
     private @Nullable PaperPlayers players;
@@ -177,9 +179,17 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         if (this.config.get(WorldFluidConfig.ENABLED)) {
             List<Diagnostic> problems = new ArrayList<>();
             this.fluidSettings = FluidSettingsFile.install(getDataFolder().toPath(), started, problems);
+            // The placeable fluids themselves: looks in effect come from fluids.yml, so it is read first.
+            try {
+                this.worldFluids = WorldFluidRuntime.install(this, started, this.config, problems);
+            } catch (RuntimeException | LinkageError e) {
+                Logger.warn("[fluids]", "World fluids could not start; fluids stay in tanks and pipes", e);
+            }
+            if (this.worldFluids != null) this.fluidSettings.attach(this.worldFluids);
             problems.forEach(problem -> Logger.warn("%problem%", Placeholder.of("problem", problem.format())));
         }
-        this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings, () -> this.fluidSettings);
+        this.commands = new MachineEngineCommands(this, () -> this.engine, () -> this.host, this::reloadSettings, () -> this.fluidSettings,
+                () -> this.worldFluids);
         this.commandManager.trackCommand(this.commands);
         this.commandManager.trackCommand(new PlayerSettingsCommand(this, () -> this.engine));
         this.commandManager.flushRegistrations();
@@ -191,6 +201,7 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
         Logger.setDebug(this.config.get(EngineConfig.LOGGING_DEBUG));
         EngineMessages.load(this, this.config);
         if (this.menus != null && result.error() == null) this.menus.reload();
+        if (this.worldFluids != null && result.error() == null) this.worldFluids.settingsChanged();
         return result;
     }
 
@@ -214,7 +225,12 @@ public final class MachineEnginePlugin extends JavaPlugin implements Listener {
 
     @Override
     public void onDisable() {
-        if (this.commands != null) this.commands.debugView().stopAll();
+        if (this.commands != null) {
+            this.commands.debugView().stopAll();
+            this.commands.fluidCommand().stopAll();
+        }
+        if (this.worldFluids != null) this.worldFluids.uninstall();
+        this.worldFluids = null;
         if (this.fluidSettings != null) FluidSettingsFile.uninstall();
         this.fluidSettings = null;
         this.commandManager.unregisterAll(this);

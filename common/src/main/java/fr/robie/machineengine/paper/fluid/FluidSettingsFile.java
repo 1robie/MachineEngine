@@ -57,6 +57,11 @@ public final class FluidSettingsFile {
         return settings;
     }
 
+    /** Answers {@link WorldFluids} with the running world fluids' blocks and this file's settings. */
+    public void attach(@NotNull WorldFluids.Access blocks) {
+        WorldFluids.setAccess(access(blocks));
+    }
+
     /** Stops answering from this file (MachineEngine disables). */
     public static void uninstall() {
         WorldFluids.setAccess(null);

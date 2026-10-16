@@ -276,7 +276,30 @@ Three layers, each overriding the one before:
    - key palette size: **done** (§4.3);
    - texture grid code for more than 7 textured fluids: **done** (§4.3, 63 by default, up to 255);
    - uniform water: the whole-chain simulation re-run without the neutral ring: **done** (§4.4).
-4. **Runtime.** Ported from the spike into `common`:
+4. **Runtime.** Done (2026-10-16), branch `feature/fluid-types`; headless dev checks done, the owner's in-game check is open. In the code:
+   - `common` `paper.fluid`:
+     - `WorldFluidRuntime`: tracking, persistence, flow, sources, buckets, `WorldFluids` answers, chunk updates;
+     - `FluidEntities`: viscosity, damping, drag, effects, enter/leave events; players every 2 ticks, other entities every 4 ticks in chunks that hold fluids;
+     - `FluidRules`: gap, conflict, padding, dispersion;
+     - `FluidChunkCodec`: format 1; saves fluid keys, so a missing addon's fluids stay saved as they are (D3), and data in a newer format is never written over;
+     - `FluidAdminCommand`: `/machineengine fluid info|show|fill|bucket|clear`.
+   - `common` `paper.fluid.client`: `FluidKeys` (fluids numbered by key, one key per resolved look), `KeyPalette` (the simulator's greedy choice, pinned by a test), `FluidCells`, `BiomeZoom`, `FluidBiomeRemapper`.
+   - **Version access:** an internal `api.platform.WorldFluidNms` behind `NmsAccess.worldFluids()`:
+     - `nms:v26_3` (also loaded on 26.1 and 26.2);
+     - `nms:v1_20_6` (no water movement efficiency: viscosity there is speed, gravity, jump and damping);
+     - `nms:common` `ReflectiveWorldFluids` for 1.21.x, with every handle looked up at start.
+     - `BiomeSections` writes the biome sections for all of them; each checks them against the server's own reader at startup.
+     - `-Dmachineengine.reflectiveWorldFluids=true` forces the reflective one, for dev checks.
+   - **Older CraftEngine** (no biome hook): a chunk a player loads gets its fluid colors right after, as a biome-only update.
+   - **Failures:** a world fluids failure at start never stops MachineEngine. It is reported, and fluids stay in tanks and pipes.
+   - **Dev fixture:** `devcheck.yml` has two placeable fluids (`devcheck:fluid/oil`, `devcheck:fluid/brine`).
+   - **Checked headless:** Paper 26.3, Paper 1.20.6 and Folia 26.2 start world fluids, and the biome format check passes. The reflective version starts on 1.20.6 and 26.2 too, the oldest and newest names it handles. No 1.21.x server was run: a new dev server needs the EULA accepted.
+   - **Open:**
+     - custom bucket items (`bucket: <item>`): only `auto` and `none` work; stage 6;
+     - looks changed in `fluids.yml` get new keys only at the next start;
+     - `shader`, `sodium`, `edge`, `client-jar` and `texture-grid` wait for stage 5. Until then, players see the raw key colors.
+
+   The draft for this stage, ported from the spike into `common`:
    - tracker, codec, flow, mixing (effect and mixing registries), buckets, viscosity, effects;
    - key biomes, neutral ring, remapper, biome-only updates, conflict and gap rules;
    - admin commands.

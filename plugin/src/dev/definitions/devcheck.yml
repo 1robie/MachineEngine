@@ -41,3 +41,23 @@ recipes:
       - { item: minecraft:iron_ingot, amount: 2 }
     cost-per-tick:
       - { type: machineengine:energy, amount: 20 }
+
+# World fluids (D46): two placeable fluids for /machineengine fluid (fill, bucket, show).
+resource-types:
+  devcheck:fluid/oil:
+    color: "#2A2238"
+    fluid:
+      world: placeable
+      look: { fog: "#0B0806" }
+      physics:
+        viscosity: { speed: 0.5, gravity: 1.6, jump: 0.5, damping: 0.35, entity-drag: 0.3 }
+        spread: { ticks: 15, range: 5 }
+        infinite-source: false
+      effects:
+        - { type: potion, effect: minecraft:slowness }
+  devcheck:fluid/brine:
+    color: "#C8B88A"
+    fluid:
+      world: placeable
+      physics:
+        viscosity: { speed: 0.9, gravity: 0.8 }

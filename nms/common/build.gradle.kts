@@ -15,4 +15,6 @@ base {
 
 dependencies {
     api(project(":api"))
+    // World fluids (ReflectiveWorldFluids): a Netty handler; the server provides Netty at runtime.
+    compileOnly("io.netty:netty-transport:4.1.97.Final")
 }
