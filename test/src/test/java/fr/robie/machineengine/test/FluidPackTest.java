@@ -246,10 +246,7 @@ class FluidPackTest {
         Files.writeString(vanilla.resolve("fog.glsl"), "");
         Path blocks = temp.resolve("overlay/assets/sodium/shaders/blocks");
         Files.createDirectories(blocks);
-        Files.writeString(blocks.resolve("block_layer_opaque.vsh"), "#version 330
-#moj_import <minecraft:fog.glsl>
-#moj_import <sodium:globals.glsl>
-");
+        Files.writeString(blocks.resolve("block_layer_opaque.vsh"), "#version 330\n#moj_import <minecraft:fog.glsl>\n#moj_import <sodium:globals.glsl>\n");
         Method check = FluidPackBuilder.class.getDeclaredMethod("checkImports", VanillaClient.class, Path.class);
         check.setAccessible(true);
         try (VanillaClient client = VanillaClient.open(temp.resolve("vanilla"))) {
