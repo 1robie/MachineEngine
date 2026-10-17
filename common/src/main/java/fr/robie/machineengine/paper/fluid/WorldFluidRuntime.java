@@ -431,9 +431,20 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         new WorldFluidRemoveEvent(block, fluid, cause).callEvent();
     }
 
+    /**
+     * Blocks past a cell's own blocks whose color can come from it: its readers lie 2 blocks before to 2
+     * after ({@link FluidRules#readersAreWater}), Biome Blend reaches 7 more, Sodium's corners one more.
+     */
+    private static final int COLOR_REACH = 2 + 7 + 1;
+
+    /**
+     * Resends the chunks whose blocks a changed cell can color. The client redraws only the chunk a biome
+     * update is for, so a neighbouring chunk already drawn would keep the old color at its border (with
+     * Sodium, which blends each corner from the blocks around, at every border block).
+     */
     private void markCellDirty(World world, long cell, int rings) {
-        int minX = (Cells.x(cell) - rings) * 4, maxX = (Cells.x(cell) + rings) * 4 + 3;
-        int minZ = (Cells.z(cell) - rings) * 4, maxZ = (Cells.z(cell) + rings) * 4 + 3;
+        int minX = (Cells.x(cell) - rings) * 4 - COLOR_REACH, maxX = (Cells.x(cell) + rings) * 4 + 3 + COLOR_REACH;
+        int minZ = (Cells.z(cell) - rings) * 4 - COLOR_REACH, maxZ = (Cells.z(cell) + rings) * 4 + 3 + COLOR_REACH;
         for (int cx = minX >> 4; cx <= maxX >> 4; cx++)
             for (int cz = minZ >> 4; cz <= maxZ >> 4; cz++)
                 markDirty(world, cx, cz);
