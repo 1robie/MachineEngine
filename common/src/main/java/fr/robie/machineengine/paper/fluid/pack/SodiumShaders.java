@@ -83,6 +83,28 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
         String sha1 = file.getAsJsonObject("hashes").get("sha1").getAsString();
         Path jar = cache.resolve("sodium-" + name.replaceAll("[^A-Za-z0-9.+-]", "_") + ".jar");
         if (!Files.isRegularFile(jar) || !sha1.equalsIgnoreCase(sha1(jar))) download(http, file.get("url").getAsString(), sha1, jar);
+        return fromJar(jar, name);
+    }
+
+    /**
+     * Sodium's shaders from a Sodium jar the server owner gives ({@code world-fluids.sodium-jar}), or {@code null}
+     * when that Sodium can't take them from a pack (before 0.9: its {@code fabric.mod.json} says which version).
+     */
+    public static @Nullable SodiumShaders fromJar(@NotNull Path jar) throws IOException {
+        if (!Files.isRegularFile(jar)) throw new IOException("world-fluids.sodium-jar: " + jar + " does not exist");
+        String version;
+        try (ZipFile zip = new ZipFile(jar.toFile())) {
+            ZipEntry metadata = zip.getEntry("fabric.mod.json");
+            if (metadata == null) metadata = zip.getEntry("META-INF/neoforge.mods.toml");
+            if (metadata == null) throw new IOException(jar + " is not a Sodium jar");
+            String text = read(zip, metadata.getName());
+            Matcher matcher = Pattern.compile("\"?version\"?\s*[:=]\s*\"([^\"]+)\"").matcher(text);
+            version = matcher.find() ? matcher.group(1) : "?";
+        }
+        return overridable(version) ? fromJar(jar, version) : null;
+    }
+
+    private static SodiumShaders fromJar(Path jar, String name) throws IOException {
         try (ZipFile zip = new ZipFile(jar.toFile())) {
             Map<String, String> includes = new TreeMap<>();
             var entries = zip.entries();

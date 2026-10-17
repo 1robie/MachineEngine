@@ -82,38 +82,74 @@ public final class FluidPackService {
 
     private void build(Consumer<String> done) {
         try {
-            Path jar = VanillaClient.locate(this.config.get(WorldFluidConfig.CLIENT_JAR), Bukkit.getMinecraftVersion(), this.cache);
+            String version = Bukkit.getMinecraftVersion();
+            Path jar = VanillaClient.locate(this.config.get(WorldFluidConfig.CLIENT_JAR), version, this.cache);
             try (VanillaClient client = VanillaClient.open(jar)) {
-                int buckets = FluidPackBuilder.buckets(client, this.keys.fluids(), this.pack);
+                int buckets = this.config.get(WorldFluidConfig.BUCKET_TEXTURES) ? FluidPackBuilder.buckets(client, this.keys.fluids(), this.pack) : 0;
                 if (!this.config.get(WorldFluidConfig.SHADER)) {
                     FluidPackBuilder.remove(this.pack);
                     done.accept("world-fluids.shader is off: no fluid shader in the pack (fluids show their key colors); " + buckets + " bucket textures.");
                     return;
                 }
-                SodiumShaders sodium = null;
-                if (this.config.get(WorldFluidConfig.SODIUM)) {
-                    try {
-                        sodium = SodiumShaders.load(Bukkit.getMinecraftVersion(), this.cache);
-                        if (sodium == null) Logger.info("[fluids]", "No Sodium for Minecraft %version% reads shaders from resource packs (Sodium 0.9, 26.2+): Sodium players see the texture grid on water",
-                                Placeholder.of("version", Bukkit.getMinecraftVersion()));
-                    } catch (IOException e) {
-                        Logger.warn("[fluids]", "Sodium's shader could not be downloaded; Sodium players see the texture grid on water: %error%",
-                                Placeholder.of("error", String.valueOf(e.getMessage())));
-                    }
-                }
+                boolean grid = grid(this.config.get(WorldFluidConfig.TEXTURES), version);
+                SodiumShaders sodium = this.config.get(WorldFluidConfig.SODIUM) ? sodium(version, grid) : null;
                 FluidPackBuilder.Result result = FluidPackBuilder.build(client, this.keys, WorldFluids::look, new FluidPackBuilder.Settings(
                         this.config.get(WorldFluidConfig.NEUTRAL_COLOR), this.config.get(WorldFluidConfig.UNIFORM_WATER),
-                        this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID)),
-                        this.resources, this.pack, sodium);
+                        this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID),
+                        grid, this.config.get(WorldFluidConfig.WATER_MODELS)), this.resources, this.pack, sodium);
                 result.notes().forEach(note -> Logger.warn("[fluids]", "%note%", Placeholder.of("note", note)));
-                done.accept("World fluids pack written: " + result.looks() + " looks, " + result.textures() + " textures ("
-                        + result.columns() + "×" + result.columns() + " grid), " + result.shader() + " shader, " + result.sodium() + ", pack format " + result.format()
-                        + ", " + buckets + " bucket textures, " + result.waterModels() + " models redirected to plain water.");
+                String textures = grid ? result.textures() + " textures (" + result.columns() + "×" + result.columns() + " grid)" : "tint only (no texture grid)";
+                done.accept("World fluids pack written: " + result.looks() + " looks, " + textures + ", " + result.shader() + " shader, "
+                        + result.sodium() + ", pack format " + result.format() + ", " + buckets + " bucket textures"
+                        + (grid ? ", " + result.waterModels() + " models redirected to plain water." : "."));
             }
         } catch (IOException | ShaderPatch.MismatchException | RuntimeException e) {
             Logger.warn("[fluids]", "The world fluids pack could not be written; fluids show their key colors: %error%",
                     Placeholder.of("error", String.valueOf(e.getMessage())));
             done.accept("The world fluids pack could not be written (see the console).");
+        }
+    }
+
+    /**
+     * Whether the pack uses the texture grid ({@code world-fluids.textures}): {@code auto} uses it from Minecraft
+     * 26.2, where Sodium (0.9) takes the pack's shader; before, Sodium players would see the grid on all water.
+     */
+    static boolean grid(WorldFluidConfig.Textures setting, String version) {
+        return switch (setting) {
+            case GRID -> true;
+            case TINT -> false;
+            case AUTO -> atLeast(version, 26, 2);
+        };
+    }
+
+    /** Sodium's shader to patch, or {@code null} (and a line saying what Sodium players see). */
+    private @Nullable SodiumShaders sodium(String version, boolean grid) {
+        String setting = this.config.get(WorldFluidConfig.SODIUM_JAR);
+        try {
+            SodiumShaders sodium = setting.equalsIgnoreCase("download") ? SodiumShaders.load(version, this.cache) : SodiumShaders.fromJar(Path.of(setting));
+            if (sodium == null) {
+                Logger.info("[fluids]", grid
+                        ? "No Sodium for Minecraft %version% takes shaders from resource packs (Sodium 0.9, 26.2+): Sodium players see the texture grid on water (world-fluids.textures: tint avoids it)"
+                        : "No Sodium for Minecraft %version% takes shaders from resource packs (Sodium 0.9, 26.2+): Sodium players see water, fluids in their code color",
+                        Placeholder.of("version", version));
+            }
+            return sodium;
+        } catch (IOException e) {
+            Logger.warn("[fluids]", "Sodium's shader could not be read; Sodium players see " + (grid ? "the texture grid on water" : "fluids in their code color")
+                    + ": %error%", Placeholder.of("error", String.valueOf(e.getMessage())));
+            return null;
+        }
+    }
+
+    /** Whether a Minecraft version ({@code 1.21.4}, {@code 26.2}) is {@code major.minor} or later. */
+    static boolean atLeast(String version, int major, int minor) {
+        String[] parts = version.split("[.-]");
+        try {
+            int first = Integer.parseInt(parts[0]);
+            int second = parts.length > 1 ? Integer.parseInt(parts[1].replaceAll("\\D.*", "")) : 0;
+            return first != major ? first > major : second >= minor;
+        } catch (NumberFormatException e) {
+            return false;
         }
     }
 

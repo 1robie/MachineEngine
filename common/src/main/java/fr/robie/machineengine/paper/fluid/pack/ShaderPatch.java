@@ -25,6 +25,11 @@ import java.util.regex.Pattern;
  * draws the fluid's tile with its tint, opacity and glow.</p>
  */
 public final class ShaderPatch {
+    /**
+     * Tint-only mode: the alpha of the water textures the pack ships (vanilla's are 180 everywhere, 1.20.6 to
+     * 26.3). Nobody sees the difference; the shader knows water by it, whatever other packs do.
+     */
+    public static final int TINT_MARKER = 179;
     private static final Pattern LOCATION = Pattern.compile("layout\\(location = (\\d+)\\) out ");
 
     /** Whose shader: the names it uses, and how its fragment colors a texel. */
@@ -72,7 +77,7 @@ public final class ShaderPatch {
     /** What the patch needs to know about the fluids (index 0 is plain water, 1..n the keys). */
     public record Constants(@NotNull List<Integer> keys, int neutral, @NotNull List<Integer> backgrounds, double cut,
                             int columns, int @NotNull [] still, int @NotNull [] flow, int @NotNull [] tint,
-                            double @NotNull [] alpha, double @NotNull [] glow, boolean sharp) {
+                            double @NotNull [] alpha, double @NotNull [] glow, boolean sharp, boolean grid) {
         public Constants {
             int n = keys.size() + 1;
             if (keys.isEmpty() || backgrounds.isEmpty() || still.length != n || flow.length != n || tint.length != n
@@ -136,7 +141,8 @@ public final class ShaderPatch {
         String indent = color.group(1);
         String modulator = color.groupCount() >= 3 && color.group(3) != null ? color.group(3) : "";
         String unchanged = color.group(2) + " * " + dialect.vertexColor + modulator;
-        String fluid = dialect.names(FRAGMENT_FLUID).replace("@MODULATE@", modulator.isEmpty() ? "" : "\n    color *= ColorModulator;");
+        String fluid = dialect.names(constants.grid() ? FRAGMENT_FLUID : FRAGMENT_TINT.replace("@SAMPLE@", color.group(2)))
+                .replace("@MODULATE@", modulator.isEmpty() ? "" : "\n    color *= ColorModulator;");
         String branch = "vec4 color;\n" + dialect.open() + fluid + "\n} else {\n" + dialect.close()
                 + "    color = " + unchanged + ";\n" + dialect.open() + "}\n" + dialect.close()
                 + "// ---- end world fluids ----\n";
@@ -187,7 +193,9 @@ public final class ShaderPatch {
         StringBuilder out = new StringBuilder();
         out.append("#define ME_KEY_COUNT ").append(c.keys().size()).append('\n');
         out.append("#define ME_BG_COUNT ").append(c.backgrounds().size()).append('\n');
-        out.append("#define ME_GRID ").append(c.columns()).append('\n');
+        out.append("#define ME_GRID ").append(Math.max(1, c.columns())).append('\n');
+        out.append("#define ME_GRID_MODE ").append(c.grid() ? 1 : 0).append('\n');
+        out.append("#define ME_MARKER ").append(TINT_MARKER).append('\n');
         out.append("#define ME_CUT ").append(number(c.cut())).append('\n');
         out.append("#define ME_PLAIN_TOL 0.01\n#define ME_KEY_TOL 0.015\n");
         out.append("const vec3 ME_KEY[ME_KEY_COUNT] = vec3[](").append(colors(c.keys())).append(");\n");
@@ -199,7 +207,7 @@ public final class ShaderPatch {
     private static String fragmentConstants(Constants c) {
         int n = c.keys().size() + 1;
         StringBuilder out = new StringBuilder();
-        out.append("#define ME_GRID ").append(c.columns()).append('\n');
+        out.append("#define ME_GRID ").append(Math.max(1, c.columns())).append('\n');
         out.append("#define ME_CUT ").append(number(c.cut())).append('\n');
         out.append("const int ME_STILL[").append(n).append("] = int[](").append(ints(c.still())).append(");\n");
         out.append("const int ME_FLOW[").append(n).append("] = int[](").append(ints(c.flow())).append(");\n");
@@ -357,6 +365,7 @@ public final class ShaderPatch {
             // The vertex sits on a texel edge: one of the four texels around it is inside the sprite.
             for (int i = 0; i < 4; i++) {
                 vec2 meOffset = vec2((i & 1) == 0 ? 0.5 : -0.5, i < 2 ? 0.5 : -0.5);
+            #if ME_GRID_MODE
                 ivec2 meCorner;
                 int meFound = meFind(ivec2(floor(meTexel + meOffset)), meSize, meCorner);
                 if (meFound > 0) {
@@ -366,9 +375,34 @@ public final class ShaderPatch {
                     meUnmix(Color.rgb);
                     break;
                 }
+            #else
+                // Tint only: the water textures carry the marker alpha.
+                ivec2 meProbe = ivec2(floor(meTexel + meOffset));
+                if (meInside(meProbe, meSize) && int(texelFetch(Sampler0, meProbe, 0).a * 255.0 + 0.5) == ME_MARKER) {
+                    meSprite = 1;
+                    meUnmix(Color.rgb);
+                    break;
+                }
+            #endif
             }
             // ---- end world fluids ----
             """;
+
+    /** Tint only: the texture as the game samples it, in the fluid's tint, opacity and glow. */
+    private static final String FRAGMENT_TINT = """
+            // ---- MachineEngine world fluids (tint only) ----
+            if (meSprite > 0) {
+                vec4 meBase = @SAMPLE@;
+                int meK = meShare > 0.001 ? int(meKeyShare / meShare + 0.5) : 0;
+                float meT = meK == 0 ? 0.0 : ME_EDGE(meShare);
+                vec4 meWater = vec4(meBase.rgb * meBg * meLight, ME_ALPHA[0] * vertexColor.a);
+                if (meT > 0.0) {
+                    vec3 meLit = max(meLight, vec3(ME_GLOW[meK]));
+                    vec4 meFluid = vec4(meBase.rgb * ME_TINT[meK] * meShade * meLit, ME_ALPHA[meK] * vertexColor.a);
+                    color = meT >= 1.0 ? meFluid : mix(meWater, meFluid, meT);
+                } else {
+                    color = meWater;
+                }@MODULATE@""";
 
     private static final String FRAGMENT_FLUID = """
             // ---- MachineEngine world fluids ----

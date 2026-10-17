@@ -128,7 +128,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         this.keys = keys;
         boolean uniform = config.get(WorldFluidConfig.UNIFORM_WATER);
         this.cells = new FluidCells(this::zoomSeed, keys, uniform ? 0 : config.get(WorldFluidConfig.NEUTRAL_RINGS));
-        this.entities = new FluidEntities(this, this.scheduler);
+        this.entities = new FluidEntities(this, this.scheduler, config.get(WorldFluidConfig.ENTITY_TICKS));
         this.pack = new FluidPackService(plugin, config, keys);
     }
 
@@ -203,7 +203,10 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         Bukkit.getPluginManager().registerEvents(this, this.plugin);
         Bukkit.getPluginManager().registerEvents(this.entities, this.plugin);
         this.tasks.add(this.scheduler.runTimer(this::sweep, 20L, 20L));
-        this.tasks.add(this.scheduler.runTimer(this.entities::scanChunks, 4L, 4L));
+        if (this.config.get(WorldFluidConfig.ENTITY_EFFECTS)) {
+            long every = this.config.get(WorldFluidConfig.ENTITY_TICKS);
+            this.tasks.add(this.scheduler.runTimer(this.entities::scanChunks, every, every));
+        }
         for (Player player : Bukkit.getOnlinePlayers()) this.entities.start(player);
         for (World world : Bukkit.getWorlds()) {
             for (Chunk chunk : world.getLoadedChunks()) this.scheduler.run(world, chunk.getX(), chunk.getZ(), () -> load(chunk));
@@ -419,14 +422,14 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
                 markDirty(world, cx, cz);
     }
 
-    /** Sends a chunk's biomes again to the players who see it, at most once per half second. */
+    /** Sends a chunk's biomes again to the players who see it, once per {@code world-fluids.update-delay}. */
     void markDirty(World world, int chunkX, int chunkZ) {
         String id = world.getUID() + ":" + chunkX + ":" + chunkZ;
         if (!this.pendingChunks.add(id)) return;
         this.scheduler.runLater(world, chunkX, chunkZ, () -> {
             this.pendingChunks.remove(id);
             if (world.isChunkLoaded(chunkX, chunkZ)) sendBiomes(world, chunkX, chunkZ, world.getChunkAt(chunkX, chunkZ).getPlayersSeeingChunk());
-        }, 10L);
+        }, this.config.get(WorldFluidConfig.UPDATE_DELAY));
     }
 
     void sendBiomes(World world, int chunkX, int chunkZ, Collection<? extends Player> viewers) {

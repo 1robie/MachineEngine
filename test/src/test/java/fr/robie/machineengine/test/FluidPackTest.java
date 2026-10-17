@@ -108,7 +108,7 @@ class FluidPackTest {
     private static ShaderPatch.Constants constants() {
         return new ShaderPatch.Constants(List.of(0xFF0000, 0x0080FF), NEUTRAL, List.of(NEUTRAL), 0.05, 2,
                 new int[]{0, 1, 0}, new int[]{0, 1, 0}, new int[]{0xFFFFFF, 0xFFFFFF, 0x2A2238}, new double[]{0.7, 0.96, 0.7},
-                new double[]{0, 0.2, 0}, false);
+                new double[]{0, 0.2, 0}, false, true);
     }
 
     @Test
@@ -167,12 +167,16 @@ class FluidPackTest {
                 .still((size, context) -> context.vanilla("block/lava_still", size)).flow((size, context) -> context.vanilla("block/lava_flow", size)).build();
         FluidType brine = FluidType.builder(Key.key("devcheck", "fluid/brine")).color(0xC8B88A).placeable().build();
         FluidKeys keys = FluidKeys.of(List.of(oil, brine), FluidType::look, NEUTRAL, true);
-        try (Stream<Path> versions = Files.list(Path.of(folder))) {
-            for (Path version : versions.filter(Files::isDirectory).sorted().toList()) {
+        List<Path> versions;
+        try (Stream<Path> listed = Files.list(Path.of(folder))) {
+            versions = listed.filter(Files::isDirectory).sorted().toList();
+        }
+        for (boolean grid : new boolean[]{true, false}) {
+            for (Path version : versions) {
                 try (VanillaClient client = VanillaClient.open(version)) {
-                    Path pack = out.resolve(version.getFileName().toString());
+                    Path pack = out.resolve(grid ? "grid" : "tint").resolve(version.getFileName().toString());
                     FluidPackBuilder.Result result = FluidPackBuilder.build(client, keys, FluidType::look,
-                            new FluidPackBuilder.Settings(NEUTRAL, true, false, 8), out.resolve("none"), pack, sodium(version.getFileName().toString()));
+                            new FluidPackBuilder.Settings(NEUTRAL, true, false, 8, grid, true), out.resolve("none"), pack, sodium(version.getFileName().toString()));
                     assertEquals(2, result.looks(), version.toString());
                     assertTrue(Files.isRegularFile(pack.resolve("resourcepack/" + FluidPackBuilder.OVERLAY + "/assets/minecraft/shaders/core/"
                             + result.shader() + ".vsh")), version.toString());
@@ -257,6 +261,33 @@ class FluidPackTest {
             Files.writeString(include.resolve("globals.glsl"), "");
             check.invoke(null, client, temp.resolve("overlay")); // now it is there
         }
+    }
+
+    @Test
+    void autoUsesTheGridWhereSodiumTakesTheShader() throws Exception {
+        Method grid = fr.robie.machineengine.paper.fluid.pack.FluidPackService.class.getDeclaredMethod("grid",
+                fr.robie.machineengine.api.resource.fluid.WorldFluidConfig.Textures.class, String.class);
+        grid.setAccessible(true);
+        var auto = fr.robie.machineengine.api.resource.fluid.WorldFluidConfig.Textures.AUTO;
+        assertTrue((boolean) grid.invoke(null, auto, "26.2"));
+        assertTrue((boolean) grid.invoke(null, auto, "26.3"));
+        assertTrue((boolean) grid.invoke(null, auto, "27.1"));
+        assertTrue(!(boolean) grid.invoke(null, auto, "26.1"));
+        assertTrue(!(boolean) grid.invoke(null, auto, "1.21.11"));
+        assertTrue(!(boolean) grid.invoke(null, auto, "1.20.6"));
+        assertTrue((boolean) grid.invoke(null, fr.robie.machineengine.api.resource.fluid.WorldFluidConfig.Textures.GRID, "1.20.6"));
+        assertTrue(!(boolean) grid.invoke(null, fr.robie.machineengine.api.resource.fluid.WorldFluidConfig.Textures.TINT, "26.3"));
+    }
+
+    @Test
+    void tintOnlyKnowsWaterByItsMarkerAndKeepsTheGamesSampling() throws Exception {
+        ShaderPatch.Constants tint = new ShaderPatch.Constants(List.of(0xFF0000, 0x0080FF), NEUTRAL, List.of(NEUTRAL), 0.05, 0,
+                new int[3], new int[3], new int[]{0xFFFFFF, 0xFFFFFF, 0x2A2238}, new double[]{0.7, 0.96, 0.7}, new double[3], false, false);
+        String vertex = ShaderPatch.vertex(VERTEX, tint);
+        String fragment = ShaderPatch.fragment(FRAGMENT, tint);
+        assertTrue(vertex.contains("#define ME_GRID_MODE 0") && vertex.contains("#define ME_MARKER " + ShaderPatch.TINT_MARKER));
+        assertTrue(fragment.contains("vec4 meBase = texture(Sampler0, texCoord0);"), "the fluid is the game's own sample, tinted");
+        assertTrue(!fragment.contains("ME_SAMPLE((meOrigin"), "no grid tile is read");
     }
 
     @Test

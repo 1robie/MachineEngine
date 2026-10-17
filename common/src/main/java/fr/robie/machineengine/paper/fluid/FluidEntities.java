@@ -35,12 +35,15 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * What placeable fluids do to the entities inside them (D46): viscosity (attribute modifiers and
  * damping for players, drag for other entities), effects every 10 ticks, and {@link EntityFluidEvent}s.
- * Players are checked every 2 ticks on their own thread; other entities every 4 ticks, in the chunks
- * that hold fluids.
+ * Players are checked every 2 ticks on their own thread; other entities every
+ * {@code world-fluids.entity-ticks}, in the chunks that hold fluids ({@code world-fluids.entity-effects}).
  */
 final class FluidEntities implements Listener {
+    /** FluidEffect runs every 10 ticks. */
+    private static final int EFFECT_TICKS = 10;
     private final WorldFluidRuntime runtime;
     private final Scheduler scheduler;
+    private final int scanTicks;
     private final Map<UUID, Task> players = new ConcurrentHashMap<>();
     private final Map<UUID, Inside> inside = new ConcurrentHashMap<>();
 
@@ -49,6 +52,8 @@ final class FluidEntities implements Listener {
         final int number;
         final WeakReference<Entity> entity;
         int ticks;
+        /** When the effects next run (every {@link #EFFECT_TICKS}). */
+        int nextEffect;
         volatile long chunk;
 
         Inside(int number, Entity entity, long chunk) {
@@ -58,9 +63,10 @@ final class FluidEntities implements Listener {
         }
     }
 
-    FluidEntities(WorldFluidRuntime runtime, Scheduler scheduler) {
+    FluidEntities(WorldFluidRuntime runtime, Scheduler scheduler, int scanTicks) {
         this.runtime = runtime;
         this.scheduler = scheduler;
+        this.scanTicks = scanTicks;
     }
 
     void start(Player player) {
@@ -115,7 +121,7 @@ final class FluidEntities implements Listener {
         if (fluid == null) return;
         Viscosity viscosity = WorldFluids.physics(fluid).viscosity();
         if (viscosity.damping() > 0) player.setVelocity(player.getVelocity().multiply(1 - viscosity.damping()));
-        if (state.ticks % 10 == 0) effects(player, fluid, state.ticks);
+        effectsIfDue(player, fluid, state);
     }
 
     /** Every 4 ticks: the other entities of each chunk that holds fluids, on that chunk's thread. */
@@ -137,14 +143,14 @@ final class FluidEntities implements Listener {
             int number = fluidAt(entity);
             if (number == 0 && !this.inside.containsKey(entity.getUniqueId())) continue;
             seen.add(entity.getUniqueId());
-            Inside state = update(entity, number, 4);
+            Inside state = update(entity, number, this.scanTicks);
             if (state == null) continue;
             state.chunk = chunkKey;
             FluidType fluid = this.runtime.keys().fluid(number);
             if (fluid == null) continue;
             double drag = WorldFluids.physics(fluid).viscosity().entityDrag();
             if (drag > 0) entity.setVelocity(entity.getVelocity().multiply(1 - drag));
-            if (state.ticks % 12 < 4) effects(entity, fluid, state.ticks);
+            effectsIfDue(entity, fluid, state);
         }
         // Entities that were inside here and are gone: checked on their own thread (they moved or left).
         for (Map.Entry<UUID, Inside> entry : this.inside.entrySet()) {
@@ -201,6 +207,12 @@ final class FluidEntities implements Listener {
             }
         }
         new EntityFluidEvent.Leave(entity, fluid).callEvent();
+    }
+
+    private void effectsIfDue(Entity entity, FluidType fluid, Inside state) {
+        if (state.ticks < state.nextEffect) return;
+        state.nextEffect = state.ticks + EFFECT_TICKS;
+        effects(entity, fluid, state.ticks);
     }
 
     private void effects(Entity entity, FluidType fluid, int ticks) {

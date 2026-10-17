@@ -99,6 +99,10 @@ public final class EngineConfig {
             .key(WorldFluidConfig.NEUTRAL_RINGS)
             .key(WorldFluidConfig.SHADER)
             .key(WorldFluidConfig.SODIUM)
+            .key(WorldFluidConfig.SODIUM_JAR)
+            .key(WorldFluidConfig.TEXTURES)
+            .key(WorldFluidConfig.BUCKET_TEXTURES)
+            .key(WorldFluidConfig.WATER_MODELS)
             .key(WorldFluidConfig.EDGE)
             .key(WorldFluidConfig.CONFLICT)
             .key(WorldFluidConfig.FLUID_GAP)
@@ -106,6 +110,9 @@ public final class EngineConfig {
             .key(WorldFluidConfig.DISPERSION)
             .key(WorldFluidConfig.CLIENT_JAR)
             .key(WorldFluidConfig.TEXTURE_GRID)
+            .key(WorldFluidConfig.UPDATE_DELAY)
+            .key(WorldFluidConfig.ENTITY_EFFECTS)
+            .key(WorldFluidConfig.ENTITY_TICKS)
             .build();
 
     private EngineConfig() {

@@ -42,7 +42,12 @@ public final class FluidPackBuilder {
     private static final int FLOW = 32;
 
     /** {@code world-fluids.*} as the builder needs them. */
-    public record Settings(int neutral, boolean uniform, boolean sharp, int maxColumns) {
+    /**
+     * @param grid        fluids with their own textures (a texture grid replaces the water textures), else
+     *                    tint only (the water texture in each fluid's color; nothing to see for players without the shader)
+     * @param waterModels with the grid, redirect the packs' models that draw vanilla water to an untouched copy
+     */
+    public record Settings(int neutral, boolean uniform, boolean sharp, int maxColumns, boolean grid, boolean waterModels) {
     }
 
     /** What was written. */
@@ -77,33 +82,37 @@ public final class FluidPackBuilder {
 
         // One look per key: the look of the first fluid that has it (fluids sharing a key look the same).
         FluidLook[] looks = new FluidLook[keys.keyCount()];
+        Integer[] ownTints = new Integer[keys.keyCount()];
         int[] colors = new int[keys.keyCount()];
         for (int number = 1; number <= keys.fluidCount(); number++) {
             if (!keys.hasKey(number)) continue;
             int index = keys.keyIndex(number);
             FluidType fluid = keys.fluid(number);
             if (looks[index] != null || fluid == null) continue;
-            looks[index] = FluidKeys.resolved(look.apply(fluid), fluid.color());
+            FluidLook own = look.apply(fluid);
+            looks[index] = FluidKeys.resolved(own, fluid.color());
+            ownTints[index] = own.tint();
             colors[index] = fluid.color() == null ? 0xFFFFFF : fluid.color();
         }
 
         // Distinct textures get a tile each (tile 0 is water); untextured looks use water's tile, tinted.
+        // Tint only: no tiles, every look is water's texture in its color.
         Map<FluidTexture, Integer> stillTiles = new IdentityHashMap<>();
         Map<FluidTexture, Integer> flowTiles = new IdentityHashMap<>();
-        for (FluidLook each : looks) {
+        for (FluidLook each : settings.grid() ? looks : new FluidLook[0]) {
             FluidTexture still = each.still() != null ? each.still() : each.flow();
             FluidTexture flow = each.flow() != null ? each.flow() : each.still();
             if (still != null) stillTiles.putIfAbsent(still, stillTiles.size() + 1);
             if (flow != null) flowTiles.putIfAbsent(flow, flowTiles.size() + 1);
         }
         int maxColumns = Math.min(settings.maxColumns(), TextureGrid.MAX_FRAME / FLOW);
-        int columns = TextureGrid.columns(Math.max(stillTiles.size(), flowTiles.size()) + 1);
+        int columns = settings.grid() ? TextureGrid.columns(Math.max(stillTiles.size(), flowTiles.size()) + 1) : 0;
         if (columns > maxColumns) {
             notes.add("only " + (maxColumns * maxColumns - 1) + " textures fit world-fluids.texture-grid " + maxColumns
                     + ": the other fluids are water tinted with their color");
             columns = maxColumns;
         }
-        int capacity = columns * columns - 1;
+        int capacity = Math.max(0, columns * columns - 1);
 
         BufferedImage waterStill = client.texture("block/water_still");
         BufferedImage waterFlow = client.texture("block/water_flow");
@@ -113,8 +122,8 @@ public final class FluidPackBuilder {
         int flowTime = client.frameTime("block/water_flow");
         Context stillContext = new Context(client, resources, false);
         Context flowContext = new Context(client, resources, true);
-        List<List<BufferedImage>> stillGrid = tiles(stillFrames, stillTiles, looks, true, stillContext, STILL, stillTime, capacity, notes);
-        List<List<BufferedImage>> flowGrid = tiles(flowFrames, flowTiles, looks, false, flowContext, FLOW, flowTime, capacity, notes);
+        List<List<BufferedImage>> stillGrid = settings.grid() ? tiles(stillFrames, stillTiles, looks, true, stillContext, STILL, stillTime, capacity, notes) : List.of();
+        List<List<BufferedImage>> flowGrid = settings.grid() ? tiles(flowFrames, flowTiles, looks, false, flowContext, FLOW, flowTime, capacity, notes) : List.of();
 
         int n = keys.keyCount() + 1;
         int[] still = new int[n];
@@ -133,7 +142,8 @@ public final class FluidPackBuilder {
             // A look whose texture didn't fit is water tinted with its color.
             boolean textured = still[i + 1] != 0 || flow[i + 1] != 0;
             tint[i + 1] = each.tint() != null ? each.tint() : 0xFFFFFF;
-            if (!textured && each.textured()) tint[i + 1] = colors[i];
+            // Without its texture (tint only, or no room in the grid) a textured look is water in its own tint, else its color.
+            if (!textured && each.textured()) tint[i + 1] = ownTints[i] != null ? ownTints[i] : colors[i];
             alpha[i + 1] = each.opacity();
             glow[i + 1] = each.glow();
         }
@@ -147,14 +157,19 @@ public final class FluidPackBuilder {
             if (!backgrounds.contains(settings.neutral())) backgrounds.add(settings.neutral());
         }
         ShaderPatch.Constants constants = new ShaderPatch.Constants(keyColors, settings.neutral(), backgrounds,
-                KeyPalette.shareCut(keys.keyCount()), columns, still, flow, tint, alpha, glow, settings.sharp());
+                KeyPalette.shareCut(keys.keyCount()), columns, still, flow, tint, alpha, glow, settings.sharp(), settings.grid());
         String vertex = ShaderPatch.vertex(vanillaVertex, constants);
         String fragment = ShaderPatch.fragment(vanillaFragment, constants);
 
         Path textures = overlay.resolve("assets/minecraft/textures/block");
         Files.createDirectories(textures);
-        writeGrid(textures, "water_still", TextureGrid.build(stillGrid, STILL, columns, stillFrames.size(), false), columns * STILL, stillTime);
-        writeGrid(textures, "water_flow", TextureGrid.build(flowGrid, FLOW, columns, flowFrames.size(), true), columns * FLOW, flowTime);
+        if (settings.grid()) {
+            writeGrid(textures, "water_still", TextureGrid.build(stillGrid, STILL, columns, stillFrames.size(), false), columns * STILL, stillTime);
+            writeGrid(textures, "water_flow", TextureGrid.build(flowGrid, FLOW, columns, flowFrames.size(), true), columns * FLOW, flowTime);
+        } else {
+            writeMarked(client, textures, "water_still");
+            writeMarked(client, textures, "water_flow");
+        }
         Path shaders = overlay.resolve("assets/minecraft/shaders/core");
         Files.createDirectories(shaders);
         Files.writeString(shaders.resolve(shader + ".vsh"), vertex, StandardCharsets.UTF_8);
@@ -175,10 +190,28 @@ public final class FluidPackBuilder {
             }
             sodiumNote = "Sodium " + sodium.version();
         }
-        int redirected = plainWater(client, resources, overlay);
+        int redirected = settings.grid() && settings.waterModels() ? plainWater(client, resources, overlay) : 0;
         checkImports(client, overlay);
         writeMeta(pack, format, true);
         return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, redirected, notes);
+    }
+
+    /**
+     * Tint only: the vanilla water texture with the marker alpha ({@link ShaderPatch#TINT_MARKER} for vanilla's
+     * 180), so the shader knows water; it looks the same to everyone.
+     */
+    private static void writeMarked(VanillaClient client, Path folder, String name) throws IOException {
+        BufferedImage image = client.texture("block/" + name);
+        BufferedImage marked = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_ARGB);
+        for (int y = 0; y < image.getHeight(); y++) {
+            for (int x = 0; x < image.getWidth(); x++) {
+                int argb = image.getRGB(x, y);
+                marked.setRGB(x, y, (ShaderPatch.TINT_MARKER << 24) | (argb & 0xFFFFFF));
+            }
+        }
+        ImageIO.write(marked, "png", folder.resolve(name + ".png").toFile());
+        byte[] meta = client.read("assets/minecraft/textures/block/" + name + ".png.mcmeta");
+        if (meta != null) Files.write(folder.resolve(name + ".png.mcmeta"), meta);
     }
 
     private static final java.util.regex.Pattern WATER_TEXTURE =
