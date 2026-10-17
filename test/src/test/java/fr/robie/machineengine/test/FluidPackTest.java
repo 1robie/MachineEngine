@@ -205,7 +205,11 @@ class FluidPackTest {
         if (!Files.isRegularFile(root.resolve(SodiumShaders.VERTEX))) return null;
         String name = Files.readString(root.resolve("version.txt")).lines().findFirst().orElse("?");
         if (!SodiumShaders.overridable(name)) return null; // as the builder: before 0.9 a pack can't replace them
-        return new SodiumShaders(name, Files.readString(root.resolve(SodiumShaders.VERTEX)), Files.readString(root.resolve(SodiumShaders.FRAGMENT)));
+        java.util.Map<String, String> includes = new java.util.TreeMap<>();
+        try (Stream<Path> files = Files.walk(root.resolve(SodiumShaders.INCLUDES))) {
+            for (Path file : files.filter(Files::isRegularFile).toList()) includes.put(root.relativize(file).toString().replace('\\', '/'), Files.readString(file));
+        }
+        return new SodiumShaders(name, Files.readString(root.resolve(SodiumShaders.VERTEX)), Files.readString(root.resolve(SodiumShaders.FRAGMENT)), includes);
     }
 
     @Test
@@ -233,6 +237,29 @@ class FluidPackTest {
         assertTrue(Files.isRegularFile(overlay.resolve("assets/machineengine/textures/block/water_still.png")));
         assertTrue(Files.isRegularFile(overlay.resolve("assets/machineengine/textures/block/water_still.png.mcmeta")));
         assertTrue(Files.notExists(overlay.resolve("assets/mekanized/models/gui/bar/fluid/other.json")));
+    }
+
+    @Test
+    void aShaderImportingWhatNobodyHasIsRefused(@TempDir Path temp) throws Exception {
+        Path vanilla = temp.resolve("vanilla/assets/minecraft/shaders/include");
+        Files.createDirectories(vanilla);
+        Files.writeString(vanilla.resolve("fog.glsl"), "");
+        Path blocks = temp.resolve("overlay/assets/sodium/shaders/blocks");
+        Files.createDirectories(blocks);
+        Files.writeString(blocks.resolve("block_layer_opaque.vsh"), "#version 330
+#moj_import <minecraft:fog.glsl>
+#moj_import <sodium:globals.glsl>
+");
+        Method check = FluidPackBuilder.class.getDeclaredMethod("checkImports", VanillaClient.class, Path.class);
+        check.setAccessible(true);
+        try (VanillaClient client = VanillaClient.open(temp.resolve("vanilla"))) {
+            var thrown = assertThrows(java.lang.reflect.InvocationTargetException.class, () -> check.invoke(null, client, temp.resolve("overlay")));
+            assertTrue(thrown.getCause().getMessage().contains("sodium:globals.glsl"), thrown.getCause().getMessage());
+            Path include = temp.resolve("overlay/assets/sodium/shaders/include");
+            Files.createDirectories(include);
+            Files.writeString(include.resolve("globals.glsl"), "");
+            check.invoke(null, client, temp.resolve("overlay")); // now it is there
+        }
     }
 
     @Test

@@ -23,6 +23,8 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.HexFormat;
+import java.util.Map;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
@@ -35,9 +37,12 @@ import java.util.zip.ZipFile;
  * packs; before, from its own jar only, so nothing can be done there. The newest Sodium for the server's
  * Minecraft version is downloaded once from Modrinth (checked by SHA-1) into MachineEngine's cache.
  */
-public record SodiumShaders(@NotNull String version, @NotNull String vertex, @NotNull String fragment) {
+public record SodiumShaders(@NotNull String version, @NotNull String vertex, @NotNull String fragment,
+                            @NotNull Map<String, String> includes) {
     public static final String VERTEX = "assets/sodium/shaders/blocks/block_layer_opaque.vsh";
     public static final String FRAGMENT = "assets/sodium/shaders/blocks/block_layer_opaque.fsh";
+    /** Sodium's include files: the game reads every shader of a pack, so the patched one needs them even without Sodium. */
+    public static final String INCLUDES = "assets/sodium/shaders/include/";
     private static final Pattern SODIUM_VERSION = Pattern.compile("(\\d+)\\.(\\d+)(?:\\.(\\d+))?");
 
     /** Sodium versions whose shaders a resource pack can replace. */
@@ -79,7 +84,13 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
         Path jar = cache.resolve("sodium-" + name.replaceAll("[^A-Za-z0-9.+-]", "_") + ".jar");
         if (!Files.isRegularFile(jar) || !sha1.equalsIgnoreCase(sha1(jar))) download(http, file.get("url").getAsString(), sha1, jar);
         try (ZipFile zip = new ZipFile(jar.toFile())) {
-            return new SodiumShaders(name, read(zip, VERTEX), read(zip, FRAGMENT));
+            Map<String, String> includes = new TreeMap<>();
+            var entries = zip.entries();
+            while (entries.hasMoreElements()) {
+                ZipEntry entry = entries.nextElement();
+                if (!entry.isDirectory() && entry.getName().startsWith(INCLUDES)) includes.put(entry.getName(), read(zip, entry.getName()));
+            }
+            return new SodiumShaders(name, read(zip, VERTEX), read(zip, FRAGMENT), includes);
         }
     }
 

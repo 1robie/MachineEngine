@@ -168,9 +168,15 @@ public final class FluidPackBuilder {
                     ShaderPatch.vertex(sodium.vertex(), constants, ShaderPatch.Dialect.SODIUM), StandardCharsets.UTF_8);
             Files.writeString(sodiumShaders.resolve("block_layer_opaque.fsh"),
                     ShaderPatch.fragment(sodium.fragment(), constants, ShaderPatch.Dialect.SODIUM), StandardCharsets.UTF_8);
+            for (Map.Entry<String, String> include : sodium.includes().entrySet()) {
+                Path file = overlay.resolve(include.getKey());
+                Files.createDirectories(file.getParent());
+                Files.writeString(file, include.getValue(), StandardCharsets.UTF_8);
+            }
             sodiumNote = "Sodium " + sodium.version();
         }
         int redirected = plainWater(client, resources, overlay);
+        checkImports(client, overlay);
         writeMeta(pack, format, true);
         return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, redirected, notes);
     }
@@ -365,6 +371,31 @@ public final class FluidPackBuilder {
         Files.writeString(folder.resolve(name + ".png.mcmeta"), new GsonBuilder().setPrettyPrinting().create().toJson(meta), StandardCharsets.UTF_8);
     }
 
+    private static final java.util.regex.Pattern IMPORT =
+            java.util.regex.Pattern.compile("^\\s*#(?:moj_import|include)\\s*<(?:([a-z0-9_.-]+):)?([^>]+)>", java.util.regex.Pattern.MULTILINE);
+
+    /**
+     * Every import of the overlay's shaders must be there, in the overlay or in the game: the game reads
+     * every shader of a pack, and one missing import makes it drop the whole pack (a Sodium shader without
+     * Sodium's include files did, on vanilla 26.2).
+     */
+    static void checkImports(VanillaClient client, Path overlay) throws IOException {
+        Path assets = overlay.resolve("assets");
+        if (!Files.isDirectory(assets)) return;
+        try (Stream<Path> files = Files.walk(assets)) {
+            for (Path shader : files.filter(file -> file.toString().matches(".*\\.(vsh|fsh|glsl)$")).toList()) {
+                java.util.regex.Matcher matcher = IMPORT.matcher(Files.readString(shader, StandardCharsets.UTF_8));
+                while (matcher.find()) {
+                    String namespace = matcher.group(1) != null ? matcher.group(1) : "minecraft";
+                    String path = "assets/" + namespace + "/shaders/include/" + matcher.group(2);
+                    if (Files.isRegularFile(overlay.resolve(path)) || client.read(path) != null) continue;
+                    throw new IOException(overlay.relativize(shader) + " imports " + namespace + ":" + matcher.group(2)
+                            + ", which neither the pack nor the game has");
+                }
+            }
+        }
+    }
+
     /** {@code resourcepack/pack.mcmeta}: the overlay for exactly this version (CraftEngine merges it into the pack). */
     private static void writeMeta(Path pack, int[] format, boolean overlay) throws IOException {
         JsonObject root = new JsonObject();
@@ -388,6 +419,13 @@ public final class FluidPackBuilder {
             JsonObject overlays = new JsonObject();
             overlays.add("entries", entries);
             root.add("overlays", overlays);
+            // Sodium warns about packs replacing the game's terrain shader, which Sodium does not use; ours is
+            // only for players without Sodium (Sodium players get the patched Sodium shader).
+            JsonArray ignored = new JsonArray();
+            for (String name : List.of("terrain.vsh", "terrain.fsh", "rendertype_translucent.vsh", "rendertype_translucent.fsh")) ignored.add(name);
+            JsonObject sodium = new JsonObject();
+            sodium.add("ignored_shaders", ignored);
+            root.add("sodium", sodium);
         }
         Path meta = pack.resolve("resourcepack/pack.mcmeta");
         Files.createDirectories(meta.getParent());
