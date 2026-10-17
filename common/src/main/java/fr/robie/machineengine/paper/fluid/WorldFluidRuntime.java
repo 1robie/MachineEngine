@@ -112,6 +112,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     private final Map<UUID, Map<Long, Map<Long, Key>>> unknown = new ConcurrentHashMap<>();
     /** Chunks whose fluid data is of a newer format: never written. */
     private final Map<UUID, Set<Long>> unreadable = new ConcurrentHashMap<>();
+    /** Cells whose padding read a loaded column another region thread owned (Folia): computed again next sweep. */
+    private final Map<UUID, Set<Long>> paddingRetry = new ConcurrentHashMap<>();
     private final AtomicLong updatesSent = new AtomicLong();
     private final List<Task> tasks = new ArrayList<>();
     private final FluidEntities entities;
@@ -473,19 +475,37 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
                     for (int dz = -rings; dz <= rings; dz++)
                         candidates.add(Cells.pack(cx + dx, cy + dy, cz + dz));
         }
+        UUID id = world.getUID();
+        Set<Long> retry = this.paddingRetry.get(id);
+        if (retry != null) {
+            List<Long> taken = List.copyOf(retry);
+            taken.forEach(retry::remove);
+            candidates.addAll(taken);
+        }
         if (candidates.isEmpty()) return;
         FluidRules.Settings settings = settings();
-        UUID id = world.getUID();
         for (long cell : candidates) {
             int blockX = Cells.x(cell) * 4, blockZ = Cells.z(cell) * 4;
             if (!world.isChunkLoaded(blockX >> 4, blockZ >> 4)) continue;
             this.scheduler.run(world, blockX >> 4, blockZ >> 4, () -> {
+                // Unloaded columns are padded when their chunk loads (markDirtyAround); a loaded one owned by
+                // another region thread would never be, so the cell is tried again.
+                if (readsForeignColumn(world, cell)) this.paddingRetry.computeIfAbsent(id, ignored -> ConcurrentHashMap.newKeySet()).add(cell);
                 int entry = FluidRules.surroundingEntry(this.cells, id, blocks(world), cell, settings);
                 int before = this.cells.key(id, cell);
                 this.cells.setPadding(id, cell, entry);
                 if (this.cells.key(id, cell) != before) markCellDirty(world, cell, 0);
             });
         }
+    }
+
+    /** Whether a cell's readers ({@link FluidRules#readersAreWater}) include a loaded column this thread does not own. */
+    private boolean readsForeignColumn(World world, long cell) {
+        int cx = Cells.x(cell), cz = Cells.z(cell);
+        for (int chunkX = (4 * cx - 2) >> 4; chunkX <= (4 * cx + 5) >> 4; chunkX++)
+            for (int chunkZ = (4 * cz - 2) >> 4; chunkZ <= (4 * cz + 5) >> 4; chunkZ++)
+                if (world.isChunkLoaded(chunkX, chunkZ) && !this.scheduler.isOwnedByCurrentThread(world, chunkX, chunkZ)) return true;
+        return false;
     }
 
     /** Settings of {@code config.yml} changed: padding and dispersion are computed again. */

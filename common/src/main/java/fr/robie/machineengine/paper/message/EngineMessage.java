@@ -98,6 +98,8 @@ public enum EngineMessage implements Message {
     ADMIN_FLUID_STATUS("machineengine.admin.fluid_status", "<gray>World fluids: %fluids% placeable, %looks% looks (%missing% without a key), "
             + "uniform water %uniform%, client biomes %base% + %entries%; %updates% biome updates sent; %tracked% fluid blocks loaded here."),
     ADMIN_FLUID_BLOCK("machineengine.admin.fluid_block", "<gray>%x% %y% %z%: <white>%fluid%</white>; its color area %cell% shows %area%."),
+    ADMIN_FLUID_NEIGHBOURS("machineengine.admin.fluid_neighbours", "<gray>The 8 blocks around (Sodium blends them into the corners): "
+            + "%same% show the same, %plain% plain water, %other% something else."),
     ADMIN_FLUID_BLOCK_REFUSED("machineengine.admin.fluid_block_refused", "<gray>Plain water there: %reason%"),
     ADMIN_FLUID_UNKNOWN("machineengine.admin.fluid_unknown", "<red>No placeable fluid %fluid%. Placeable: %fluids%"),
     ADMIN_FLUID_FILLED("machineengine.admin.fluid_filled", "<green>%count% water blocks are now %fluid%."),

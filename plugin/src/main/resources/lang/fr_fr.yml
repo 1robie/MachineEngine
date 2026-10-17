@@ -84,6 +84,7 @@ machineengine:
     fluids_off: "<gray>Les fluides dans le monde sont désactivés (world-fluids.enabled dans config.yml)."
     fluid_status: "<gray>Fluides dans le monde : %fluids% plaçables, %looks% apparences (%missing% sans clé), eau uniforme %uniform%, biomes client %base% + %entries% ; %updates% mises à jour de biomes envoyées ; %tracked% blocs de fluide chargés ici."
     fluid_block: "<gray>%x% %y% %z% : <white>%fluid%</white> ; sa zone de couleur %cell% montre %area%."
+    fluid_neighbours: "<gray>Les 8 blocs autour (Sodium les mélange dans les coins) : %same% montrent la même chose, %plain% de l'eau simple, %other% autre chose."
     fluid_block_refused: "<gray>De l'eau simple ici : %reason%"
     fluid_unknown: "<red>Aucun fluide plaçable %fluid%. Plaçables : %fluids%"
     fluid_filled: "<green>%count% blocs d'eau sont maintenant %fluid%."

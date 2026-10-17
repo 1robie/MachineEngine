@@ -176,7 +176,9 @@ public final class FluidCells {
     public void markDirtyAround(@NotNull UUID world, int chunkX, int chunkZ) {
         Map<Long, int[]> map = this.readers.get(world);
         if (map == null) return;
-        int reach = FluidKeys.MAX_RINGS;
+        // A padded cell's readers reach 5 blocks past it, so a cell up to one ring outside the chunk reads
+        // into it; owned cells up to MAX_RINGS beyond that pad it.
+        int reach = FluidKeys.MAX_RINGS + 1;
         int minX = chunkX * 4 - reach, maxX = chunkX * 4 + 3 + reach, minZ = chunkZ * 4 - reach, maxZ = chunkZ * 4 + 3 + reach;
         Set<Long> dirty = this.dirtyCells.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
         for (long cell : map.keySet()) {

@@ -152,6 +152,22 @@ public final class FluidAdminCommand extends SubCommand<Plugin> {
                     .register("cell", Cells.x(cell) + " " + Cells.y(cell) + " " + Cells.z(cell))
                     .register("area", area)
                     .build());
+            if (at != null) {
+                // Sodium colors each corner from the 4 blocks around it: the 8 neighbours' areas count too.
+                int same = 0, plain = 0, other = 0;
+                for (int dx = -1; dx <= 1; dx++) {
+                    for (int dz = -1; dz <= 1; dz++) {
+                        if (dx == 0 && dz == 0) continue;
+                        int near = cells.key(world, cells.readCell(world, look.getX() + dx, look.getY(), look.getZ() + dz));
+                        if (near == entry) same++;
+                        else if (near == 0 || near == keys.neutralEntry()) plain++;
+                        else other++;
+                    }
+                }
+                EngineMessages.send(player, EngineMessage.ADMIN_FLUID_NEIGHBOURS, Placeholder.builder()
+                        .register("same", String.valueOf(same)).register("plain", String.valueOf(plain)).register("other", String.valueOf(other))
+                        .build());
+            }
             if (WorldFluidRuntime.isWater(look)) {
                 WorldFluidRuntime.Refusal refusal = running.refusal(look, Fluids.water());
                 if (refusal != null) {
