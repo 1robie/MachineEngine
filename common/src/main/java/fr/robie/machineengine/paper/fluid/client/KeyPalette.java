@@ -84,6 +84,7 @@ public final class KeyPalette {
     private static double[] chroma(int rgb) {
         double r = ((rgb >> 16) & 255) / 255.0, g = ((rgb >> 8) & 255) / 255.0, b = (rgb & 255) / 255.0;
         double sum = r + g + b;
+        if (sum == 0) return new double[]{1 / 3.0, 1 / 3.0}; // black: no hue, the middle
         return new double[]{r / sum, g / sum};
     }
 

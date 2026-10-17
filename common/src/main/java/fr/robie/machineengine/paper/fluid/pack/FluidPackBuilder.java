@@ -73,13 +73,28 @@ public final class FluidPackBuilder {
         String vanillaVertex = client.text("assets/minecraft/shaders/core/" + shader + ".vsh");
         String vanillaFragment = client.text("assets/minecraft/shaders/core/" + shader + ".fsh");
         if (vanillaVertex == null || vanillaFragment == null) throw new IOException("the client jar has no " + shader + " shader");
-        Path overlay = pack.resolve("resourcepack").resolve(OVERLAY);
-        deleteTree(overlay);
+        Path finished = pack.resolve("resourcepack").resolve(OVERLAY);
         if (keys.keyCount() == 0) {
+            deleteTree(finished);
             writeMeta(pack, format, false);
             return new Result(formatText(format), 0, 0, 0, shader, "no Sodium shader", 0, List.of("no placeable fluid: nothing to draw"));
         }
 
+        // Built aside and swapped in whole once checked: a failed build leaves the previous pack as it was
+        // (a half-written overlay could hold a shader importing a file not written yet, and the game drops
+        // the whole pack on that).
+        Path overlay = pack.resolve(".world-fluids-building");
+        deleteTree(overlay);
+        try {
+            return write(client, keys, look, settings, resources, pack, sodium, overlay, finished, format, shader, vanillaVertex, vanillaFragment, notes);
+        } finally {
+            deleteTree(overlay);
+        }
+    }
+
+    private static Result write(VanillaClient client, FluidKeys keys, Function<FluidType, FluidLook> look, Settings settings, Path resources,
+                                Path pack, @Nullable SodiumShaders sodium, Path overlay, Path finished, int[] format, String shader,
+                                String vanillaVertex, String vanillaFragment, List<String> notes) throws IOException, ShaderPatch.MismatchException {
         // One look per key: the look of the first fluid that has it (fluids sharing a key look the same).
         FluidLook[] looks = new FluidLook[keys.keyCount()];
         Integer[] ownTints = new Integer[keys.keyCount()];
@@ -122,8 +137,8 @@ public final class FluidPackBuilder {
         int flowTime = client.frameTime("block/water_flow");
         Context stillContext = new Context(client, resources, false);
         Context flowContext = new Context(client, resources, true);
-        List<List<BufferedImage>> stillGrid = settings.grid() ? tiles(stillFrames, stillTiles, looks, true, stillContext, STILL, stillTime, capacity, notes) : List.of();
-        List<List<BufferedImage>> flowGrid = settings.grid() ? tiles(flowFrames, flowTiles, looks, false, flowContext, FLOW, flowTime, capacity, notes) : List.of();
+        Animation stillGrid = settings.grid() ? animation(stillFrames, stillTime, stillTiles, looks, true, stillContext, STILL, columns, capacity, notes) : null;
+        Animation flowGrid = settings.grid() ? animation(flowFrames, flowTime, flowTiles, looks, false, flowContext, FLOW, columns, capacity, notes) : null;
 
         int n = keys.keyCount() + 1;
         int[] still = new int[n];
@@ -139,6 +154,11 @@ public final class FluidPackBuilder {
             FluidTexture flowTexture = each.flow() != null ? each.flow() : each.still();
             still[i + 1] = tile(stillTiles, stillTexture, capacity);
             flow[i + 1] = tile(flowTiles, flowTexture, capacity);
+            if (still[i + 1] == 0 || flow[i + 1] == 0) {
+                // Only one of its two textures fits: the look is water in its color, not half textured.
+                still[i + 1] = 0;
+                flow[i + 1] = 0;
+            }
             // A look whose texture didn't fit is water tinted with its color.
             boolean textured = still[i + 1] != 0 || flow[i + 1] != 0;
             tint[i + 1] = each.tint() != null ? each.tint() : 0xFFFFFF;
@@ -164,8 +184,8 @@ public final class FluidPackBuilder {
         Path textures = overlay.resolve("assets/minecraft/textures/block");
         Files.createDirectories(textures);
         if (settings.grid()) {
-            writeGrid(textures, "water_still", TextureGrid.build(stillGrid, STILL, columns, stillFrames.size(), false), columns * STILL, stillTime);
-            writeGrid(textures, "water_flow", TextureGrid.build(flowGrid, FLOW, columns, flowFrames.size(), true), columns * FLOW, flowTime);
+            writeGrid(textures, "water_still", TextureGrid.build(stillGrid.tiles(), STILL, columns, stillGrid.frames(), false), columns * STILL, stillGrid.frameTime());
+            writeGrid(textures, "water_flow", TextureGrid.build(flowGrid.tiles(), FLOW, columns, flowGrid.frames(), true), columns * FLOW, flowGrid.frameTime());
         } else {
             writeMarked(client, textures, "water_still");
             writeMarked(client, textures, "water_flow");
@@ -192,6 +212,9 @@ public final class FluidPackBuilder {
         }
         int redirected = settings.grid() && settings.waterModels() ? plainWater(client, resources, overlay) : 0;
         checkImports(client, overlay);
+        deleteTree(finished);
+        Files.createDirectories(finished.getParent());
+        Files.move(overlay, finished);
         writeMeta(pack, format, true);
         return new Result(formatText(format), keys.keyCount(), Math.max(stillTiles.size(), flowTiles.size()), columns, shader, sodiumNote, redirected, notes);
     }
@@ -341,11 +364,23 @@ public final class FluidPackBuilder {
         return tile <= capacity ? tile : 0;
     }
 
-    private static List<List<BufferedImage>> tiles(List<BufferedImage> water, Map<FluidTexture, Integer> tiles, FluidLook[] looks,
-                                                   boolean stillKind, Context context, int size, int vanillaTime, int capacity,
-                                                   List<String> notes) {
-        List<List<BufferedImage>> grid = new ArrayList<>();
-        grid.add(water);
+    /** A grid's animation: each tile's frames, how many, and the ticks per frame. */
+    record Animation(List<List<BufferedImage>> tiles, int frames, int frameTime) {
+    }
+
+    /** Most frame pixels a grid animation may hold (64 MB of pixels), else it plays water's loop only. */
+    private static final long MAX_PIXELS = 16L << 20;
+
+    /**
+     * The tiles' frames over one loop long enough for every texture's whole loop (water's and each fluid's,
+     * each with its own frame time): frames shown every gcd of the frame times, for the lcm of the loops.
+     */
+    private static Animation animation(List<BufferedImage> water, int waterTime, Map<FluidTexture, Integer> tiles, FluidLook[] looks,
+                                       boolean stillKind, Context context, int size, int columns, int capacity, List<String> notes) {
+        List<List<BufferedImage>> strips = new ArrayList<>();
+        List<Integer> times = new ArrayList<>();
+        strips.add(water);
+        times.add(waterTime);
         List<Map.Entry<FluidTexture, Integer>> ordered = new ArrayList<>(tiles.entrySet());
         ordered.sort(Comparator.comparingInt(Map.Entry::getValue));
         for (Map.Entry<FluidTexture, Integer> entry : ordered) {
@@ -365,17 +400,49 @@ public final class FluidPackBuilder {
             } catch (IOException | RuntimeException e) {
                 notes.add("a " + (stillKind ? "still" : "flowing") + " texture failed (" + e.getMessage() + "): water's is used");
                 frames = water;
+                frameTime = waterTime;
             }
-            grid.add(timed(frames, water.size(), vanillaTime, frameTime));
+            strips.add(frames);
+            times.add(frameTime);
         }
-        return grid;
+        int step = 0;
+        long loop = 1;
+        for (int i = 0; i < strips.size(); i++) {
+            step = gcd(step, times.get(i));
+            loop = lcm(loop, (long) strips.get(i).size() * times.get(i));
+        }
+        long side = (long) columns * size;
+        long count = loop / step;
+        if (count * side * side > MAX_PIXELS) {
+            notes.add("the " + (stillKind ? "still" : "flowing") + " fluid animations together loop over " + loop
+                    + " ticks, too long for one grid: they play over water's loop");
+            step = waterTime;
+            count = water.size();
+        }
+        List<List<BufferedImage>> timedTiles = new ArrayList<>();
+        for (int i = 0; i < strips.size(); i++) timedTiles.add(timed(strips.get(i), (int) count, step, times.get(i)));
+        return new Animation(timedTiles, (int) count, step);
     }
 
-    /** {@code count} frames shown every {@code vanillaTime} ticks, playing a texture made for {@code ownTime}. */
-    static List<BufferedImage> timed(List<BufferedImage> frames, int count, int vanillaTime, int ownTime) {
+    /** {@code count} frames shown every {@code step} ticks, of a texture made for {@code ownTime} ticks per frame. */
+    static List<BufferedImage> timed(List<BufferedImage> frames, int count, int step, int ownTime) {
         List<BufferedImage> out = new ArrayList<>(count);
-        for (int i = 0; i < count; i++) out.add(frames.get((int) ((long) i * vanillaTime / Math.max(1, ownTime) % frames.size())));
+        for (int i = 0; i < count; i++) out.add(frames.get((int) ((long) i * step / Math.max(1, ownTime) % frames.size())));
         return out;
+    }
+
+    private static int gcd(int a, int b) {
+        return b == 0 ? Math.max(1, a) : gcd(b, a % b);
+    }
+
+    private static long lcm(long a, long b) {
+        long g = b;
+        for (long x = a; x != 0; ) {
+            long t = g % x;
+            g = x;
+            x = t;
+        }
+        return a / Math.max(1, g) * b;
     }
 
     /** The square frames of a vertical strip. */

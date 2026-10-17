@@ -75,23 +75,24 @@ public final class VanillaClient implements Closeable {
         }
         if (versionUrl == null) throw new IOException("Mojang's version list has no Minecraft " + version);
         JsonObject client = json(http, versionUrl).getAsJsonObject("downloads").getAsJsonObject("client");
-        Path partial = cache.resolve("minecraft-client-" + version + ".jar.part");
+        // A file of its own (two downloads never share one), removed unless it became the cached jar.
+        Path partial = Files.createTempFile(cache, "minecraft-client-" + version + "-", ".part");
         try {
             HttpResponse<Path> response = http.send(HttpRequest.newBuilder(URI.create(client.get("url").getAsString()))
                     .timeout(Duration.ofMinutes(5)).build(), HttpResponse.BodyHandlers.ofFile(partial,
                     StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING));
             if (response.statusCode() != 200) throw new IOException("client jar download: HTTP " + response.statusCode());
+            if (!sha1(partial).equalsIgnoreCase(client.get("sha1").getAsString())) {
+                throw new IOException("the downloaded client jar does not match Mojang's checksum");
+            }
+            Files.move(partial, cached, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+            return cached;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("client jar download interrupted", e);
-        }
-        String sha1 = sha1(partial);
-        if (!sha1.equalsIgnoreCase(client.get("sha1").getAsString())) {
+        } finally {
             Files.deleteIfExists(partial);
-            throw new IOException("the downloaded client jar does not match Mojang's checksum");
         }
-        Files.move(partial, cached, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
-        return cached;
     }
 
     private static JsonObject json(HttpClient http, String url) throws IOException {

@@ -153,8 +153,10 @@ public final class ShaderPatch {
     /** {qualifier, declaration} of what the vertex passes to the fragment. */
     private static String[][] varyings() {
         return new String[][]{
-                {"flat ", "int meSprite"},       // 0: not the grid; 1: still; 2: flowing
-                {"flat ", "vec2 meOrigin"},      // the grid frame's corner in the atlas (texels)
+                // Not "flat": GLSL 3.30 has no "layout(...) flat out" order (26.3 needs layouts), and these are
+                // the same on every corner of a water face anyway; the fragment rounds them.
+                {"", "float meSprite"},          // 0: not the grid; 1: still; 2: flowing
+                {"", "vec2 meOrigin"},           // the grid frame's corner in the atlas (texels)
                 {"", "vec2 meRel"},              // 0..1 inside the frame
                 {"", "float meShare"},           // how much of a fluid's key is in the color
                 {"", "float meKeyShare"},        // fluid number × share (interpolates to the number)
@@ -348,7 +350,7 @@ public final class ShaderPatch {
 
     private static final String VERTEX_MAIN = """
             // ---- MachineEngine world fluids ----
-            meSprite = 0;
+            meSprite = 0.0;
             meOrigin = vec2(0.0);
             meRel = vec2(0.0);
             meShare = 0.0;
@@ -369,7 +371,7 @@ public final class ShaderPatch {
                 ivec2 meCorner;
                 int meFound = meFind(ivec2(floor(meTexel + meOffset)), meSize, meCorner);
                 if (meFound > 0) {
-                    meSprite = meFound;
+                    meSprite = float(meFound);
                     meOrigin = vec2(meCorner);
                     meRel = (meTexel - meOrigin) / (float(ME_GRID) * (meFound == 2 ? 32.0 : 16.0));
                     meUnmix(Color.rgb);
@@ -379,7 +381,7 @@ public final class ShaderPatch {
                 // Tint only: the water textures carry the marker alpha.
                 ivec2 meProbe = ivec2(floor(meTexel + meOffset));
                 if (meInside(meProbe, meSize) && int(texelFetch(Sampler0, meProbe, 0).a * 255.0 + 0.5) == ME_MARKER) {
-                    meSprite = 1;
+                    meSprite = 1.0;
                     meUnmix(Color.rgb);
                     break;
                 }
@@ -391,7 +393,7 @@ public final class ShaderPatch {
     /** Tint only: the texture as the game samples it, in the fluid's tint, opacity and glow. */
     private static final String FRAGMENT_TINT = """
             // ---- MachineEngine world fluids (tint only) ----
-            if (meSprite > 0) {
+            if (meSprite > 0.5) {
                 vec4 meBase = @SAMPLE@;
                 int meK = meShare > 0.001 ? int(meKeyShare / meShare + 0.5) : 0;
                 float meT = meK == 0 ? 0.0 : ME_EDGE(meShare);
@@ -406,21 +408,21 @@ public final class ShaderPatch {
 
     private static final String FRAGMENT_FLUID = """
             // ---- MachineEngine world fluids ----
-            if (meSprite > 0) {
+            if (meSprite > 0.5) {
                 int meK = meShare > 0.001 ? int(meKeyShare / meShare + 0.5) : 0;
                 float meT = meK == 0 ? 0.0 : ME_EDGE(meShare);
-                float meTile = meSprite == 2 ? 32.0 : 16.0;
+                float meTile = meSprite > 1.5 ? 32.0 : 16.0;
                 vec2 meAtlas = vec2(textureSize(Sampler0, 0));
                 vec2 meLocal = clamp(meRel * meTile, vec2(0.5), vec2(meTile - 0.5));
                 vec4 meWater = vec4(0.0);
                 if (meT < 1.0) {
-                    vec3 meTex = ME_SAMPLE((meOrigin + meLocal) / meAtlas).rgb;
+                    vec3 meTex = ME_SAMPLE((floor(meOrigin + 0.5) + meLocal) / meAtlas).rgb;
                     meWater = vec4(meTex * meBg * meLight, ME_ALPHA[0] * vertexColor.a);
                 }
                 if (meT > 0.0) {
-                    int meIndex = meSprite == 2 ? ME_FLOW[meK] : ME_STILL[meK];
+                    int meIndex = meSprite > 1.5 ? ME_FLOW[meK] : ME_STILL[meK];
                     vec2 meCorner = vec2(float(meIndex % ME_GRID), float(meIndex / ME_GRID)) * meTile;
-                    vec3 meFluidTex = ME_SAMPLE((meOrigin + meCorner + meLocal) / meAtlas).rgb;
+                    vec3 meFluidTex = ME_SAMPLE((floor(meOrigin + 0.5) + meCorner + meLocal) / meAtlas).rgb;
                     vec3 meLit = max(meLight, vec3(ME_GLOW[meK]));
                     vec4 meFluid = vec4(meFluidTex * ME_TINT[meK] * meShade * meLit, ME_ALPHA[meK] * vertexColor.a);
                     color = meT >= 1.0 ? meFluid : mix(meWater, meFluid, meT);

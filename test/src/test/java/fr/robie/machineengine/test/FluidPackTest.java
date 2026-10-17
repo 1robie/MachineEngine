@@ -123,7 +123,8 @@ class FluidPackTest {
         assertTrue(fragment.contains("color = texture(Sampler0, texCoord0) * vertexColor * ColorModulator;"), "vanilla stays for everything else");
         assertTrue(fragment.contains("color *= ColorModulator;"));
         assertTrue(fragment.contains("const vec3 ME_TINT[3] = vec3[](vec3(255.0, 255.0, 255.0) / 255.0, vec3(255.0, 255.0, 255.0) / 255.0, vec3(42.0, 34.0, 56.0) / 255.0);"));
-        assertTrue(fragment.contains("flat in int meSprite;") && vertex.contains("flat out int meSprite;"));
+        assertTrue(fragment.contains("in float meSprite;") && vertex.contains("out float meSprite;"));
+        assertTrue(!vertex.contains("flat ") && !fragment.contains("flat "), "no flat: GLSL 3.30 has no layout-then-flat order");
         assertEquals(count(vertex, "{") , count(vertex, "}"), "balanced braces");
         assertEquals(count(fragment, "{"), count(fragment, "}"), "balanced braces");
     }
@@ -135,8 +136,8 @@ class FluidPackTest {
         String fragment = ShaderPatch.fragment(FRAGMENT.replace("in vec4 vertexColor;", "layout(location = 0) in vec4 vertexColor;")
                 .replace("in vec2 texCoord0;", "layout(location = 1) in vec2 texCoord0;"), constants());
 
-        assertTrue(vertex.contains("layout(location = 2) flat out int meSprite;"));
-        assertTrue(fragment.contains("layout(location = 2) flat in int meSprite;"));
+        assertTrue(vertex.contains("layout(location = 2) out float meSprite;"));
+        assertTrue(fragment.contains("layout(location = 2) in float meSprite;"));
         assertTrue(fragment.contains("layout(location = 9) in vec3 meLight;"));
     }
 

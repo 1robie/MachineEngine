@@ -51,6 +51,7 @@ final class FluidEntities implements Listener {
     private static final class Inside {
         final int number;
         final WeakReference<Entity> entity;
+        final UUID world;
         int ticks;
         /** When the effects next run (every {@link #EFFECT_TICKS}). */
         int nextEffect;
@@ -59,6 +60,7 @@ final class FluidEntities implements Listener {
         Inside(int number, Entity entity, long chunk) {
             this.number = number;
             this.entity = new WeakReference<>(entity);
+            this.world = entity.getWorld().getUID();
             this.chunk = chunk;
         }
     }
@@ -82,8 +84,13 @@ final class FluidEntities implements Listener {
         this.players.clear();
         WorldFluidNms nms = this.runtime.nms();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            if (this.inside.containsKey(player.getUniqueId())) {
-                this.scheduler.run(player, () -> nms.viscosity(player, null), null);
+            if (!this.inside.containsKey(player.getUniqueId())) continue;
+            try {
+                // Modifiers are transient anyway: a failure here only lasts until the player rejoins.
+                if (this.scheduler.isOwnedByCurrentThread(player)) nms.viscosity(player, null);
+                else this.scheduler.run(player, () -> nms.viscosity(player, null), null);
+            } catch (RuntimeException e) {
+                // the plugin is disabled: nothing can be scheduled any more
             }
         }
         this.inside.clear();
@@ -127,7 +134,12 @@ final class FluidEntities implements Listener {
     /** Every 4 ticks: the other entities of each chunk that holds fluids, on that chunk's thread. */
     void scanChunks() {
         for (World world : Bukkit.getWorlds()) {
-            for (long chunk : this.runtime.cells().trackedChunks(world.getUID())) {
+            // The chunks holding fluids, and those mobs were last seen inside a fluid in (it may be gone).
+            Set<Long> chunks = new HashSet<>(this.runtime.cells().trackedChunks(world.getUID()));
+            for (Inside state : this.inside.values()) {
+                if (state.world.equals(world.getUID()) && !(state.entity.get() instanceof Player)) chunks.add(state.chunk);
+            }
+            for (long chunk : chunks) {
                 int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
                 this.scheduler.run(world, chunkX, chunkZ, () -> scanChunk(world, chunkX, chunkZ, chunk));
             }

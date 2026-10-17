@@ -436,6 +436,7 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         }
         Material material = fluidMaterial(fluid);
         if (material == null) return false;
+        if (type instanceof FluidType vanilla && !WorldFluids.canPlace(block, vanilla).allowed()) return false;
         boolean air = block.getType().isAir();
         boolean flowing = block.getType() == material && block.getBlockData() instanceof Levelled levelled && levelled.getLevel() != 0;
         if (!air && !flowing) return false;

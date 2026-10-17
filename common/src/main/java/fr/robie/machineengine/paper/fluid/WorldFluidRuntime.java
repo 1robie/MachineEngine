@@ -117,6 +117,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     private final FluidEntities entities;
     private final FluidPackService pack;
     private @Nullable FluidBiomeRemapper remapper;
+    private @Nullable Listener chunkSends;
     private volatile boolean biomeUpdates = true;
 
     private WorldFluidRuntime(Plugin plugin, MachineEngine engine, WorldFluidNms nms, ConfigValues config, FluidKeys keys) {
@@ -190,7 +191,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
             this.remapper = created;
         } catch (LinkageError e) {
             // An older CraftEngine: fluids are sent as biome-only updates when players load chunks instead.
-            Bukkit.getPluginManager().registerEvents(new ChunkSends(this), this.plugin);
+            this.chunkSends = new ChunkSends(this);
+            Bukkit.getPluginManager().registerEvents(this.chunkSends, this.plugin);
             Logger.info("[fluids]", "This CraftEngine has no biome hook: fluid colors follow each chunk a moment later");
         }
         int sample = 100 + this.keys.entryCount();
@@ -218,20 +220,31 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     /** Stops answering and saves what changed (MachineEngine disables). */
     public void uninstall() {
-        this.pack.stop();
-        this.nms.uninstall();
-        if (this.remapper != null) this.remapper.stop();
-        this.tasks.forEach(Task::cancel);
-        HandlerList.unregisterAll(this);
-        this.entities.stopAll();
+        // Saving first: nothing after it may lose the changes since the last sweep.
         for (World world : Bukkit.getWorlds()) {
             for (long chunk : this.cells.takeUnsavedChunks(world.getUID())) {
                 try {
-                    save(world, Cells.chunkX(chunk), Cells.chunkZ(chunk));
+                    if (world.isChunkLoaded(Cells.chunkX(chunk), Cells.chunkZ(chunk))) save(world.getChunkAt(Cells.chunkX(chunk), Cells.chunkZ(chunk)));
                 } catch (RuntimeException e) {
                     Logger.warn("[fluids]", "Could not save the fluids of a chunk at shutdown", e);
                 }
             }
+        }
+        this.tasks.forEach(Task::cancel);
+        HandlerList.unregisterAll(this);
+        HandlerList.unregisterAll(this.entities);
+        if (this.chunkSends != null) HandlerList.unregisterAll(this.chunkSends);
+        if (this.remapper != null) this.remapper.stop();
+        quietly(this.pack::stop);
+        quietly(this.nms::uninstall);
+        quietly(this.entities::stopAll);
+    }
+
+    private static void quietly(Runnable step) {
+        try {
+            step.run();
+        } catch (RuntimeException e) {
+            Logger.warn("[fluids]", "A world fluids shutdown step failed", e);
         }
     }
 
@@ -328,11 +341,13 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     @Nullable Refusal refusal(@NotNull Block block, @NotNull FluidType fluid) {
         Placeholder name = Placeholder.of("fluid", name(fluid));
-        if (fluid == Fluids.lava()) return block.getType().isAir() ? null : new Refusal(EngineMessage.FLUID_NOT_HERE, name);
+        if (fluid == Fluids.lava()) return WorldFluids.vanillaOnly().canPlace(block, fluid).allowed() ? null : new Refusal(EngineMessage.FLUID_NOT_HERE, name);
         int number = fluid == Fluids.water() ? 0 : this.keys.number(fluid);
         if (fluid != Fluids.water() && number == 0) return new Refusal(EngineMessage.FLUID_NOT_PLACEABLE, name);
         if (!block.getType().isAir() && !isWater(block)) return new Refusal(EngineMessage.FLUID_NOT_HERE, name);
         if (number != 0 && number(block) == number) return null;
+        // Plain water poured or placed into a block of a fluid would make a source of that fluid.
+        if (number == 0 && number(block) != 0) return new Refusal(EngineMessage.FLUID_NOT_HERE, name);
         FluidRules.Refusal refusal = FluidRules.check(this.cells, block.getWorld().getUID(), blocks(block.getWorld()),
                 block.getX(), block.getY(), block.getZ(), number, settings());
         return refusal == null ? null : message(refusal, fluid);
@@ -404,10 +419,10 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     /** Sets which fluid a water block holds (0: plain water), and updates what clients see. */
     void setFluid(@NotNull Block block, int number) {
         Long cell = this.cells.set(block.getWorld().getUID(), block.getX(), block.getY(), block.getZ(), number);
-        if (cell != null) markCellDirty(block.getWorld(), cell, this.keys.uniform() ? 0 : this.config.get(WorldFluidConfig.NEUTRAL_RINGS));
+        if (cell != null) markCellDirty(block.getWorld(), cell, this.cells.neutralRings());
     }
 
-    private void forget(Block block, WorldFluidRemoveEvent.Cause cause) {
+    void forget(Block block, WorldFluidRemoveEvent.Cause cause) {
         FluidType fluid = this.keys.fluid(number(block));
         if (fluid == null) return;
         setFluid(block, 0);
@@ -489,7 +504,9 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
             updatePadding(world);
             for (long chunk : this.cells.takeUnsavedChunks(id)) {
                 int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
-                this.scheduler.run(world, chunkX, chunkZ, () -> save(world, chunkX, chunkZ));
+                this.scheduler.run(world, chunkX, chunkZ, () -> {
+                    if (world.isChunkLoaded(chunkX, chunkZ)) save(world.getChunkAt(chunkX, chunkZ));
+                });
             }
             for (long chunk : this.cells.trackedChunks(id)) {
                 int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
@@ -541,19 +558,24 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         for (Map.Entry<Long, Key> entry : blocks.entrySet()) {
             int number = this.keys.number(registry.get(entry.getValue()).orElse(null) instanceof FluidType fluid ? fluid : null);
             long packed = entry.getKey();
-            if (number == 0) missing.put(packed, entry.getValue());
-            else this.cells.set(id, Cells.x(packed), Cells.y(packed), Cells.z(packed), number);
+            if (number == 0) {
+                missing.put(packed, entry.getValue());
+                continue;
+            }
+            // A block may own a cell of the next chunk, which may already have been sent: send it again.
+            Long cell = this.cells.set(id, Cells.x(packed), Cells.y(packed), Cells.z(packed), number);
+            if (cell != null) markCellDirty(world, cell, this.cells.neutralRings());
         }
         if (!missing.isEmpty()) this.unknown.computeIfAbsent(id, ignored -> new ConcurrentHashMap<>()).put(chunkKey, missing);
     }
 
-    private void save(World world, int chunkX, int chunkZ) {
-        UUID id = world.getUID();
+    private void save(Chunk chunk) {
+        UUID id = chunk.getWorld().getUID();
+        int chunkX = chunk.getX(), chunkZ = chunk.getZ();
         long chunkKey = Cells.chunk(chunkX, chunkZ);
         Set<Long> skipped = this.unreadable.get(id);
         if (skipped != null && skipped.contains(chunkKey)) return;
-        if (!world.isChunkLoaded(chunkX, chunkZ)) return;
-        PersistentDataContainer data = world.getChunkAt(chunkX, chunkZ).getPersistentDataContainer();
+        PersistentDataContainer data = chunk.getPersistentDataContainer();
         Map<Long, Key> blocks = new HashMap<>();
         Map<Long, Map<Long, Key>> unknownHere = this.unknown.get(id);
         if (unknownHere != null && unknownHere.get(chunkKey) != null) blocks.putAll(unknownHere.get(chunkKey));
@@ -568,13 +590,15 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     @EventHandler
     public void onChunkLoad(ChunkLoadEvent event) {
         load(event.getChunk());
+        // Fluids next to it pad its cells again (its padding was dropped when it unloaded).
+        this.cells.markDirtyAround(event.getWorld().getUID(), event.getChunk().getX(), event.getChunk().getZ());
     }
 
     @EventHandler
     public void onChunkUnload(ChunkUnloadEvent event) {
         Chunk chunk = event.getChunk();
         UUID id = chunk.getWorld().getUID();
-        save(chunk.getWorld(), chunk.getX(), chunk.getZ());
+        save(chunk); // the event's own chunk: it may no longer count as loaded
         this.cells.forgetChunk(id, chunk.getX(), chunk.getZ());
         long chunkKey = Cells.chunk(chunk.getX(), chunk.getZ());
         Map<Long, Map<Long, Key>> unknownHere = this.unknown.get(id);
@@ -587,43 +611,63 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     /**
      * Water changing level by itself: drying up, or becoming a source. A new source needs two source
-     * neighbours; their fluids decide (a fluid's {@code infinite-source}, {@code mixed-source}).
+     * neighbours; their fluids decide (a fluid's {@code infinite-source}, {@code mixed-source}). Decided
+     * here (a refusal cancels); applied at {@link #onLevelChanged} once no plugin cancelled it.
      */
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onLevelChange(FluidLevelChangeEvent event) {
+        int number = newSource(event);
+        if (number == NO_SOURCE) {
+            event.setCancelled(true);
+            return;
+        }
+        FluidType fluid = this.keys.fluid(number);
+        if (fluid != null && !new WorldFluidPlaceEvent(event.getBlock(), fluid, WorldFluidPlaceEvent.Cause.SPREAD).callEvent()) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onLevelChanged(FluidLevelChangeEvent event) {
         Block block = event.getBlock();
-        BlockData next = event.getNewData();
-        if (next.getMaterial() != Material.WATER) {
+        if (event.getNewData().getMaterial() != Material.WATER) {
             forget(block, WorldFluidRemoveEvent.Cause.DRIED);
             return;
         }
-        if (!(next instanceof Levelled levelled) || levelled.getLevel() != 0) return;
-        if (block.getBlockData() instanceof Levelled current && current.getLevel() == 0) return;
+        int number = newSource(event);
+        if (number == UNCHANGED || number == NO_SOURCE) return;
+        if (number == 0) forget(block, WorldFluidRemoveEvent.Cause.REPLACED);
+        else setFluid(block, number);
+    }
+
+    /** {@link #newSource}: the block does not become a source. */
+    private static final int UNCHANGED = -1;
+    /** {@link #newSource}: no source may form there. */
+    private static final int NO_SOURCE = -2;
+
+    /** Which fluid the source forming in this event holds (0: plain water), {@link #UNCHANGED} or {@link #NO_SOURCE}. */
+    private int newSource(FluidLevelChangeEvent event) {
+        Block block = event.getBlock();
+        BlockData next = event.getNewData();
+        if (next.getMaterial() != Material.WATER || !(next instanceof Levelled levelled) || levelled.getLevel() != 0) return UNCHANGED;
+        if (block.getBlockData() instanceof Levelled current && current.getLevel() == 0) return UNCHANGED;
         Set<Integer> fluids = new HashSet<>();
         for (BlockFace face : SIDES) {
             Block neighbour = block.getRelative(face);
             if (isSource(neighbour)) fluids.add(number(neighbour));
         }
+        if (fluids.isEmpty()) return UNCHANGED;
         if (fluids.size() == 1) {
             int number = fluids.iterator().next();
             FluidType fluid = this.keys.fluid(number);
-            if (fluid == null) {
-                setFluid(block, 0);
-            } else if (WorldFluids.physics(fluid).infiniteSource()) {
-                if (new WorldFluidPlaceEvent(block, fluid, WorldFluidPlaceEvent.Cause.SPREAD).callEvent()) setFluid(block, number);
-                else event.setCancelled(true);
-            } else {
-                event.setCancelled(true);
-            }
-        } else if (fluids.size() > 1) {
-            boolean water = true;
-            for (int number : fluids) {
-                FluidType fluid = this.keys.fluid(number);
-                if (fluid != null && WorldFluids.physics(fluid).mixedSource() != FluidPhysics.MixedSource.WATER) water = false;
-            }
-            if (water) setFluid(block, 0);
-            else event.setCancelled(true);
+            if (fluid == null) return 0;
+            return WorldFluids.physics(fluid).infiniteSource() ? number : NO_SOURCE;
         }
+        for (int number : fluids) {
+            FluidType fluid = this.keys.fluid(number);
+            if (fluid != null && WorldFluids.physics(fluid).mixedSource() != FluidPhysics.MixedSource.WATER) return NO_SOURCE;
+        }
+        return 0;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -672,24 +716,32 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
             event.setCancelled(true);
             return;
         }
-        if (!new WorldFluidPlaceEvent(to, fluid, WorldFluidPlaceEvent.Cause.SPREAD).callEvent()) {
-            event.setCancelled(true);
-            return;
-        }
         int delay = physics.spread().ticks();
         if (delay > 5) {
-            // Slower than water: cancelled, and the same flowing state is placed later.
+            // Slower than water: cancelled, and the same flowing state is placed later (with its event then).
             event.setCancelled(true);
             this.scheduler.runLater(to.getLocation(), () -> {
                 if (number(from) != number || !isWater(from)) return;
                 if (!to.getType().isAir() && to.getType() != Material.WATER) return;
                 if (FluidRules.check(this.cells, id, blocks(to.getWorld()), to.getX(), to.getY(), to.getZ(), number, settings()) != null) return;
+                if (!new WorldFluidPlaceEvent(to, fluid, WorldFluidPlaceEvent.Cause.SPREAD).callEvent()) return;
                 to.setBlockData(data, true);
                 setFluid(to, number);
             }, delay - 5L);
             return;
         }
-        setFluid(to, number);
+        if (!new WorldFluidPlaceEvent(to, fluid, WorldFluidPlaceEvent.Cause.SPREAD).callEvent()) event.setCancelled(true);
+    }
+
+    /** The flow happened (no plugin cancelled it): the block it reached holds the fluid. */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onFlowed(BlockFromToEvent event) {
+        Block from = event.getBlock();
+        if (from.getType() != Material.WATER && !isWater(from)) return;
+        int number = number(from);
+        FluidType fluid = this.keys.fluid(number);
+        if (fluid == null || WorldFluids.physics(fluid).spread().ticks() > 5) return;
+        setFluid(event.getToBlock(), number);
     }
 
     /** The flowing water vanilla puts on the block {@code from} spreads to, or {@code null} past the last level. */
@@ -704,40 +756,54 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
 
     // ---------------------------------------------------------------- buckets
 
-    @EventHandler(ignoreCancelled = true)
+    /** Pouring: refused here where the fluid may not go; its event at HIGHEST; applied at MONITOR. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucketEmpty(PlayerBucketEmptyEvent event) {
         if (event.getBucket() != Material.WATER_BUCKET) return;
-        ItemStack item = event.getPlayer().getInventory().getItem(event.getHand());
-        FluidType fluid = bucketFluid(item);
-        Block block = event.getBlock();
-        Refusal refusal = refusal(block, fluid == null ? Fluids.water() : fluid);
+        FluidType fluid = bucketFluid(event.getPlayer().getInventory().getItem(event.getHand()));
+        Refusal refusal = refusal(event.getBlock(), fluid == null ? Fluids.water() : fluid);
         if (refusal != null) {
             event.setCancelled(true);
             EngineMessages.send(event.getPlayer(), refusal.message(), refusal.placeholders());
-            return;
         }
-        if (fluid == null) return;
-        if (!new WorldFluidPlaceEvent(block, fluid, WorldFluidPlaceEvent.Cause.BUCKET).callEvent()) {
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBucketEmptyEvent(PlayerBucketEmptyEvent event) {
+        if (event.getBucket() != Material.WATER_BUCKET) return;
+        FluidType fluid = bucketFluid(event.getPlayer().getInventory().getItem(event.getHand()));
+        if (fluid != null && !new WorldFluidPlaceEvent(event.getBlock(), fluid, WorldFluidPlaceEvent.Cause.BUCKET).callEvent()) {
             event.setCancelled(true);
-            return;
         }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBucketEmptied(PlayerBucketEmptyEvent event) {
+        if (event.getBucket() != Material.WATER_BUCKET) return;
+        FluidType fluid = bucketFluid(event.getPlayer().getInventory().getItem(event.getHand()));
+        if (fluid == null) return;
+        Block block = event.getBlock();
         int number = this.keys.number(fluid);
         this.scheduler.run(block.getLocation(), () -> {
-            if (isWater(block)) setFluid(block, number);
+            if (isSource(block)) setFluid(block, number);
         });
     }
 
-    @EventHandler(ignoreCancelled = true)
+    /** Filling: the bucket of the fluid at HIGH; the fluid is forgotten at MONITOR, once no plugin cancelled. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onBucketFill(PlayerBucketFillEvent event) {
+        FluidType fluid = this.keys.fluid(number(event.getBlock()));
+        if (fluid == null) return;
+        ItemStack bucket = bucket(fluid);
+        if (bucket == null) event.setCancelled(true);
+        else event.setItemStack(bucket);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onBucketFilled(PlayerBucketFillEvent event) {
         Block block = event.getBlock();
         FluidType fluid = this.keys.fluid(number(block));
         if (fluid == null) return;
-        ItemStack bucket = bucket(fluid);
-        if (bucket == null) {
-            event.setCancelled(true);
-            return;
-        }
-        event.setItemStack(bucket);
         setFluid(block, 0);
         new WorldFluidRemoveEvent(block, fluid, WorldFluidRemoveEvent.Cause.BUCKET).callEvent();
     }
@@ -804,7 +870,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         }
 
         private boolean hasKeyedSection(UUID world, Chunk chunk) {
-            for (int sy = -4; sy < 20; sy++) {
+            World loaded = chunk.getWorld();
+            for (int sy = loaded.getMinHeight() >> 4; sy <= (loaded.getMaxHeight() - 1) >> 4; sy++) {
                 if (this.runtime.cells.hasSection(world, chunk.getX(), sy, chunk.getZ())) return true;
             }
             return false;

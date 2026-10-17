@@ -34,8 +34,9 @@ final class FluidData {
     }
 
     static Result<Integer> whole(DataMap map, String field, int fallback) {
-        return number(map, field, fallback).flatMap(value -> value == Math.rint(value)
-                ? Result.ok((int) Math.round(value)) : fail(field + " must be a whole number but is " + value));
+        return number(map, field, fallback).flatMap(value -> value != Math.rint(value) ? fail(field + " must be a whole number but is " + value)
+                : value < Integer.MIN_VALUE || value > Integer.MAX_VALUE ? fail(field + " is too large: " + value)
+                : Result.ok((int) Math.round(value)));
     }
 
     static Result<Boolean> bool(DataMap map, String field, boolean fallback) {

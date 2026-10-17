@@ -59,6 +59,36 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
      * (before 0.9) or there is none.
      */
     public static @Nullable SodiumShaders load(@NotNull String minecraft, @NotNull Path cache) throws IOException {
+        try {
+            return download(minecraft, cache);
+        } catch (IOException e) {
+            // Modrinth unreachable: the Sodium downloaded before still does.
+            SodiumShaders cached = cached(minecraft, cache);
+            if (cached != null) return cached;
+            throw e;
+        }
+    }
+
+    /**
+     * The newest Sodium for {@code minecraft} already in the cache (no network: used at enable, on the main
+     * thread), or {@code null}.
+     */
+    public static @Nullable SodiumShaders cached(@NotNull String minecraft, @NotNull Path cache) throws IOException {
+        if (!Files.isDirectory(cache)) return null;
+        Path newest = null;
+        try (var files = Files.list(cache)) {
+            for (Path file : files.toList()) {
+                String name = file.getFileName().toString();
+                if (!name.startsWith("sodium-mc" + minecraft + "-") || !name.endsWith(".jar")) continue;
+                if (newest == null || Files.getLastModifiedTime(file).compareTo(Files.getLastModifiedTime(newest)) > 0) newest = file;
+            }
+        }
+        if (newest == null) return null;
+        String version = newest.getFileName().toString().replaceFirst("^sodium-", "").replaceFirst("\\.jar$", "");
+        return overridable(version) ? fromJar(newest, version) : null;
+    }
+
+    private static @Nullable SodiumShaders download(String minecraft, Path cache) throws IOException {
         HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).followRedirects(HttpClient.Redirect.NORMAL).build();
         String query = "loaders=" + URLEncoder.encode("[\"fabric\"]", StandardCharsets.UTF_8)
                 + "&game_versions=" + URLEncoder.encode("[\"" + minecraft + "\"]", StandardCharsets.UTF_8);
@@ -77,7 +107,10 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
         if (!overridable(name)) return null;
         JsonObject file = null;
         for (JsonElement element : chosen.getAsJsonArray("files")) {
-            if (element.getAsJsonObject().get("primary").getAsBoolean()) file = element.getAsJsonObject();
+            JsonObject candidate = element.getAsJsonObject();
+            boolean primary = candidate.has("primary") && candidate.get("primary").getAsBoolean();
+            if (file == null || primary) file = candidate; // the primary file, else the first
+            if (primary) break;
         }
         if (file == null) return null;
         String sha1 = file.getAsJsonObject("hashes").get("sha1").getAsString();
@@ -98,8 +131,14 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
             if (metadata == null) metadata = zip.getEntry("META-INF/neoforge.mods.toml");
             if (metadata == null) throw new IOException(jar + " is not a Sodium jar");
             String text = read(zip, metadata.getName());
-            Matcher matcher = Pattern.compile("\"?version\"?\s*[:=]\s*\"([^\"]+)\"").matcher(text);
-            version = matcher.find() ? matcher.group(1) : "?";
+            Matcher matcher = Pattern.compile("\"?version\"?\\s*[:=]\\s*\"([^\"$]+)\"").matcher(text);
+            version = matcher.find() ? matcher.group(1) : null;
+            if (version == null) {
+                // NeoForge's mods.toml says "${file.jarVersion}": the manifest has the version.
+                ZipEntry manifest = zip.getEntry("META-INF/MANIFEST.MF");
+                Matcher implementation = Pattern.compile("Implementation-Version:\\s*(\\S+)").matcher(manifest == null ? "" : read(zip, manifest.getName()));
+                version = implementation.find() ? implementation.group(1) : "?";
+            }
         }
         return overridable(version) ? fromJar(jar, version) : null;
     }
@@ -146,21 +185,20 @@ public record SodiumShaders(@NotNull String version, @NotNull String vertex, @No
 
     private static void download(HttpClient http, String url, String sha1, Path target) throws IOException {
         Files.createDirectories(target.getParent());
-        Path partial = target.resolveSibling(target.getFileName() + ".part");
+        Path partial = Files.createTempFile(target.getParent(), "sodium-", ".part");
         try {
             HttpResponse<Path> response = http.send(HttpRequest.newBuilder(URI.create(url)).timeout(Duration.ofMinutes(5))
                             .header("User-Agent", "MachineEngine (world fluids pack)").build(),
                     HttpResponse.BodyHandlers.ofFile(partial, StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING));
             if (response.statusCode() != 200) throw new IOException("Sodium download: HTTP " + response.statusCode());
+            if (!sha1.equalsIgnoreCase(sha1(partial))) throw new IOException("the downloaded Sodium jar does not match Modrinth's checksum");
+            Files.move(partial, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException("Sodium download interrupted", e);
-        }
-        if (!sha1.equalsIgnoreCase(sha1(partial))) {
+        } finally {
             Files.deleteIfExists(partial);
-            throw new IOException("the downloaded Sodium jar does not match Modrinth's checksum");
         }
-        Files.move(partial, target, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     private static String sha1(Path file) throws IOException {

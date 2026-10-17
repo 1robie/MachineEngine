@@ -26,7 +26,8 @@ import java.util.Objects;
  * block's thread.
  *
  * <p>Until MachineEngine's world fluids run (headless tests, or {@code world-fluids.enabled: false})
- * only vanilla water and lava are known, and nothing can be placed.</p>
+ * only vanilla water and lava are known: they may go into air or their own flowing block, and no
+ * placeable fluid can be placed.</p>
  */
 public final class WorldFluids {
     /** What MachineEngine installs when world fluids run. */
@@ -69,7 +70,10 @@ public final class WorldFluids {
 
         @Override
         public @NotNull Placement canPlace(@NotNull Block block, @NotNull FluidType fluid) {
-            return Placement.refused(Component.text("world fluids are not running"));
+            Material material = fluid == Fluids.water() ? Material.WATER : fluid == Fluids.lava() ? Material.LAVA : null;
+            if (material == null) return Placement.refused(Component.text("world fluids are not running"));
+            boolean flowing = block.getType() == material && block.getBlockData() instanceof org.bukkit.block.data.Levelled levelled && levelled.getLevel() != 0;
+            return block.getType().isAir() || flowing ? Placement.ALLOWED : Placement.refused(Component.text("not air or flowing " + material.getKey().getKey()));
         }
 
         @Override

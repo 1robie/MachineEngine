@@ -3,6 +3,7 @@ package fr.robie.machineengine.paper.fluid;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import fr.robie.machineengine.api.MachineEngine;
 import fr.robie.machineengine.api.paper.event.WorldFluidPlaceEvent;
+import fr.robie.machineengine.api.paper.event.WorldFluidRemoveEvent;
 import fr.robie.machineengine.api.platform.Scheduler;
 import fr.robie.machineengine.api.platform.Task;
 import fr.robie.machineengine.api.resource.Fluids;
@@ -248,13 +249,17 @@ public final class FluidAdminCommand extends SubCommand<Plugin> {
             int count = 0;
             while (!queue.isEmpty() && count < max) {
                 Block block = queue.poll();
-                if (fluid == null || new WorldFluidPlaceEvent(block, fluid, WorldFluidPlaceEvent.Cause.COMMAND).callEvent()) {
+                if (fluid == null) {
+                    running.forget(block, WorldFluidRemoveEvent.Cause.COMMAND);
+                    count++;
+                } else if (new WorldFluidPlaceEvent(block, fluid, WorldFluidPlaceEvent.Cause.COMMAND).callEvent()) {
                     running.setFluid(block, number);
                     count++;
                 }
                 for (BlockFace face : FACES) {
                     Block next = block.getRelative(face);
-                    if (!scheduler.isOwnedByCurrentThread(world, next.getX() >> 4, next.getZ() >> 4)) continue;
+                    if (!world.isChunkLoaded(next.getX() >> 4, next.getZ() >> 4)
+                            || !scheduler.isOwnedByCurrentThread(world, next.getX() >> 4, next.getZ() >> 4)) continue;
                     if (!seen.add(Cells.pack(next.getX(), next.getY(), next.getZ()))) continue;
                     if (WorldFluidRuntime.isWater(next)) queue.add(next);
                 }

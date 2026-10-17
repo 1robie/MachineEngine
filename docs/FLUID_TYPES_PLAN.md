@@ -366,6 +366,41 @@ Three layers, each overriding the one before:
 
 Each stage ends with its tests and a dev server check, and with the owner's in-game check where something is visible (stages 4–6).
 
+### 5.1 Settings, no-grid mode and code review (2026-10-17, owner)
+
+- **`world-fluids.textures: auto | grid | tint`.** `auto` uses the grid from 26.2, where Sodium 0.9 takes the pack's shader, and tint below.
+  - In tint mode the pack ships the vanilla water textures unchanged, except alpha 179 instead of 180, which marks water for the shader.
+  - Every fluid is then the water texture in its own tint, opacity and glow.
+  - Players without the shader (old Sodium, OptiFine) see normal water, with fluids in their code color.
+  - Checked with glslang in both modes: 88 vanilla and 68 Sodium define sets each, 0 failures.
+- **New settings:** `sodium-jar` (`download` or a path), `bucket-textures`, `water-models`, `update-delay`, `entity-effects` and `entity-ticks`.
+- **Review (two read-only reviewers, every finding checked against the code before fixing):**
+  - *Pack:*
+    - the overlay is built aside, its imports checked, and swapped in whole (a failed build had left a half-written overlay that `pack.mcmeta` still enabled);
+    - one build at a time, each download with its own temporary file that is removed on failure;
+    - no network at enable (a cached Sodium, then a background download), and Modrinth down falls back to the cached Sodium;
+    - grid animations loop over the lcm of every texture's loop (Mekanized's flowing liquid had jumped halfway through);
+    - no `flat` on passed values (GLSL 3.30 has no `layout(...) flat` order);
+    - a look with only one of its two textures in the grid falls back to tinted water;
+    - Sodium versions are read from NeoForge jars too, and a Modrinth file not marked primary is used;
+    - the damage effect's interval is right for any value, and too-large numbers are refused.
+  - *Runtime:*
+    - buckets, flow and level changes decide at HIGH and change tracking at MONITOR, so a plugin cancelling later no longer leaves a fluid half-changed;
+    - slow fluids fire their place event when they really place;
+    - plain water (buckets and machines) can't turn a moving fluid block into a source of that fluid;
+    - loaded chunks re-send the neighbouring cells they own, and their padding is computed again;
+    - padding and section marks of unloaded chunks are dropped;
+    - the unload save writes into the event's chunk;
+    - shutdown saves first and can't throw out of `onDisable`;
+    - mobs get their leave event when their chunk no longer holds fluid;
+    - remove events are fired where they were missing;
+    - `/machineengine fluid fill` no longer loads chunks;
+    - world heights come from the world;
+    - neutral-ring changes are atomic per world (Folia);
+    - a black neutral color no longer breaks the palette;
+    - all listeners are unregistered at uninstall.
+- **Checked headless:** Mekanized on Paper 26.3 builds the grid at enable, then adds Sodium (downloaded in the background); Paper 1.21.4 uses tint mode, with alpha-179 water.
+
 ## 6. Decisions to record (after the owner's answers)
 
 - **D46:** world fluids as in WORLD_FLUIDS_PLAN §2 Findings: water carrier, key biomes, neutral water, shader overlays, gap between different fluids.

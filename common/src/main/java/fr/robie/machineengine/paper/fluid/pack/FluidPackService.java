@@ -52,7 +52,12 @@ public final class FluidPackService {
         Path cached = this.cache.resolve("minecraft-client-" + Bukkit.getMinecraftVersion() + ".jar");
         String setting = this.config.get(WorldFluidConfig.CLIENT_JAR);
         if (!setting.equalsIgnoreCase("download") || Files.isRegularFile(cached)) {
-            build(message -> Logger.info("[fluids]", "%message%", Placeholder.of("message", message)));
+            // Now, so CraftEngine sends it as usual; nothing from the network here (the main thread).
+            build(message -> Logger.info("[fluids]", "%message%", Placeholder.of("message", message)), true);
+            if (sodiumMissing()) {
+                rebuild(message -> Logger.info("[fluids]", "Sodium's shader downloaded. %message% Send it with /ce reload pack.",
+                        Placeholder.of("message", message)));
+            }
             return;
         }
         Logger.info("[fluids]", "Downloading the official Minecraft %version% client jar (once) for the world fluids pack...",
@@ -62,7 +67,7 @@ public final class FluidPackService {
 
     /** Builds off the main thread; {@code done} gets a line to show. */
     public @NotNull CompletableFuture<Void> rebuild(@NotNull Consumer<String> done) {
-        CompletableFuture<Void> build = CompletableFuture.runAsync(() -> build(done), command -> MachineEngine.scheduler(this.plugin).runAsync(command));
+        CompletableFuture<Void> build = CompletableFuture.runAsync(() -> build(done, false), command -> MachineEngine.scheduler(this.plugin).runAsync(command));
         this.running = build;
         return build;
     }
@@ -80,7 +85,19 @@ public final class FluidPackService {
         }
     }
 
-    private void build(Consumer<String> done) {
+    /** Whether Sodium's shader should be added but no Sodium for this version is in the cache yet. */
+    private boolean sodiumMissing() {
+        if (!this.config.get(WorldFluidConfig.SODIUM) || !this.config.get(WorldFluidConfig.SODIUM_JAR).equalsIgnoreCase("download")) return false;
+        if (!atLeast(Bukkit.getMinecraftVersion(), 26, 2)) return false; // no Sodium takes pack shaders there
+        try {
+            return SodiumShaders.cached(Bukkit.getMinecraftVersion(), this.cache) == null;
+        } catch (IOException e) {
+            return true;
+        }
+    }
+
+    /** One build at a time: two would write the same folders and download the same files. */
+    private synchronized void build(Consumer<String> done, boolean offline) {
         try {
             String version = Bukkit.getMinecraftVersion();
             Path jar = VanillaClient.locate(this.config.get(WorldFluidConfig.CLIENT_JAR), version, this.cache);
@@ -92,7 +109,7 @@ public final class FluidPackService {
                     return;
                 }
                 boolean grid = grid(this.config.get(WorldFluidConfig.TEXTURES), version);
-                SodiumShaders sodium = this.config.get(WorldFluidConfig.SODIUM) ? sodium(version, grid) : null;
+                SodiumShaders sodium = this.config.get(WorldFluidConfig.SODIUM) ? sodium(version, grid, offline) : null;
                 FluidPackBuilder.Result result = FluidPackBuilder.build(client, this.keys, WorldFluids::look, new FluidPackBuilder.Settings(
                         this.config.get(WorldFluidConfig.NEUTRAL_COLOR), this.config.get(WorldFluidConfig.UNIFORM_WATER),
                         this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID),
@@ -123,10 +140,14 @@ public final class FluidPackService {
     }
 
     /** Sodium's shader to patch, or {@code null} (and a line saying what Sodium players see). */
-    private @Nullable SodiumShaders sodium(String version, boolean grid) {
+    private @Nullable SodiumShaders sodium(String version, boolean grid, boolean offline) {
         String setting = this.config.get(WorldFluidConfig.SODIUM_JAR);
         try {
-            SodiumShaders sodium = setting.equalsIgnoreCase("download") ? SodiumShaders.load(version, this.cache) : SodiumShaders.fromJar(Path.of(setting));
+            // Below 26.2 no Sodium takes pack shaders (they load from its jar): nothing to download.
+            SodiumShaders sodium = !setting.equalsIgnoreCase("download") ? SodiumShaders.fromJar(Path.of(setting))
+                    : !atLeast(version, 26, 2) ? null
+                    : offline ? SodiumShaders.cached(version, this.cache) : SodiumShaders.load(version, this.cache);
+            if (offline && sodium == null && sodiumMissing()) return null; // downloaded right after, then the pack is built again
             if (sodium == null) {
                 Logger.info("[fluids]", grid
                         ? "No Sodium for Minecraft %version% takes shaders from resource packs (Sodium 0.9, 26.2+): Sodium players see the texture grid on water (world-fluids.textures: tint avoids it)"

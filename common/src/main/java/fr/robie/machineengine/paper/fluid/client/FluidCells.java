@@ -36,6 +36,8 @@ public final class FluidCells {
     private final Map<UUID, Map<Long, Set<Long>>> chunks = new ConcurrentHashMap<>();
     private final Map<UUID, Set<Long>> unsaved = new ConcurrentHashMap<>();
     private final Map<UUID, Set<Long>> dirtyCells = new ConcurrentHashMap<>();
+    /** One lock per world: on Folia two region threads can change cells on their shared border. */
+    private final Map<UUID, Object> locks = new ConcurrentHashMap<>();
 
     /**
      * @param zoomSeed     the zoom seed of a world ({@link BiomeZoom#zoomSeed})
@@ -49,6 +51,15 @@ public final class FluidCells {
 
     public @NotNull FluidKeys keys() {
         return this.keys;
+    }
+
+    /** Rings of neutral cells around owned cells (0 with uniform water), fixed at start. */
+    public int neutralRings() {
+        return this.neutralRings;
+    }
+
+    private Object lock(UUID world) {
+        return this.locks.computeIfAbsent(world, ignored -> new Object());
     }
 
     /** The cell the client reads this block's color from. */
@@ -65,6 +76,12 @@ public final class FluidCells {
     /** @return the cell whose owner changed (its key must be resent), or {@code null} */
     public @Nullable Long set(@NotNull UUID world, int x, int y, int z, int fluid) {
         if (fluid == 0) return clear(world, x, y, z);
+        synchronized (lock(world)) {
+            return setLocked(world, x, y, z, fluid);
+        }
+    }
+
+    private @Nullable Long setLocked(UUID world, int x, int y, int z, int fluid) {
         long block = Cells.pack(x, y, z);
         Integer previous = this.blocks.computeIfAbsent(world, ignored -> new ConcurrentHashMap<>()).put(block, fluid);
         if (previous != null && previous == fluid) return null;
@@ -92,6 +109,12 @@ public final class FluidCells {
 
     /** @return the cell whose owner changed (its key must be resent), or {@code null} */
     public @Nullable Long clear(@NotNull UUID world, int x, int y, int z) {
+        synchronized (lock(world)) {
+            return clearLocked(world, x, y, z);
+        }
+    }
+
+    private @Nullable Long clearLocked(UUID world, int x, int y, int z) {
         Map<Long, Integer> map = this.blocks.get(world);
         long block = Cells.pack(x, y, z);
         Integer previous = map == null ? null : map.remove(block);
@@ -130,13 +153,36 @@ public final class FluidCells {
         return cell;
     }
 
-    /** Drops an unloaded chunk's blocks from memory (they were saved). */
+    /**
+     * Drops an unloaded chunk from memory (its blocks were saved): its blocks, and the padding and section
+     * marks of its cells, so nothing stale is shown when it loads again and memory does not grow.
+     */
     public void forgetChunk(@NotNull UUID world, int chunkX, int chunkZ) {
         for (long block : blocksIn(world, chunkX, chunkZ)) clear(world, Cells.x(block), Cells.y(block), Cells.z(block));
         Map<Long, Set<Long>> byChunk = this.chunks.get(world);
         if (byChunk != null) byChunk.remove(Cells.chunk(chunkX, chunkZ));
         Set<Long> pending = this.unsaved.get(world);
         if (pending != null) pending.remove(Cells.chunk(chunkX, chunkZ));
+        Map<Long, Integer> pads = this.padding.get(world);
+        if (pads != null) pads.keySet().removeIf(cell -> Cells.x(cell) >> 2 == chunkX && Cells.z(cell) >> 2 == chunkZ);
+        Set<Long> marked = this.sections.get(world);
+        if (marked != null) marked.removeIf(section -> Cells.x(section) == chunkX && Cells.z(section) == chunkZ);
+    }
+
+    /**
+     * A chunk loaded: the owned cells within reach of it get their surroundings (padding, dispersion)
+     * computed again, so its cells take the keys of fluids next to it.
+     */
+    public void markDirtyAround(@NotNull UUID world, int chunkX, int chunkZ) {
+        Map<Long, int[]> map = this.readers.get(world);
+        if (map == null) return;
+        int reach = FluidKeys.MAX_RINGS;
+        int minX = chunkX * 4 - reach, maxX = chunkX * 4 + 3 + reach, minZ = chunkZ * 4 - reach, maxZ = chunkZ * 4 + 3 + reach;
+        Set<Long> dirty = this.dirtyCells.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
+        for (long cell : map.keySet()) {
+            int x = Cells.x(cell), z = Cells.z(cell);
+            if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) dirty.add(cell);
+        }
     }
 
     /** Chunks whose blocks changed since the last call (to write into the chunk). */

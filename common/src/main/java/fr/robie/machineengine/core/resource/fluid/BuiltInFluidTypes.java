@@ -42,10 +42,14 @@ public final class BuiltInFluidTypes {
 
     /** {@code amount: 2, every: 20}: damage every {@code every} ticks inside. */
     public static final FluidEffectType DAMAGE = FluidEffectType.of(MachineEngineKeys.key("damage"), config ->
-            FluidData.number(config, "amount", 1).flatMap(amount -> FluidData.whole(config, "every", 20).map(every -> (FluidEffect)
-                    (entity, fluid, ticks) -> {
-                        if (entity instanceof LivingEntity living && ticks % Math.max(10, every) < 10) living.damage(amount);
-                    })));
+            FluidData.number(config, "amount", 1).flatMap(amount -> FluidData.whole(config, "every", 20).flatMap(every -> {
+                if (!(amount > 0)) return FluidData.fail("amount must be above 0 but is " + amount);
+                if (every < 1) return FluidData.fail("every must be 1 or more but is " + every);
+                // Effects run every 10 ticks: damage when a multiple of "every" was passed since the last run.
+                return Result.ok((FluidEffect) (entity, fluid, ticks) -> {
+                    if (entity instanceof LivingEntity living && ticks / every != Math.max(-1, ticks - 10) / every) living.damage(amount);
+                });
+            })));
 
     /** {@code ticks: 60}: sets entities on fire. */
     public static final FluidEffectType FIRE = FluidEffectType.of(MachineEngineKeys.key("fire"), config ->
