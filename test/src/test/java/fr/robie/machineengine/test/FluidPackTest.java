@@ -120,7 +120,7 @@ class FluidPackTest {
         assertTrue(vertex.contains("meLight = (minecraft_sample_lightmap(Sampler2, UV2)).rgb;"), "the version's own light");
         assertTrue(vertex.indexOf("texCoord0 = UV0;") < vertex.indexOf("meUnmix(Color.rgb);"));
         assertTrue(vertex.contains("const vec3 ME_KEY[ME_KEY_COUNT] = vec3[](vec3(255.0, 0.0, 0.0) / 255.0, vec3(0.0, 128.0, 255.0) / 255.0);"));
-        assertTrue(fragment.contains("color = texture(Sampler0, texCoord0) * vertexColor * ColorModulator;"), "vanilla stays for everything else");
+        assertTrue(fragment.contains("color = (texture(Sampler0, texCoord0)) * vertexColor * ColorModulator;"), "vanilla stays for everything else");
         assertTrue(fragment.contains("color *= ColorModulator;"));
         assertTrue(fragment.contains("const vec3 ME_TINT[3] = vec3[](vec3(255.0, 255.0, 255.0) / 255.0, vec3(255.0, 255.0, 255.0) / 255.0, vec3(42.0, 34.0, 56.0) / 255.0);"));
         assertTrue(fragment.contains("in float meSprite;") && vertex.contains("out float meSprite;"));
@@ -262,6 +262,26 @@ class FluidPackTest {
             Files.writeString(include.resolve("globals.glsl"), "");
             check.invoke(null, client, temp.resolve("overlay")); // now it is there
         }
+    }
+
+    @Test
+    void sodiumsTernarySampleKeepsItsTint() throws Exception {
+        String sodium = """
+                #version 330 core
+                in vec4 v_Color;
+                in vec2 v_TexCoord;
+                uniform sampler2D u_BlockTex;
+                out vec4 fragColor;
+
+                void main() {
+                    vec4 color = u_UseRGSS ? sampleRGSS(u_BlockTex, v_TexCoord, u_TexelSize) : sampleNearest(u_BlockTex, v_TexCoord, u_TexelSize);
+                    color *= v_Color; // Apply per-vertex color modulator
+                    fragColor = color;
+                }
+                """;
+        String fragment = ShaderPatch.fragment(sodium, constants(), ShaderPatch.Dialect.SODIUM);
+        assertTrue(fragment.contains("color = (u_UseRGSS ? sampleRGSS(u_BlockTex, v_TexCoord, u_TexelSize) : sampleNearest(u_BlockTex, v_TexCoord, u_TexelSize)) * v_Color;"),
+                "the tint applies to both samples (gray leaves and grass otherwise)");
     }
 
     @Test

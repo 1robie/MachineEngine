@@ -140,7 +140,9 @@ public final class ShaderPatch {
         Matcher color = once(dialect.colorLine, withDeclarations, "the line coloring a texel");
         String indent = color.group(1);
         String modulator = color.groupCount() >= 3 && color.group(3) != null ? color.group(3) : "";
-        String unchanged = color.group(2) + " * " + dialect.vertexColor + modulator;
+        // Parenthesized: Sodium's sample is "u_UseRGSS ? a : b", and "* v_Color" would bind to b alone
+        // (with RGSS on, nothing got its tint or light: gray leaves and grass).
+        String unchanged = "(" + color.group(2) + ") * " + dialect.vertexColor + modulator;
         String fluid = dialect.names(constants.grid() ? FRAGMENT_FLUID : FRAGMENT_TINT.replace("@SAMPLE@", color.group(2)))
                 .replace("@MODULATE@", modulator.isEmpty() ? "" : "\n    color *= ColorModulator;");
         String branch = "vec4 color;\n" + dialect.open() + fluid + "\n} else {\n" + dialect.close()
