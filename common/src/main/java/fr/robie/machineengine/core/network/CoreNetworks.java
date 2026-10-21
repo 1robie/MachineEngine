@@ -145,8 +145,7 @@ public final class CoreNetworks {
     public @NotNull Optional<NetworkView> network(@NotNull WorldPosition transport) {
         WorldGraph graph = this.worlds.get(transport.world());
         if (graph == null) return Optional.empty();
-        Network network = graph.networkOf(transport);
-        return network == null ? Optional.empty() : Optional.of(network.view());
+        return Optional.ofNullable(graph.viewOf(transport));
     }
 
     /** The transport at {@code position}, if one is loaded there. */
@@ -301,8 +300,10 @@ public final class CoreNetworks {
             return this.transports.get(position);
         }
 
-        synchronized @Nullable Network networkOf(WorldPosition position) {
-            return this.networkOf.get(position);
+        /** Built under the lock: another region thread may be changing the network's members. */
+        synchronized @Nullable NetworkView viewOf(WorldPosition position) {
+            Network network = this.networkOf.get(position);
+            return network == null ? null : network.view();
         }
 
         synchronized Set<Network> neighborNetworks(WorldPosition position) {
@@ -488,6 +489,7 @@ public final class CoreNetworks {
             };
         }
 
+        /** Under the graph lock. */
         NetworkView view() {
             List<String> attached = this.endpoints.stream().map(endpoint -> endpoint.machine() + " " + endpoint.side()).toList();
             return new NetworkView(this.type, this.members, attached, this.rate, this.active, this.movedLastTick);
