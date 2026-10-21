@@ -377,7 +377,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     }
 
     /** Whether a handoff is still waiting for its answer; its resources are not in the machine. */
-    boolean hasEscrow() {
+    public boolean hasEscrow() {
         return !Objects.requireNonNull(this.escrow.get()).isEmpty() || !this.unknownEscrow.isEmpty();
     }
 

@@ -387,15 +387,17 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         if (controller == null || controller.machine() == null || controller.machine().instance() == null
                 || !isOwnedByCurrentThread(position)) return false;
         MachineInstanceImpl old = controller.machine().instance();
-        // The process belongs to the old type's behavior: give its inputs back first.
-        if (old.context().process().current() != null) old.context().process().cancel();
-        if (old.context().process().current() != null) return false;
-        var packed = this.engine.machines().pack(controller.machine());
-        if (packed.isEmpty() && old.holdsContents()) return false; // a transfer in flight
+        // Everything that can refuse is checked before packing: packing removes the old machine.
         World world = world(position.world());
         var definition = CraftEngineBlocks.byId(
                 net.momirealms.craftengine.core.util.Key.of(blockId.namespace(), blockId.value()));
         if (world == null || definition == null) return false;
+        if (old.hasEscrow()) return false; // a transfer in flight
+        // The process belongs to the old type's behavior: give its inputs back first.
+        if (old.context().process().current() != null) old.context().process().cancel();
+        if (old.context().process().current() != null) return false;
+        var packed = this.engine.machines().pack(controller.machine());
+        if (packed.isEmpty() && old.holdsContents()) return false;
         // Same facing as the old block, if the new one has a facing property.
         ImmutableBlockState state = definition.defaultState();
         var facing = definition.getProperty("facing");
@@ -413,6 +415,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
                 new Location(world, at.x(), at.y(), at.z()), state, false);
         if (!placed) {
             controller.replacing(false);
+            // The block stayed: its machine takes its packed state back (it was removed by pack).
+            packed.ifPresent(kept -> controller.adopt(kept.state()));
             return false;
         }
         MachineBlockEntityController fresh = this.controllers.get(position);
