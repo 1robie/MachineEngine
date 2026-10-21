@@ -239,10 +239,12 @@ final class MachineCodec {
         }));
         data.getMap(STORAGES).ifOk(storages -> decodeStorages(machine, storages, stacks));
         data.getMap(DATA).ifOk(values -> decodeData(machine, values, problems));
-        data.get(PROCESS).ifPresent(raw -> decodeProcess(raw, stacks).ifOk(machine.process::load).ifErr(error -> {
-            machine.unknownProcess = raw;
-            problems.add(error);
-        }));
+        data.get(PROCESS).ifPresent(raw -> decodeProcess(raw, stacks)
+                .flatMap(process -> storagesExist(machine, process))
+                .ifOk(machine.process::load).ifErr(error -> {
+                    machine.unknownProcess = raw;
+                    problems.add(error);
+                }));
         data.getList(ESCROW).ifOk(escrow -> decodeEscrow(machine, escrow, stacks, problems));
         // Never below firstSequence(now): older saves started at 0, maybe after another machine stood here.
         machine.sequence = Math.max(machine.sequence, data.getLong(SEQUENCE).orElse(0L));
@@ -358,6 +360,24 @@ final class MachineCodec {
         }
         return Result.ok(new ProcessState(recipe.value(), status.value(), progress.value(), duration.value(),
                 inFlight.value(), outputs.value(), costs.value(), binding.value()));
+    }
+
+    /**
+     * A process bound to a storage the type no longer has (renamed in its YAML) would fail on every tick
+     * and block new ones: kept raw instead (D3), like a process that does not decode.
+     */
+    private static Result<ProcessState> storagesExist(MachineInstanceImpl machine, ProcessState process) {
+        ProcessBinding binding = process.binding();
+        List<String> used = new ArrayList<>(binding.inputs());
+        used.add(binding.output());
+        used.addAll(binding.costs());
+        used.addAll(binding.extraOutputs());
+        for (String storage : used) {
+            if (!machine.storages.containsKey(storage)) {
+                return Result.err(SerializationError.at(PROCESS, "bound to the storage '" + storage + "', which " + machine.type().key().asString() + " no longer has"));
+            }
+        }
+        return Result.ok(process);
     }
 
     private static Result<ProcessBinding> decodeBinding(DataMap map) {
