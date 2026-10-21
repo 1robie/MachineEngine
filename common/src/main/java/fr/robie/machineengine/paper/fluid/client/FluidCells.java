@@ -202,9 +202,19 @@ public final class FluidCells {
         }
     }
 
-    /** Chunks whose blocks changed since the last call (to write into the chunk). */
-    public @NotNull List<Long> takeUnsavedChunks(@NotNull UUID world) {
-        return take(this.unsaved.get(world));
+    /**
+     * Chunks whose blocks changed since they were last written into the chunk. They stay listed until
+     * {@link #saving} is called for them, so a save scheduled but never run (shutdown) is not lost.
+     */
+    public @NotNull List<Long> unsavedChunks(@NotNull UUID world) {
+        Set<Long> set = this.unsaved.get(world);
+        return set == null || set.isEmpty() ? List.of() : List.copyOf(set);
+    }
+
+    /** A chunk is about to be written: changes from now on list it as unsaved again. */
+    public void saving(@NotNull UUID world, long chunk) {
+        Set<Long> set = this.unsaved.get(world);
+        if (set != null) set.remove(chunk);
     }
 
     /** Owned cells changed since the last call (their padding is recomputed). */

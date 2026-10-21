@@ -224,7 +224,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
     public void uninstall() {
         // Saving first: nothing after it may lose the changes since the last sweep.
         for (World world : Bukkit.getWorlds()) {
-            for (long chunk : this.cells.takeUnsavedChunks(world.getUID())) {
+            for (long chunk : this.cells.unsavedChunks(world.getUID())) {
                 try {
                     if (world.isChunkLoaded(Cells.chunkX(chunk), Cells.chunkZ(chunk))) save(world.getChunkAt(Cells.chunkX(chunk), Cells.chunkZ(chunk)));
                 } catch (RuntimeException e) {
@@ -539,7 +539,8 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         for (World world : Bukkit.getWorlds()) {
             UUID id = world.getUID();
             updatePadding(world);
-            for (long chunk : this.cells.takeUnsavedChunks(id)) {
+            // Left in the unsaved list until the task runs: a shutdown in between still saves them (uninstall).
+            for (long chunk : this.cells.unsavedChunks(id)) {
                 int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
                 this.scheduler.run(world, chunkX, chunkZ, () -> {
                     if (world.isChunkLoaded(chunkX, chunkZ)) save(world.getChunkAt(chunkX, chunkZ));
@@ -610,6 +611,7 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         UUID id = chunk.getWorld().getUID();
         int chunkX = chunk.getX(), chunkZ = chunk.getZ();
         long chunkKey = Cells.chunk(chunkX, chunkZ);
+        this.cells.saving(id, chunkKey);
         Set<Long> skipped = this.unreadable.get(id);
         if (skipped != null && skipped.contains(chunkKey)) return;
         PersistentDataContainer data = chunk.getPersistentDataContainer();

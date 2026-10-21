@@ -177,6 +177,20 @@ class WorldFluidRulesTest {
     }
 
     @Test
+    void aChunkStaysUnsavedUntilItIsWritten() {
+        World world = world();
+        world.cells().set(WORLD, 3, 62, 3, world.oil());
+        long chunk = Cells.chunk(0, 0);
+        assertEquals(List.of(chunk), world.cells().unsavedChunks(WORLD));
+        assertEquals(List.of(chunk), world.cells().unsavedChunks(WORLD), "listing does not take: a save never run is not lost");
+
+        world.cells().saving(WORLD, chunk);
+        assertEquals(List.of(), world.cells().unsavedChunks(WORLD));
+        world.cells().set(WORLD, 4, 62, 3, world.oil());
+        assertEquals(List.of(chunk), world.cells().unsavedChunks(WORLD), "a change after the save lists it again");
+    }
+
+    @Test
     void differentFluidsKeepTheGapWhateverTheConflictRule() {
         World world = world();
         world.put(world.oil(), 0, 60, 0, 7, 63, 7);
