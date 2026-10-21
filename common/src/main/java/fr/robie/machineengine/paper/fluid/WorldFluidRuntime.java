@@ -506,19 +506,26 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         }
         if (candidates.isEmpty()) return;
         FluidRules.Settings settings = settings();
+        // One region task per chunk, not per cell: a changed cell has about 200 candidates around it.
+        Map<Long, List<Long>> byChunk = new HashMap<>();
         for (long cell : candidates) {
-            int blockX = Cells.x(cell) * 4, blockZ = Cells.z(cell) * 4;
-            if (!world.isChunkLoaded(blockX >> 4, blockZ >> 4)) continue;
-            this.scheduler.run(world, blockX >> 4, blockZ >> 4, () -> {
-                // Unloaded columns are padded when their chunk loads (markDirtyAround); a loaded one owned by
-                // another region thread would never be, so the cell is tried again.
-                if (readsForeignColumn(world, cell)) this.paddingRetry.computeIfAbsent(id, ignored -> ConcurrentHashMap.newKeySet()).add(cell);
-                int entry = FluidRules.surroundingEntry(this.cells, id, blocks(world), cell, settings);
-                int before = this.cells.key(id, cell);
-                this.cells.setPadding(id, cell, entry);
-                if (this.cells.key(id, cell) != before) markCellDirty(world, cell, 0);
-            });
+            byChunk.computeIfAbsent(Cells.chunk(Cells.x(cell) >> 2, Cells.z(cell) >> 2), ignored -> new ArrayList<>()).add(cell);
         }
+        byChunk.forEach((chunk, inChunk) -> {
+            int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
+            if (!world.isChunkLoaded(chunkX, chunkZ)) return;
+            this.scheduler.run(world, chunkX, chunkZ, () -> {
+                for (long cell : inChunk) {
+                    // Unloaded columns are padded when their chunk loads (markDirtyAround); a loaded one owned by
+                    // another region thread would never be, so the cell is tried again.
+                    if (readsForeignColumn(world, cell)) this.paddingRetry.computeIfAbsent(id, ignored -> ConcurrentHashMap.newKeySet()).add(cell);
+                    int entry = FluidRules.surroundingEntry(this.cells, id, blocks(world), cell, settings);
+                    int before = this.cells.key(id, cell);
+                    this.cells.setPadding(id, cell, entry);
+                    if (this.cells.key(id, cell) != before) markCellDirty(world, cell, 0);
+                }
+            });
+        });
     }
 
     /** Whether a cell's readers ({@link FluidRules#readersAreWater}) include a loaded column this thread does not own. */

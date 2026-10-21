@@ -98,9 +98,10 @@ public final class FluidRules {
                 if (!blocks.readable(x, z)) return true;
                 for (int y = 4 * cy - 2; y <= 4 * cy + 5; y++) {
                     if (x == exceptX && y == exceptY && z == exceptZ) continue;
-                    if (!blocks.isWater(x, y, z)) continue;
+                    // The cell first: most of these blocks read another cell, and it needs no block read.
+                    if (cells.readCell(world, x, y, z) != cell) continue;
                     if (plainOnly && cells.get(world, x, y, z) != 0) continue;
-                    if (cells.readCell(world, x, y, z) == cell) return true;
+                    if (blocks.isWater(x, y, z)) return true;
                 }
             }
         }
