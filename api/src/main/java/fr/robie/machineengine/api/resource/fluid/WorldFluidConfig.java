@@ -47,6 +47,11 @@ public final class WorldFluidConfig {
             .comment("With the grid: models of the CraftEngine packs that draw vanilla water (menu fluid bars) use an untouched",
                     "copy of it, so they don't show the grid.");
 
+    public static final ConfigKey<Boolean> DEBUG_COLORS = ConfigKey.bool("world-fluids.debug-colors", false)
+            .comment("For finding rendering problems: water faces show how the shader read their color instead of the fluid.",
+                    "Magenta: plain water; orange: water, no fluid found; yellow to green: a fluid, partly to fully.",
+                    "Water that still looks like water was not recognized. Applies after the pack is rebuilt.");
+
     public static final ConfigKey<Integer> UPDATE_DELAY = ConfigKey.integer("world-fluids.update-delay", 10, 1, 100)
             .comment("Ticks a changed chunk waits before its colors are sent to players (changes in between go together).");
 

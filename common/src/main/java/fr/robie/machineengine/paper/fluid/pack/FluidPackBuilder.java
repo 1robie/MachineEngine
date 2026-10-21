@@ -41,13 +41,18 @@ public final class FluidPackBuilder {
     private static final int STILL = 16;
     private static final int FLOW = 32;
 
-    /** {@code world-fluids.*} as the builder needs them. */
     /**
-     * @param grid        fluids with their own textures (a texture grid replaces the water textures), else
+     * {@code world-fluids.*} as the builder needs them.
+     *
+     * @param grid       fluids with their own textures (a texture grid replaces the water textures), else
      *                    tint only (the water texture in each fluid's color; nothing to see for players without the shader)
      * @param waterModels with the grid, redirect the packs' models that draw vanilla water to an untouched copy
+     * @param debug       {@code debug-colors}: water faces show how their color was read
      */
-    public record Settings(int neutral, boolean uniform, boolean sharp, int maxColumns, boolean grid, boolean waterModels) {
+    public record Settings(int neutral, boolean uniform, boolean sharp, int maxColumns, boolean grid, boolean waterModels, boolean debug) {
+        public Settings(int neutral, boolean uniform, boolean sharp, int maxColumns, boolean grid, boolean waterModels) {
+            this(neutral, uniform, sharp, maxColumns, grid, waterModels, false);
+        }
     }
 
     /** What was written. */
@@ -177,7 +182,7 @@ public final class FluidPackBuilder {
             if (!backgrounds.contains(settings.neutral())) backgrounds.add(settings.neutral());
         }
         ShaderPatch.Constants constants = new ShaderPatch.Constants(keyColors, settings.neutral(), backgrounds,
-                KeyPalette.shareCut(keys.keyCount()), columns, still, flow, tint, alpha, glow, settings.sharp(), settings.grid());
+                KeyPalette.shareCut(keys.keyCount()), columns, still, flow, tint, alpha, glow, settings.sharp(), settings.grid(), settings.debug());
         String vertex = ShaderPatch.vertex(vanillaVertex, constants);
         String fragment = ShaderPatch.fragment(vanillaFragment, constants);
 

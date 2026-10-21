@@ -103,6 +103,7 @@ public final class EngineConfig {
             .key(WorldFluidConfig.TEXTURES)
             .key(WorldFluidConfig.BUCKET_TEXTURES)
             .key(WorldFluidConfig.WATER_MODELS)
+            .key(WorldFluidConfig.DEBUG_COLORS)
             .key(WorldFluidConfig.EDGE)
             .key(WorldFluidConfig.CONFLICT)
             .key(WorldFluidConfig.FLUID_GAP)

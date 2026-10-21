@@ -77,11 +77,17 @@ public final class ShaderPatch {
     /** What the patch needs to know about the fluids (index 0 is plain water, 1..n the keys). */
     public record Constants(@NotNull List<Integer> keys, int neutral, @NotNull List<Integer> backgrounds, double cut,
                             int columns, int @NotNull [] still, int @NotNull [] flow, int @NotNull [] tint,
-                            double @NotNull [] alpha, double @NotNull [] glow, boolean sharp, boolean grid) {
+                            double @NotNull [] alpha, double @NotNull [] glow, boolean sharp, boolean grid, boolean debug) {
         public Constants {
             int n = keys.size() + 1;
             if (keys.isEmpty() || backgrounds.isEmpty() || still.length != n || flow.length != n || tint.length != n
                     || alpha.length != n || glow.length != n) throw new IllegalArgumentException("constants of " + keys.size() + " keys don't line up");
+        }
+
+        public Constants(@NotNull List<Integer> keys, int neutral, @NotNull List<Integer> backgrounds, double cut, int columns,
+                         int @NotNull [] still, int @NotNull [] flow, int @NotNull [] tint, double @NotNull [] alpha,
+                         double @NotNull [] glow, boolean sharp, boolean grid) {
+            this(keys, neutral, backgrounds, cut, columns, still, flow, tint, alpha, glow, sharp, grid, false);
         }
     }
 
@@ -144,7 +150,7 @@ public final class ShaderPatch {
         // (with RGSS on, nothing got its tint or light: gray leaves and grass).
         String unchanged = "(" + color.group(2) + ") * " + dialect.vertexColor + modulator;
         String fluid = dialect.names(constants.grid() ? FRAGMENT_FLUID : FRAGMENT_TINT.replace("@SAMPLE@", color.group(2)))
-                .replace("@MODULATE@", modulator.isEmpty() ? "" : "\n    color *= ColorModulator;");
+                .replace("@MODULATE@", (modulator.isEmpty() ? "" : "\n    color *= ColorModulator;") + (constants.debug() ? DEBUG : ""));
         String branch = "vec4 color;\n" + dialect.open() + fluid + "\n} else {\n" + dialect.close()
                 + "    color = " + unchanged + ";\n" + dialect.open() + "}\n" + dialect.close()
                 + "// ---- end world fluids ----\n";
@@ -164,7 +170,8 @@ public final class ShaderPatch {
                 {"", "float meKeyShare"},        // fluid number × share (interpolates to the number)
                 {"", "vec3 meBg"},               // the water around, shade kept
                 {"", "float meShade"},           // face shade and darkening (the key's and the water's amount)
-                {"", "vec3 meLight"}             // lightmap
+                {"", "vec3 meLight"},            // lightmap
+                {"", "float meWhy"}              // how the color was read (debug-colors): 1 plain, 2 no key, 3 a key
         };
     }
 
@@ -321,9 +328,9 @@ public final class ShaderPatch {
                 float y;
                 for (int i = 0; i < ME_BG_COUNT; i++) {
                     vec3 w = ME_BG[i];
-                    if (length(c - (dot(w, c) / dot(w, w)) * w) / len < ME_PLAIN_TOL) return;
+                    if (length(c - (dot(w, c) / dot(w, w)) * w) / len < ME_PLAIN_TOL) { meWhy = 1.0; return; }
                     for (int j = i + 1; j < ME_BG_COUNT; j++) {
-                        if (meFit(c, w, ME_BG[j], x, y) < ME_PLAIN_TOL) return;
+                        if (meFit(c, w, ME_BG[j], x, y) < ME_PLAIN_TOL) { meWhy = 1.0; return; }
                     }
                 }
                 float best = ME_KEY_TOL;
@@ -344,8 +351,10 @@ public final class ShaderPatch {
                     meKeyShare = float(bestK) * bestShare;
                     meShade = bestShade;
                     meBg = bestShade * ME_NEUTRAL;
+                    meWhy = 3.0;
                 } else {
                     meBg = ME_NEUTRAL * (dot(c, vec3(1.0)) / dot(ME_NEUTRAL, vec3(1.0)));
+                    meWhy = 2.0;
                 }
             }
             """;
@@ -359,6 +368,7 @@ public final class ShaderPatch {
             meKeyShare = 0.0;
             meBg = Color.rgb;
             meShade = 1.0;
+            meWhy = 0.0;
             #ifdef OIT_ALPHA_ONLY
             meLight = vec3(1.0);
             #else
@@ -431,5 +441,18 @@ public final class ShaderPatch {
                 } else {
                     color = meWater;
                 }@MODULATE@""";
+
+
+    /**
+     * {@code world-fluids.debug-colors}: water faces show how their color was read, instead of the fluid.
+     * Magenta: plain water (left as it is); orange: water, no key found; yellow to green: a key, partial to
+     * full. Water that still looks like water was not recognized as water at all.
+     */
+    private static final String DEBUG = """
+
+                vec3 meDebug = meWhy < 1.5 ? vec3(1.0, 0.0, 1.0)
+                        : meWhy < 2.5 ? vec3(1.0, 0.5, 0.0)
+                        : mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), clamp((meShare - ME_CUT) / (0.9 - ME_CUT), 0.0, 1.0));
+                color = vec4(meDebug * max(meLight, vec3(0.3)), 1.0);""";
 
 }

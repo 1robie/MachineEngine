@@ -113,7 +113,8 @@ public final class FluidPackService {
                 FluidPackBuilder.Result result = FluidPackBuilder.build(client, this.keys, WorldFluids::look, new FluidPackBuilder.Settings(
                         this.config.get(WorldFluidConfig.NEUTRAL_COLOR), this.config.get(WorldFluidConfig.UNIFORM_WATER),
                         this.config.get(WorldFluidConfig.EDGE) == WorldFluidConfig.Edge.SHARP, this.config.get(WorldFluidConfig.TEXTURE_GRID),
-                        grid, this.config.get(WorldFluidConfig.WATER_MODELS)), this.resources, this.pack, sodium);
+                        grid, this.config.get(WorldFluidConfig.WATER_MODELS),
+                        this.config.get(WorldFluidConfig.DEBUG_COLORS)), this.resources, this.pack, sodium);
                 result.notes().forEach(note -> Logger.warn("[fluids]", "%note%", Placeholder.of("note", note)));
                 String textures = grid ? result.textures() + " textures (" + result.columns() + "×" + result.columns() + " grid)" : "tint only (no texture grid)";
                 done.accept("World fluids pack written: " + result.looks() + " looks, " + textures + ", " + result.shader() + " shader, "
