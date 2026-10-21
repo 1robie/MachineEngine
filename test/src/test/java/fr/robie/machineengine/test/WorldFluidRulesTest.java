@@ -177,6 +177,20 @@ class WorldFluidRulesTest {
     }
 
     @Test
+    void unloadingAChunkDropsOnlyItsOwnPadding() {
+        World world = world();
+        long here = Cells.pack(5, 15, 1);    // chunk 1, 0
+        long next = Cells.pack(8, 15, 1);    // chunk 2, 0
+        int entry = world.keys().entry(world.oil(), 1);
+        world.cells().setPadding(WORLD, here, entry);
+        world.cells().setPadding(WORLD, next, entry);
+
+        world.cells().forgetChunk(WORLD, 1, 0);
+        assertEquals(0, world.cells().key(WORLD, here));
+        assertEquals(entry, world.cells().key(WORLD, next));
+    }
+
+    @Test
     void aChunkStaysUnsavedUntilItIsWritten() {
         World world = world();
         world.cells().set(WORLD, 3, 62, 3, world.oil());

@@ -27,12 +27,14 @@ public final class FluidCells {
     private final Map<UUID, Map<Long, Integer>> blocks = new ConcurrentHashMap<>();
     /** Cell → tracked readers per fluid (index = fluid number; index 0 unused). */
     private final Map<UUID, Map<Long, int[]>> readers = new ConcurrentHashMap<>();
-    /** Cell → key entry, for padding and dispersion cells. */
-    private final Map<UUID, Map<Long, Integer>> padding = new ConcurrentHashMap<>();
+    /** Chunk → owned cells in it (cells with readers), so a chunk load looks only at the chunks around. */
+    private final Map<UUID, Map<Long, Set<Long>>> owned = new ConcurrentHashMap<>();
+    /** Chunk → cell → key entry, for padding and dispersion cells. */
+    private final Map<UUID, Map<Long, Map<Long, Integer>>> padding = new ConcurrentHashMap<>();
     /** Cell → number of owned cells within neutralRings (above 0: the neutral water). */
     private final Map<UUID, Map<Long, Integer>> neutral = new ConcurrentHashMap<>();
-    /** Sections near an owned cell, so the remapper skips most sections at once. */
-    private final Map<UUID, Set<Long>> sections = new ConcurrentHashMap<>();
+    /** Chunk → section heights near an owned cell, so the remapper skips most sections at once. */
+    private final Map<UUID, Map<Long, Set<Integer>>> sections = new ConcurrentHashMap<>();
     private final Map<UUID, Map<Long, Set<Long>>> chunks = new ConcurrentHashMap<>();
     private final Map<UUID, Set<Long>> unsaved = new ConcurrentHashMap<>();
     private final Map<UUID, Set<Long>> dirtyCells = new ConcurrentHashMap<>();
@@ -97,6 +99,8 @@ public final class FluidCells {
             c[fluid]++;
             return c;
         });
+        this.owned.computeIfAbsent(world, ignored -> new ConcurrentHashMap<>())
+                .computeIfAbsent(chunkOf(cell), ignored -> ConcurrentHashMap.newKeySet()).add(cell);
         markSections(world, cell, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE);
         return ownerChanged(world, cell, ownerBefore);
     }
@@ -109,12 +113,18 @@ public final class FluidCells {
     /** Marks the sections within {@link #markRings()} of a cell, limited to the given chunk range. */
     private void markSections(UUID world, long cell, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ) {
         int rings = markRings();
-        Set<Long> marked = this.sections.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
+        Map<Long, Set<Integer>> marked = this.sections.computeIfAbsent(world, ignored -> new ConcurrentHashMap<>());
         int cx = Cells.x(cell), cy = Cells.y(cell), cz = Cells.z(cell);
         for (int sx = Math.max((cx - rings) >> 2, minChunkX); sx <= Math.min((cx + rings) >> 2, maxChunkX); sx++)
-            for (int sy = (cy - rings) >> 2; sy <= (cy + rings) >> 2; sy++)
-                for (int sz = Math.max((cz - rings) >> 2, minChunkZ); sz <= Math.min((cz + rings) >> 2, maxChunkZ); sz++)
-                    marked.add(Cells.pack(sx, sy, sz));
+            for (int sz = Math.max((cz - rings) >> 2, minChunkZ); sz <= Math.min((cz + rings) >> 2, maxChunkZ); sz++) {
+                Set<Integer> heights = marked.computeIfAbsent(Cells.chunk(sx, sz), ignored -> ConcurrentHashMap.newKeySet());
+                for (int sy = (cy - rings) >> 2; sy <= (cy + rings) >> 2; sy++) heights.add(sy);
+            }
+    }
+
+    /** The chunk (packed with {@link Cells#chunk}) holding a cell: 4 cells per chunk side. */
+    private static long chunkOf(long cell) {
+        return Cells.chunk(Cells.x(cell) >> 2, Cells.z(cell) >> 2);
     }
 
     /** @return the cell whose owner changed (its key must be resent), or {@code null} */
@@ -144,6 +154,14 @@ public final class FluidCells {
             for (int n : c) if (n > 0) return c;
             return null;
         });
+        if (!this.readers.get(world).containsKey(cell)) {
+            Map<Long, Set<Long>> ownedByChunk = this.owned.get(world);
+            Set<Long> ownedHere = ownedByChunk == null ? null : ownedByChunk.get(chunkOf(cell));
+            if (ownedHere != null) {
+                ownedHere.remove(cell);
+                if (ownedHere.isEmpty()) ownedByChunk.remove(chunkOf(cell), ownedHere);
+            }
+        }
         return ownerChanged(world, cell, ownerBefore);
     }
 
@@ -173,10 +191,12 @@ public final class FluidCells {
         if (byChunk != null) byChunk.remove(Cells.chunk(chunkX, chunkZ));
         Set<Long> pending = this.unsaved.get(world);
         if (pending != null) pending.remove(Cells.chunk(chunkX, chunkZ));
-        Map<Long, Integer> pads = this.padding.get(world);
-        if (pads != null) pads.keySet().removeIf(cell -> Cells.x(cell) >> 2 == chunkX && Cells.z(cell) >> 2 == chunkZ);
-        Set<Long> marked = this.sections.get(world);
-        if (marked != null) marked.removeIf(section -> Cells.x(section) == chunkX && Cells.z(section) == chunkZ);
+        synchronized (lock(world)) {
+            Map<Long, Map<Long, Integer>> pads = this.padding.get(world);
+            if (pads != null) pads.remove(Cells.chunk(chunkX, chunkZ));
+            Map<Long, Set<Integer>> marked = this.sections.get(world);
+            if (marked != null) marked.remove(Cells.chunk(chunkX, chunkZ));
+        }
     }
 
     /**
@@ -185,20 +205,28 @@ public final class FluidCells {
      * were dropped when it unloaded; otherwise the remapper skips them in later sends of the chunk).
      */
     public void markDirtyAround(@NotNull UUID world, int chunkX, int chunkZ) {
-        Map<Long, int[]> map = this.readers.get(world);
-        if (map == null) return;
+        Map<Long, Set<Long>> byChunk = this.owned.get(world);
+        if (byChunk == null) return;
         // A padded cell's readers reach 5 blocks past it, so a cell up to one ring outside the chunk reads
         // into it; owned cells up to MAX_RINGS beyond that pad it.
         int reach = FluidKeys.MAX_RINGS + 1;
         int minX = chunkX * 4 - reach, maxX = chunkX * 4 + 3 + reach, minZ = chunkZ * 4 - reach, maxZ = chunkZ * 4 + 3 + reach;
         int rings = markRings();
+        int chunks = (Math.max(reach, rings) + 3) >> 2;
         Set<Long> dirty = this.dirtyCells.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
-        for (long cell : map.keySet()) {
-            int x = Cells.x(cell), z = Cells.z(cell);
-            if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) dirty.add(cell);
-            if (x >= chunkX * 4 - rings && x <= chunkX * 4 + 3 + rings && z >= chunkZ * 4 - rings && z <= chunkZ * 4 + 3 + rings) {
-                markSections(world, cell, chunkX, chunkX, chunkZ, chunkZ);
-            }
+        synchronized (lock(world)) {
+            for (int nx = chunkX - chunks; nx <= chunkX + chunks; nx++)
+                for (int nz = chunkZ - chunks; nz <= chunkZ + chunks; nz++) {
+                    Set<Long> inChunk = byChunk.get(Cells.chunk(nx, nz));
+                    if (inChunk == null) continue;
+                    for (long cell : inChunk) {
+                        int x = Cells.x(cell), z = Cells.z(cell);
+                        if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) dirty.add(cell);
+                        if (x >= chunkX * 4 - rings && x <= chunkX * 4 + 3 + rings && z >= chunkZ * 4 - rings && z <= chunkZ * 4 + 3 + rings) {
+                            markSections(world, cell, chunkX, chunkX, chunkZ, chunkZ);
+                        }
+                    }
+                }
         }
     }
 
@@ -232,6 +260,7 @@ public final class FluidCells {
     public void clearAll() {
         this.blocks.clear();
         this.readers.clear();
+        this.owned.clear();
         this.padding.clear();
         this.neutral.clear();
         this.sections.clear();
@@ -246,8 +275,9 @@ public final class FluidCells {
     }
 
     public boolean hasSection(@NotNull UUID world, int sectionX, int sectionY, int sectionZ) {
-        Set<Long> set = this.sections.get(world);
-        return set != null && set.contains(Cells.pack(sectionX, sectionY, sectionZ));
+        Map<Long, Set<Integer>> map = this.sections.get(world);
+        Set<Integer> heights = map == null ? null : map.get(Cells.chunk(sectionX, sectionZ));
+        return heights != null && heights.contains(sectionY);
     }
 
     /** The fluid most of a cell's tracked readers hold (ties: the lowest number); 0 for none. */
@@ -303,7 +333,8 @@ public final class FluidCells {
     public int key(@NotNull UUID world, long cell) {
         int owner = owner(world, cell);
         if (owner != 0) return this.keys.entry(owner, 0);
-        Map<Long, Integer> pads = this.padding.get(world);
+        Map<Long, Map<Long, Integer>> byChunk = this.padding.get(world);
+        Map<Long, Integer> pads = byChunk == null ? null : byChunk.get(chunkOf(cell));
         Integer pad = pads == null ? null : pads.get(cell);
         if (pad != null) return pad;
         Map<Long, Integer> refs = this.neutral.get(world);
@@ -312,9 +343,13 @@ public final class FluidCells {
 
     /** @param entry a key entry ({@link FluidKeys#entry}), 0 for none */
     public void setPadding(@NotNull UUID world, long cell, int entry) {
-        Map<Long, Integer> pads = this.padding.computeIfAbsent(world, ignored -> new ConcurrentHashMap<>());
-        if (entry == 0) pads.remove(cell);
-        else pads.put(cell, entry);
+        Map<Long, Map<Long, Integer>> byChunk = this.padding.computeIfAbsent(world, ignored -> new ConcurrentHashMap<>());
+        if (entry == 0) {
+            Map<Long, Integer> pads = byChunk.get(chunkOf(cell));
+            if (pads != null) pads.remove(cell);
+        } else {
+            byChunk.computeIfAbsent(chunkOf(cell), ignored -> new ConcurrentHashMap<>()).put(cell, entry);
+        }
     }
 
     /** Marks every owned cell for a padding recompute (after a setting changes). */
