@@ -85,6 +85,19 @@ class KeepContentsTest {
     }
 
     @Test
+    void aMachineHoldingOnlyUnknownDataIsPackedNotDestroyed() {
+        FakeWorld world = FakeWorld.singleRegion(this.engine);
+        world.place(BOX, HERE, Direction.NORTH);
+        DataMap saved = world.unload(HERE);
+        // Data of an addon that is not installed any more (D3): kept, not understood.
+        DataMap unknown = DataMap.builder().put("mystery", 5L).build();
+        world.load(HERE, saved.with("data", saved.getMap("data").toOptional().orElse(DataMap.builder().build()).with("mystery", unknown.get("mystery").orElseThrow())));
+
+        CoreMachines.Packed packed = world.pack(HERE).orElseThrow();
+        assertEquals(5L, packed.state().getMap("data").value().getLong("mystery").value(), "travels in the item");
+    }
+
+    @Test
     void anEmptyMachineIsRemovedNormally() {
         FakeWorld world = FakeWorld.singleRegion(this.engine);
         world.place(BOX, HERE, Direction.NORTH);

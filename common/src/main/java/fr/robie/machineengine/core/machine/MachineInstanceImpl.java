@@ -366,12 +366,18 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         return purged;
     }
 
-    /** Whether keep-contents has anything to keep: resources, a process or upgrades (§20.5). */
+    /**
+     * Whether keep-contents has anything to keep: resources, a process or upgrades (§20.5), and what
+     * the machine keeps without understanding it (D3): locked slots and unknown data, storages,
+     * upgrades or process, which a plain removal would destroy.
+     */
     public boolean holdsContents() {
         if (this.process.get() != null || !this.upgrades.isEmpty()) return true;
+        if (!this.unknownData.isEmpty() || !this.unknownStorages.isEmpty() || !this.unknownUpgrades.isEmpty()
+                || this.unknownProcess != null) return true;
         for (MachineStorage storage : this.storages.values()) {
-            for (StorageView view : storage.views()) {
-                if (!view.isEmpty()) return true;
+            for (MachineSlot slot : storage.slots()) {
+                if (!slot.isEmpty() || slot.lockedData() != null) return true;
             }
         }
         return false;
