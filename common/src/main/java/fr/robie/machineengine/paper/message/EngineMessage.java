@@ -104,7 +104,10 @@ public enum EngineMessage implements Message {
     ADMIN_FLUID_UNKNOWN("machineengine.admin.fluid_unknown", "<red>No placeable fluid %fluid%. Placeable: %fluids%"),
     ADMIN_FLUID_FILLED("machineengine.admin.fluid_filled", "<green>%count% water blocks are now %fluid%."),
     ADMIN_FLUID_NOT_WATER("machineengine.admin.fluid_not_water", "<red>Look at water (16 blocks or closer)."),
-    ADMIN_FLUID_CLEARED("machineengine.admin.fluid_cleared", "<green>The placeable fluids of %world% are turning back into plain water."),
+    ADMIN_FLUID_CLEARED("machineengine.admin.fluid_cleared", "<green>The placeable fluids in the loaded chunks of %world% are turning back "
+            + "into plain water. Unloaded chunks keep theirs."),
+    ADMIN_FLUID_FILL_CAPPED("machineengine.admin.fluid_fill_capped", "<gray>At most %max% blocks per fill."),
+    ADMIN_FLUID_NO_PERMISSION("machineengine.admin.fluid_no_permission", "<red>Changing world fluids needs %permission%."),
     ADMIN_FLUID_SHOW_ON("machineengine.admin.fluid_show_on", "<gray>Placement grid for %fluid% at your feet: green can go, red blocked, "
             + "aqua already there. /machineengine fluid show to stop."),
     ADMIN_FLUID_SHOW_OFF("machineengine.admin.fluid_show_off", "<gray>Placement grid off."),

@@ -47,11 +47,16 @@ import java.util.function.Supplier;
 /**
  * {@code /machineengine fluid [info | show [<fluid>] [radius] | fill <fluid|water> [max] | bucket <fluid> | clear]}
  * (D46): what world fluids are doing, where a fluid may go (a particle grid seen only by the player),
- * and test tools. Fill and clear fire the usual events with the {@code COMMAND} cause.
+ * and test tools. Fill and clear fire the usual events with the {@code COMMAND} cause. Fill, bucket and
+ * clear also need {@link #EDIT_PERMISSION}.
  */
 @SuppressWarnings("UnstableApiUsage")
 public final class FluidAdminCommand extends SubCommand<Plugin> {
     private static final String USAGE = "Usage: /machineengine fluid [info | show [<fluid>] [radius] | fill <fluid|water> [max] | bucket <fluid> | clear]";
+    /** Needed on top of {@code machineengine.admin} for fill, bucket and clear. */
+    public static final String EDIT_PERMISSION = "machineengine.admin.fluid.edit";
+    /** One fill runs on one region thread: bounded so it cannot stall the region (an ocean has millions). */
+    static final int MAX_FILL = 32_768;
     private static final BlockFace[] FACES = {BlockFace.UP, BlockFace.DOWN, BlockFace.NORTH, BlockFace.SOUTH, BlockFace.EAST, BlockFace.WEST};
     private static final Particle.DustOptions CAN = new Particle.DustOptions(Color.fromRGB(0x30E030), 0.9f);
     private static final Particle.DustOptions CANNOT = new Particle.DustOptions(Color.fromRGB(0xE03030), 0.9f);
@@ -97,6 +102,11 @@ public final class FluidAdminCommand extends SubCommand<Plugin> {
         if (action.equals("info")) return info(sender, running);
         if (!(dispatch.getExecutor() instanceof Player player)) {
             EngineMessages.send(sender, EngineMessage.ADMIN_FLUID_PLAYERS_ONLY);
+            return CommandResultType.FAILURE;
+        }
+        // info and show only read; fill, bucket and clear change the world.
+        if (List.of("fill", "bucket", "clear").contains(action) && !sender.hasPermission(EDIT_PERMISSION)) {
+            EngineMessages.send(sender, EngineMessage.ADMIN_FLUID_NO_PERMISSION, Placeholder.of("permission", EDIT_PERMISSION));
             return CommandResultType.FAILURE;
         }
         return switch (action) {
@@ -248,7 +258,9 @@ public final class FluidAdminCommand extends SubCommand<Plugin> {
         }
         FluidType fluid = words[1].equalsIgnoreCase("water") ? null : fluid(player, running, words[1]);
         if (fluid == null && !words[1].equalsIgnoreCase("water")) return CommandResultType.FAILURE;
-        int max = words.length > 2 ? Math.max(1, parse(words[2], 4000)) : 4000;
+        int asked = words.length > 2 ? Math.max(1, parse(words[2], 4000)) : 4000;
+        int max = Math.min(asked, MAX_FILL);
+        if (asked > max) EngineMessages.send(player, EngineMessage.ADMIN_FLUID_FILL_CAPPED, Placeholder.of("max", String.valueOf(MAX_FILL)));
         Block start = player.getTargetBlockExact(16, FluidCollisionMode.ALWAYS);
         if (start == null || !WorldFluidRuntime.isWater(start)) {
             EngineMessages.send(player, EngineMessage.ADMIN_FLUID_NOT_WATER);
@@ -300,7 +312,8 @@ public final class FluidAdminCommand extends SubCommand<Plugin> {
             EngineMessages.send(player, EngineMessage.FLUID_NOT_PLACEABLE, Placeholder.builder().register("fluid", WorldFluidRuntime.name(fluid)).build());
             return CommandResultType.FAILURE;
         }
-        player.getInventory().addItem(bucket);
+        // A full inventory: dropped at the player's feet instead of lost.
+        player.getInventory().addItem(bucket).values().forEach(left -> player.getWorld().dropItem(player.getLocation(), left));
         return CommandResultType.SUCCESS;
     }
 

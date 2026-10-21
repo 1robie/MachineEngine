@@ -571,12 +571,17 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         }
     }
 
-    /** Turns every placeable fluid of a world back into plain water (saved data too). */
+    /**
+     * Turns the placeable fluids of a world's loaded chunks back into plain water; they are saved so on
+     * the next sweep. Unloaded chunks keep theirs: they are only known once loaded.
+     */
     void clear(@NotNull World world) {
         UUID id = world.getUID();
         for (long chunk : this.cells.trackedChunks(id)) {
             int chunkX = Cells.chunkX(chunk), chunkZ = Cells.chunkZ(chunk);
             this.scheduler.run(world, chunkX, chunkZ, () -> {
+                // Unloaded since: its fluids were saved and forgotten; reading its blocks would load it.
+                if (!world.isChunkLoaded(chunkX, chunkZ)) return;
                 for (long packed : this.cells.blocksIn(id, chunkX, chunkZ)) {
                     forget(world.getBlockAt(Cells.x(packed), Cells.y(packed), Cells.z(packed)), WorldFluidRemoveEvent.Cause.COMMAND);
                 }
