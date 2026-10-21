@@ -137,7 +137,7 @@ public final class CoreNetworks {
     /** A storage of the machine at {@code position} changed: its networks may have work. */
     public void machineActivity(@NotNull WorldPosition position) {
         WorldGraph graph = this.worlds.get(position.world());
-        if (graph != null) graph.neighborNetworks(position).forEach(Network::activate);
+        if (graph != null) graph.activateAround(position);
     }
 
     // -- inspection ----------------------------------------------------------------------------
@@ -214,7 +214,8 @@ public final class CoreNetworks {
     /** Transports and networks of one world. Topology changes are serialized by the graph lock. */
     private final class WorldGraph {
         private final Map<WorldPosition, TransportType> transports = new HashMap<>();
-        private final Map<WorldPosition, Network> networkOf = new HashMap<>();
+        /** Written under the graph lock; concurrent so {@link #activateAround} can read it without it. */
+        private final Map<WorldPosition, Network> networkOf = new ConcurrentHashMap<>();
 
         synchronized void add(TransportType type, WorldPosition position, MachineHost host) {
             if (this.transports.containsKey(position)) remove(position);
@@ -304,6 +305,18 @@ public final class CoreNetworks {
         synchronized @Nullable NetworkView viewOf(WorldPosition position) {
             Network network = this.networkOf.get(position);
             return network == null ? null : network.view();
+        }
+
+        /**
+         * Activates the networks next to a machine. Runs on every committed slot change, from every region
+         * thread of the world, so it does not take the graph lock: a topology change racing with it is seen
+         * before or after, as with the lock, and a network it creates is activated by that change.
+         */
+        void activateAround(WorldPosition position) {
+            for (Direction direction : Direction.values()) {
+                Network network = this.networkOf.get(position.relative(direction));
+                if (network != null) network.activate();
+            }
         }
 
         synchronized Set<Network> neighborNetworks(WorldPosition position) {
