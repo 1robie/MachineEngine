@@ -53,11 +53,12 @@ public final class FluidRules {
 
     /**
      * Areas around another fluid that get no padding: a block's color blends the blocks a few around it
-     * (Biome Blend up to 15×15, and Sodium blends each corner from the blocks around), and two keys
-     * blended together are no fluid at all. 3 areas keep a padded area out of reach of the other fluid's
-     * blocks; next to it the fluid fades into plain water instead.
+     * (Biome Blend, and Sodium blends each corner from the blocks around), and two keys blended together
+     * are no fluid at all; next to the other fluid this one fades into plain water instead. 2 areas keep
+     * keys apart up to Biome Blend 7×7 (simulated: no blocks mixed, 0.4% of fluid faces water at 5×5;
+     * 3 gave 1.3%). Wider blends reach the other fluid's own blocks: that takes a wider fluid gap.
      */
-    public static final int OTHER_FLUID_REACH = 3;
+    public static final int OTHER_FLUID_REACH = 2;
 
     private FluidRules() {
     }
