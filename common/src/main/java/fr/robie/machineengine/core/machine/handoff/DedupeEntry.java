@@ -12,8 +12,11 @@ import java.util.List;
  */
 public record DedupeEntry(@NotNull TransferId id, @NotNull List<Long> accepted) {
 
-    /** Entries kept per target machine. */
-    public static final int CAPACITY = 64;
+    /**
+     * Entries a target keeps per source machine (sources are its neighbours, so at most 6), covering
+     * crashes that restore a source a few transfers behind its target.
+     */
+    public static final int PER_SOURCE = 16;
 
     public DedupeEntry {
         accepted = List.copyOf(accepted);

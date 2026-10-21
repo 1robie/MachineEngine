@@ -242,7 +242,8 @@ final class MachineCodec {
             problems.add(error);
         }));
         data.getList(ESCROW).ifOk(escrow -> decodeEscrow(machine, escrow, stacks, problems));
-        machine.sequence = data.getLong(SEQUENCE).orElse(0L);
+        // Never below firstSequence(now): older saves started at 0, maybe after another machine stood here.
+        machine.sequence = Math.max(machine.sequence, data.getLong(SEQUENCE).orElse(0L));
         machine.active = data.getBool("active").toOptional().orElse(false);
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
         data.getMap(SIDES).ifOk(sides -> sides.entries().forEach((port, raw) -> {

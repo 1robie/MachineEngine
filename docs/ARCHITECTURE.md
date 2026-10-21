@@ -558,7 +558,9 @@ Source (owner A)                                Target (owner B)
 2. post Deliver(transferId, stacks) ─────────▶  3. if transferId in dedupe set → ack previous result
                                                  4. tx: insert what fits → commit;
                                                     record transferId in dedupe set (persisted
-                                                    with TARGET, bounded ring + TTL)
+                                                    with TARGET, last 16 per source; an id
+                                                    older than the source's latest is stale:
+                                                    answered with nothing, never inserted)
                     ◀───────────────────────────  5. post Ack(transferId, accepted, remainder)
 6. tx: clear accepted from escrow; return
    remainder to source storage (or keep in
@@ -568,8 +570,9 @@ Source (owner A)                                Target (owner B)
 Rules:
 
 - **At most one in-flight handoff per route** (backpressure). A route with non-empty escrow does not start a new transfer.
+- **Transfer ids grow per position:** a machine's sequence starts at its game time × 65536 when it is created or loaded (never below its saved value), so a machine placed where another stood never reuses its predecessor's ids. With one handoff per route, the target needs only the latest ids from each source, so traffic from other neighbours can never push an unanswered id out of its dedupe set.
 - **Backoff:** a handoff answered with nothing accepted rests its route (20 ticks if the target is missing, 5 if it is full), so a source never ping-pongs messages every tick. Not persisted.
-- **Removed source:** if a machine is removed while a handoff is in flight, the remainder of the answer is dropped into the world (`MachineHost.dropResources`). This record is in memory only, so a crash in that window loses the remainder.
+- **Removed source:** if a machine is removed while a handoff is in flight, the remainder of the answer is dropped into the world (`MachineHost.dropResources`), even if another machine was placed there since. This record is in memory only, so a crash in that window loses the remainder.
 - If the target is unloaded, removed, or rejects: ack with full remainder; source returns it.
 - Escrow contents are visible in inspection and count toward the source's contents (nothing is "in the air" unaccounted).
 - Messages are scheduled with Paper's `RegionScheduler` for the target location, which also works on non-Folia Paper and follows region migration.

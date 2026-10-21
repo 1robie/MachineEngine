@@ -12,8 +12,11 @@ import fr.robie.machineengine.api.transfer.TransactionContext;
 import fr.robie.machineengine.core.machine.MachineHost;
 import fr.robie.machineengine.core.machine.MachineInstanceImpl;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -110,16 +113,16 @@ public final class HandoffService {
 
     private void acknowledge(MachineHost host, TransferId id, Route route, List<Long> accepted, List<ResourceStack> stacks,
                              boolean targetMissing) {
-        MachineInstanceImpl source = host.machineAt(id.source());
-        if (source == null || !source.isValid()) {
-            Escrow orphan = this.orphaned.remove(id);
-            if (orphan != null) {
-                List<ResourceStack> remainder = remainder(orphan.stacks(), accepted);
-                if (!remainder.isEmpty()) host.dropResources(id.source(), remainder);
-            }
-            // Otherwise the source is unloaded: its escrow is persisted and re-sent when it loads.
+        // The source was removed, maybe replaced since by another machine: drop what was not accepted.
+        Escrow orphan = this.orphaned.remove(id);
+        if (orphan != null) {
+            List<ResourceStack> remainder = remainder(orphan.stacks(), accepted);
+            if (!remainder.isEmpty()) host.dropResources(id.source(), remainder);
             return;
         }
+        MachineInstanceImpl source = host.machineAt(id.source());
+        // An unloaded source: its escrow is persisted and re-sent when it loads.
+        if (source == null || !source.isValid()) return;
         Escrow escrow = escrowOf(source).get(route);
         if (escrow == null || !escrow.id().equals(id) || escrow.returning()) return; // stale or duplicate answer
         try (Transaction transaction = openTransaction(source)) {
@@ -156,12 +159,8 @@ public final class HandoffService {
         if (target == null) {
             accepted = stacks.stream().map(stack -> 0L).toList();
         } else {
-            DedupeEntry previous = dedupeOf(target).stream().filter(entry -> entry.id().equals(id)).findFirst().orElse(null);
-            if (previous != null) {
-                accepted = previous.accepted();
-            } else {
-                accepted = insert(target, id, route, stacks);
-            }
+            List<Long> previous = previousAnswer(dedupeOf(target), id, stacks.size());
+            accepted = previous != null ? previous : insert(target, id, route, stacks);
         }
         List<Long> answer = List.copyOf(accepted);
         host.post(id.source(), () -> acknowledge(host, id, route, answer, stacks, missing));
@@ -176,11 +175,43 @@ public final class HandoffService {
             }
             List<DedupeEntry> entries = new ArrayList<>(dedupeOf(target));
             entries.add(new DedupeEntry(id, accepted));
-            while (entries.size() > DedupeEntry.CAPACITY) entries.removeFirst();
+            // Bounded per source, not overall, so a busy neighbour never pushes out another's ids.
+            long fromSource = entries.stream().filter(entry -> entry.id().source().equals(id.source())).count();
+            for (Iterator<DedupeEntry> it = entries.iterator(); fromSource > DedupeEntry.PER_SOURCE && it.hasNext(); ) {
+                if (it.next().id().source().equals(id.source())) {
+                    it.remove();
+                    fromSource--;
+                }
+            }
             setDedupe(target, List.copyOf(entries), transaction);
             transaction.commit();
             return accepted;
         }
+    }
+
+    /**
+     * The recorded answer for a re-delivered id, or {@code null} for a new transfer. A source has at most
+     * one handoff in flight per route and its sequence only grows, so an id older than the latest recorded
+     * from that source is a stale copy: answered with nothing accepted, never inserted again. The source
+     * ignores that answer unless it still holds that escrow, and then nothing was inserted for it here.
+     */
+    private static @Nullable List<Long> previousAnswer(List<DedupeEntry> dedupe, TransferId id, int stacks) {
+        long latest = Long.MIN_VALUE;
+        for (DedupeEntry entry : dedupe) {
+            if (!entry.id().source().equals(id.source())) continue;
+            if (entry.id().sequence() == id.sequence()) return entry.accepted();
+            latest = Math.max(latest, entry.id().sequence());
+        }
+        return id.sequence() < latest ? Collections.nCopies(stacks, 0L) : null;
+    }
+
+    /**
+     * The first sequence of a machine created or loaded at {@code gameTime}. A machine sends at most one
+     * handoff per route (6) per tick, so this stays above every id an earlier machine at the same
+     * position used: targets never take a new machine's transfers for its predecessor's.
+     */
+    public static long firstSequence(long gameTime) {
+        return gameTime << 16;
     }
 
     // -- helpers -------------------------------------------------------------------------------

@@ -62,6 +62,7 @@ import fr.robie.machineengine.api.world.WorldFluid;
 import fr.robie.machineengine.api.world.WorldPosition;
 import fr.robie.machineengine.core.machine.handoff.DedupeEntry;
 import fr.robie.machineengine.core.machine.handoff.Escrow;
+import fr.robie.machineengine.core.machine.handoff.HandoffService;
 import fr.robie.machineengine.core.machine.handoff.Route;
 import fr.robie.machineengine.core.machine.handoff.TransferId;
 import fr.robie.messageflow.formatter.Placeholder;
@@ -150,6 +151,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.position = position;
         this.facing = facing;
         this.lastTick = host.gameTime(position.world());
+        this.sequence = HandoffService.firstSequence(this.lastTick);
         this.process = new TransactionalValue<>(null, this::markDirty);
         this.escrow = new TransactionalValue<>(Map.of(), this::markDirty);
         this.dedupe = new TransactionalValue<>(List.of(), this::markDirty);

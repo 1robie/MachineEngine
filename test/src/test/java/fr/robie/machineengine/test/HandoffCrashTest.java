@@ -28,6 +28,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HandoffCrashTest {
     private static final WorldPosition PUSHER_AT = FakeWorld.at(0, 64, 0);
     private static final WorldPosition CHEST_AT = FakeWorld.at(1, 64, 0);
+    private static final WorldPosition OTHER_AT = FakeWorld.at(2, 64, 0);
     private static final long TOTAL = 30;
 
     private final CoreMachineEngine engine = MachineFixtures.bothAddons();
@@ -126,6 +127,55 @@ class HandoffCrashTest {
         assertEquals(0, fresh.pendingTasks());
         assertEquals(10, fresh.dropped().stream().mapToLong(ResourceStack::amount).sum(),
                 "the unaccepted handoff is dropped into the world instead of vanishing");
+    }
+
+    @Test
+    void anUnansweredTransferIsNotInsertedAgainAfterOtherNeighboursSentMany() {
+        // The pusher unloads after the chest took its first 10 but before the answer arrived. Another
+        // neighbour then sends more transfers than a shared window of recent ids would remember.
+        FakeWorld world = FakeWorld.regions(this.engine, position -> position.x() <= 0 ? "west" : position.x() == 1 ? "east" : "far");
+        MachineInstanceImpl pusher = world.place(PUSHER, PUSHER_AT, Direction.EAST);
+        world.place(CHEST, CHEST_AT, Direction.EAST);
+        MachineFixtures.fill(pusher, "output", B.stack(TOTAL));
+        world.advance();
+        world.step("west");
+        world.step("east");
+        assertEquals(10, chestAmount(world));
+        DataMap unloaded = world.unload(PUSHER_AT);
+
+        MachineInstanceImpl other = world.place(PUSHER, OTHER_AT, Direction.WEST);
+        MachineFixtures.fill(other, "output", B.stack(1000));
+        world.tick(400);
+        assertEquals(1010, chestAmount(world), "100 transfers from the other neighbour");
+
+        world.load(PUSHER_AT, unloaded);
+        settle(world);
+        assertEquals(1000 + TOTAL, chestAmount(world), "the re-sent first transfer is answered, not inserted again");
+    }
+
+    @Test
+    void aSourceReplacedBeforeTheAnswerStillDropsTheRemainder() {
+        FakeWorld fresh = newWorld();
+        MachineInstanceImpl pusher = fresh.place(PUSHER, PUSHER_AT, Direction.EAST);
+        MachineFixtures.fill(pusher, "output", B.stack(TOTAL));
+        fresh.advance();
+        fresh.step("west");                       // 10 in escrow, delivery queued; no chest at the target
+        fresh.remove(PUSHER_AT);
+        fresh.place(PUSHER, PUSHER_AT, Direction.EAST);
+        fresh.tick(5);
+        assertEquals(0, fresh.pendingTasks());
+        assertEquals(10, fresh.dropped().stream().mapToLong(ResourceStack::amount).sum(),
+                "the answer reaches the new machine's position and the old escrow's remainder is still dropped");
+    }
+
+    @Test
+    void aMachinePlacedWhereAnotherStoodGetsNewTransferIds() {
+        settle(this.world);
+        this.world.remove(PUSHER_AT);
+        MachineInstanceImpl replacement = this.world.place(PUSHER, PUSHER_AT, Direction.EAST);
+        MachineFixtures.fill(replacement, "output", B.stack(TOTAL));
+        settle(this.world);
+        assertEquals(2 * TOTAL, chestAmount(this.world), "the chest does not answer the new machine with the old one's records");
     }
 
     // ------------------------------------------------------------------------------------------
