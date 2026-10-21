@@ -47,7 +47,9 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
+import org.bukkit.block.Dispenser;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.Levelled;
 import org.bukkit.block.data.Waterlogged;
 import org.bukkit.entity.Player;
@@ -55,13 +57,16 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.HandlerList;
 import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockFromToEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.CauldronLevelChangeEvent;
 import org.bukkit.event.block.FluidLevelChangeEvent;
 import org.bukkit.event.player.PlayerBucketEmptyEvent;
 import org.bukkit.event.player.PlayerBucketFillEvent;
 import org.bukkit.event.world.ChunkLoadEvent;
 import org.bukkit.event.world.ChunkUnloadEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -845,6 +850,81 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
         if (fluid == null) return;
         setFluid(block, 0);
         new WorldFluidRemoveEvent(block, fluid, WorldFluidRemoveEvent.Cause.BUCKET).callEvent();
+    }
+
+    // ---------------------------------------------------------------- dispensers and cauldrons
+
+    /**
+     * A dispenser pours and takes like a player's bucket: the same rules and events, without a message.
+     * Vanilla would pour a fluid bucket as plain water and fill an empty bucket with plain water.
+     */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onDispense(BlockDispenseEvent event) {
+        Block dispenser = event.getBlock();
+        if (dispenser.getType() != Material.DISPENSER || !(dispenser.getBlockData() instanceof Directional facing)) return;
+        Block target = dispenser.getRelative(facing.getFacing());
+        ItemStack item = event.getItem();
+        if (item.getType() == Material.WATER_BUCKET) {
+            FluidType fluid = bucketFluid(item);
+            boolean refused;
+            if (target.getType().isAir() || isWater(target)) {
+                refused = refusal(target, fluid == null ? Fluids.water() : fluid) != null
+                        || fluid != null && !new WorldFluidPlaceEvent(target, fluid, WorldFluidPlaceEvent.Cause.BUCKET).callEvent();
+            } else {
+                // Vanilla waterlogs the block with plain water (or throws the bucket out, which keeps it).
+                refused = fluid != null && target.getBlockData() instanceof Waterlogged;
+            }
+            if (refused) event.setCancelled(true);
+        } else if (item.getType() == Material.BUCKET) {
+            FluidType fluid = this.keys.fluid(number(target));
+            if (fluid == null || !isSource(target)) return;
+            event.setCancelled(true);
+            ItemStack bucket = bucket(fluid);
+            if (bucket != null) this.scheduler.run(dispenser.getLocation(), () -> takeWithDispenser(dispenser, target, fluid, bucket));
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onDispensed(BlockDispenseEvent event) {
+        Block dispenser = event.getBlock();
+        if (dispenser.getType() != Material.DISPENSER || !(dispenser.getBlockData() instanceof Directional facing)) return;
+        FluidType fluid = event.getItem().getType() == Material.WATER_BUCKET ? bucketFluid(event.getItem()) : null;
+        if (fluid == null) return;
+        Block target = dispenser.getRelative(facing.getFacing());
+        int number = this.keys.number(fluid);
+        this.scheduler.run(target.getLocation(), () -> {
+            if (isSource(target) && !(target.getBlockData() instanceof Waterlogged)) setFluid(target, number);
+        });
+    }
+
+    /** Takes a fluid source into the dispenser's empty bucket, as vanilla does with water; nothing without room. */
+    private void takeWithDispenser(Block dispenser, Block target, FluidType fluid, ItemStack bucket) {
+        if (this.keys.fluid(number(target)) != fluid || !isSource(target)) return;
+        if (!(dispenser.getState(false) instanceof Dispenser state)) return;
+        Inventory inventory = state.getInventory();
+        int slot = inventory.first(Material.BUCKET);
+        if (slot < 0) return;
+        ItemStack empty = inventory.getItem(slot);
+        if (empty == null) return;
+        if (empty.getAmount() == 1) {
+            inventory.setItem(slot, bucket);
+        } else {
+            int free = inventory.firstEmpty();
+            if (free < 0) return;
+            empty.setAmount(empty.getAmount() - 1);
+            inventory.setItem(free, bucket);
+        }
+        take(target, WorldFluidRemoveEvent.Cause.BUCKET);
+    }
+
+    /** A fluid bucket poured into a cauldron would become plain water there: refused. */
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onCauldron(CauldronLevelChangeEvent event) {
+        if (event.getReason() != CauldronLevelChangeEvent.ChangeReason.BUCKET_EMPTY || !(event.getEntity() instanceof Player player)) return;
+        if (event.getNewState().getType() != Material.WATER_CAULDRON) return;
+        ItemStack main = player.getInventory().getItemInMainHand();
+        ItemStack poured = main.getType() == Material.WATER_BUCKET ? main : player.getInventory().getItemInOffHand();
+        if (bucketFluid(poured) != null) event.setCancelled(true);
     }
 
     /** The fluid a bucket places, or {@code null} for plain water (or not a fluid bucket). */
