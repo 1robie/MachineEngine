@@ -299,7 +299,7 @@ final class MachineCodec {
             DataValue locked = map.get("locked").orElseThrow();
             // The resource may be registered again: try to rehydrate it.
             Result<ResourceStack> retry = locked instanceof DataMap lockedMap ? lockedMap.getMap("stack").flatMap(stacks::decode) : null;
-            if (retry != null && retry.isOk() && retry.value().amount() <= slot.capacity()) {
+            if (retry != null && retry.isOk()) {
                 slot.load(retry.value().variant(), retry.value().amount());
             } else {
                 slot.lock(locked);
@@ -307,11 +307,13 @@ final class MachineCodec {
             return;
         }
         Result<ResourceStack> stack = map.getMap("stack").flatMap(stacks::decode);
-        if (stack.isOk() && stack.value().amount() <= slot.capacity()) {
+        if (stack.isOk()) {
+            // Also above a capacity that shrank (upgrade removed, block config, multiblock): kept and
+            // drained, as at runtime, where a smaller capacity only refuses new input.
             ResourceStack value = stack.value();
             slot.load(value.isEmpty() ? null : value.variant(), value.amount());
         } else {
-            // Unregistered resource type (or a slot that shrank): keep the data, lock the slot.
+            // Unregistered resource type: keep the data, lock the slot.
             slot.lock(map);
         }
     }

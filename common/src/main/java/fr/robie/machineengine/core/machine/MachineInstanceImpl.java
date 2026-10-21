@@ -327,7 +327,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             for (MachineSlot slot : storage.slots()) {
                 slots++;
                 if (slot.lockedData() != null || slot.isEmpty() || slot.capacity() <= 0) continue;
-                fill += (double) slot.amount() / slot.capacity();
+                fill += Math.min(1.0, (double) slot.amount() / slot.capacity()); // above a capacity that shrank
                 any = true;
             }
         }

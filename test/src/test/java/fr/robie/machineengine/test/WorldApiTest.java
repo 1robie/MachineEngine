@@ -21,6 +21,7 @@ import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -221,6 +222,22 @@ class WorldApiTest {
             capacity[0] = context.storage("tank").views().getFirst().capacity();
         });
         assertEquals(100, capacity[0], "-1 goes back to the type's capacity");
+    }
+
+    @Test
+    void contentsAboveACapacityThatShrankSurviveASave() {
+        FakeWorld world = FakeWorld.singleRegion(this.engine);
+        var probe = world.place(PROBE, HERE, Direction.NORTH);
+        MachineFixtures.fill(probe, "tank", MachineFixtures.B.stack(80));
+        run(world, context -> context.setStorageCapacity("tank", 40)); // e.g. a capacity upgrade removed
+
+        var saved = world.save(HERE);
+        world.unload(HERE);
+        world.load(HERE, saved);
+        var inspection = world.inspect(HERE);
+        assertEquals(80, inspection.storages().get("tank").getFirst().amount(), "kept, not locked away");
+        assertEquals(Map.of(), inspection.lockedSlots());
+        assertEquals(15, world.machine(HERE).comparatorSignal(), "full, not above 15");
     }
 
     @Test
