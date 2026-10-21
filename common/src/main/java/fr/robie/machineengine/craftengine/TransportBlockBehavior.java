@@ -211,6 +211,14 @@ public final class TransportBlockBehavior extends BukkitBlockBehavior implements
             data.put(SIDES_KEY, NbtData.toTag(sides.build()));
         }
 
+        /**
+         * The engine stops: keeps the side modes for CraftEngine's final world save, which runs without
+         * a host (as {@code MachineBlockEntityController#detachForShutdown} does for machines).
+         */
+        void snapshotForShutdown(CraftEngineMachineHost host) {
+            if (this.position != null) this.modes = host.engine().machines().networks().sideModes(this.position);
+        }
+
         /** The block's data changed (a side mode): CraftEngine saves it with the chunk. */
         void markDirty() {
             var world = this.blockEntity.world();

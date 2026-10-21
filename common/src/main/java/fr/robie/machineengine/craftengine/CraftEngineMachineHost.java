@@ -197,6 +197,8 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
             }
         }
         this.controllers.clear();
+        // Side modes changed since the last autosave would otherwise be lost.
+        this.transports.values().forEach(transport -> transport.snapshotForShutdown(this));
         current = null;
     }
 
