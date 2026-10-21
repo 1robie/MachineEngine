@@ -17,6 +17,38 @@ public final class Modifiers {
 
     /** Applies the modifiers of {@code type} among {@code modifiers}; others are ignored. */
     public static long apply(@NotNull ModifierType type, long base, @NotNull Iterable<Modifier> modifiers) {
+        // Called on every capacity and rate read: long math first, BigInteger only when it would overflow.
+        try {
+            return applyExact(type, base, modifiers);
+        } catch (ArithmeticException overflow) {
+            return applyBig(type, base, modifiers);
+        }
+    }
+
+    private static long applyExact(ModifierType type, long base, Iterable<Modifier> modifiers) {
+        long value = base;
+        long multipliedBase = 0;
+        boolean multiplyTotal = false;
+        for (Modifier modifier : modifiers) {
+            if (modifier.type() != type) continue;
+            switch (modifier.operation()) {
+                case ADD -> value = Math.addExact(value, modifier.value());
+                case ADD_MULTIPLIED_BASE -> multipliedBase = Math.addExact(multipliedBase, modifier.value());
+                case MULTIPLY_TOTAL -> multiplyTotal = true;
+            }
+        }
+        if (multipliedBase != 0) value = Math.floorDiv(Math.multiplyExact(value, Math.addExact(1000L, multipliedBase)), 1000L);
+        if (multiplyTotal) {
+            for (Modifier modifier : modifiers) {
+                if (modifier.type() == type && modifier.operation() == Modifier.Operation.MULTIPLY_TOTAL) {
+                    value = Math.floorDiv(Math.multiplyExact(value, Math.addExact(1000L, modifier.value())), 1000L);
+                }
+            }
+        }
+        return Math.min(Math.max(value, type.min()), type.max());
+    }
+
+    private static long applyBig(ModifierType type, long base, Iterable<Modifier> modifiers) {
         BigInteger value = BigInteger.valueOf(base);
         BigInteger multipliedBase = BigInteger.ZERO;
         for (Modifier modifier : modifiers) {
