@@ -97,14 +97,24 @@ public final class FluidCells {
             c[fluid]++;
             return c;
         });
-        int rings = Math.max(this.neutralRings, FluidKeys.MAX_RINGS);
+        markSections(world, cell, Integer.MIN_VALUE, Integer.MAX_VALUE, Integer.MIN_VALUE, Integer.MAX_VALUE);
+        return ownerChanged(world, cell, ownerBefore);
+    }
+
+    /** Cells around an owned cell whose sections are marked (padding, dispersion, neutral water). */
+    private int markRings() {
+        return Math.max(this.neutralRings, FluidKeys.MAX_RINGS);
+    }
+
+    /** Marks the sections within {@link #markRings()} of a cell, limited to the given chunk range. */
+    private void markSections(UUID world, long cell, int minChunkX, int maxChunkX, int minChunkZ, int maxChunkZ) {
+        int rings = markRings();
         Set<Long> marked = this.sections.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
         int cx = Cells.x(cell), cy = Cells.y(cell), cz = Cells.z(cell);
-        for (int sx = (cx - rings) >> 2; sx <= (cx + rings) >> 2; sx++)
+        for (int sx = Math.max((cx - rings) >> 2, minChunkX); sx <= Math.min((cx + rings) >> 2, maxChunkX); sx++)
             for (int sy = (cy - rings) >> 2; sy <= (cy + rings) >> 2; sy++)
-                for (int sz = (cz - rings) >> 2; sz <= (cz + rings) >> 2; sz++)
+                for (int sz = Math.max((cz - rings) >> 2, minChunkZ); sz <= Math.min((cz + rings) >> 2, maxChunkZ); sz++)
                     marked.add(Cells.pack(sx, sy, sz));
-        return ownerChanged(world, cell, ownerBefore);
     }
 
     /** @return the cell whose owner changed (its key must be resent), or {@code null} */
@@ -171,7 +181,8 @@ public final class FluidCells {
 
     /**
      * A chunk loaded: the owned cells within reach of it get their surroundings (padding, dispersion)
-     * computed again, so its cells take the keys of fluids next to it.
+     * computed again, so its cells take the keys of fluids next to it, and mark its sections again (they
+     * were dropped when it unloaded; otherwise the remapper skips them in later sends of the chunk).
      */
     public void markDirtyAround(@NotNull UUID world, int chunkX, int chunkZ) {
         Map<Long, int[]> map = this.readers.get(world);
@@ -180,10 +191,14 @@ public final class FluidCells {
         // into it; owned cells up to MAX_RINGS beyond that pad it.
         int reach = FluidKeys.MAX_RINGS + 1;
         int minX = chunkX * 4 - reach, maxX = chunkX * 4 + 3 + reach, minZ = chunkZ * 4 - reach, maxZ = chunkZ * 4 + 3 + reach;
+        int rings = markRings();
         Set<Long> dirty = this.dirtyCells.computeIfAbsent(world, ignored -> ConcurrentHashMap.newKeySet());
         for (long cell : map.keySet()) {
             int x = Cells.x(cell), z = Cells.z(cell);
             if (x >= minX && x <= maxX && z >= minZ && z <= maxZ) dirty.add(cell);
+            if (x >= chunkX * 4 - rings && x <= chunkX * 4 + 3 + rings && z >= chunkZ * 4 - rings && z <= chunkZ * 4 + 3 + rings) {
+                markSections(world, cell, chunkX, chunkX, chunkZ, chunkZ);
+            }
         }
     }
 

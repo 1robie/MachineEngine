@@ -162,6 +162,21 @@ class WorldFluidRulesTest {
     }
 
     @Test
+    void aChunkLoadedAgainGetsTheSectionMarksOfFluidNextToIt() {
+        World world = world();
+        world.put(world.oil(), 0, 60, 0, 15, 63, 15); // fills chunk 0, 0; its padding reaches into chunk 1, 0
+        long cell = world.cells().readCell(WORLD, 15, 62, 8);
+        int sectionY = Cells.y(cell) >> 2, sectionZ = Cells.z(cell) >> 2;
+        assertTrue(world.cells().hasSection(WORLD, 1, sectionY, sectionZ), "marked by the oil next door");
+
+        world.cells().forgetChunk(WORLD, 1, 0);
+        assertFalse(world.cells().hasSection(WORLD, 1, sectionY, sectionZ));
+        world.cells().markDirtyAround(WORLD, 1, 0);
+        assertTrue(world.cells().hasSection(WORLD, 1, sectionY, sectionZ), "marked again when the chunk loads");
+        assertFalse(world.cells().hasSection(WORLD, 2, sectionY, sectionZ), "only within reach of the oil");
+    }
+
+    @Test
     void differentFluidsKeepTheGapWhateverTheConflictRule() {
         World world = world();
         world.put(world.oil(), 0, 60, 0, 7, 63, 7);
