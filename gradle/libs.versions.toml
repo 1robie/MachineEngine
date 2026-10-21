@@ -13,6 +13,8 @@ shadow = "9.6.1"
 plugin-yml = "0.9.0"
 run-paper = "3.1.0"
 hangar-publish = "0.1.4"
+# API compatibility check against the last release (ARCHITECTURE §5).
+japicmp = "0.4.6"
 zmenu = "1.1.1.9"
 # Shaded and relocated (D35).
 # main at 2fafd75 (removal namespace without PluginMeta#namespace, for 1.20.6): JitPack's main-SNAPSHOT
@@ -40,4 +42,5 @@ shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 plugin-yml-paper = { id = "de.eldoria.plugin-yml.paper", version.ref = "plugin-yml" }
 run-paper = { id = "xyz.jpenilla.run-paper", version.ref = "run-paper" }
 hangar-publish = { id = "io.papermc.hangar-publish-plugin", version.ref = "hangar-publish" }
+japicmp = { id = "me.champeau.gradle.japicmp", version.ref = "japicmp" }
 paperweight-userdev = { id = "io.papermc.paperweight.userdev", version.ref = "paperweight" }

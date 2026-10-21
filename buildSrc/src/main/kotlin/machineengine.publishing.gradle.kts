@@ -1,6 +1,6 @@
-// Publishes an engine module as a Maven artifact. JitPack builds them from a git tag
-// (jitpack.yml, docs/MEKANIZED_SPLIT_PLAN.md stage 2): addons depend on machineengine-api, and their
-// headless tests on machineengine-test, which brings the rest.
+// Publishes an engine module as a Maven artifact, to https://1robie.github.io/maven/ on a version tag
+// (.github/workflows/maven.yml): addons depend on machineengine-api, and their headless tests on
+// machineengine-test, which brings the rest.
 plugins {
     `java-library`
     `maven-publish`
@@ -9,8 +9,7 @@ plugins {
 publishing {
     publications {
         create<MavenPublication>("maven") {
-            // JitPack's group for a multi-module repository, also when published locally, so a
-            // dependency resolves the same from mavenLocal() and from JitPack.
+            // The group JitPack gave the first releases, kept so addons' coordinates stay the same.
             groupId = "com.github.1robie.MachineEngine"
             from(components["java"])
             pom {

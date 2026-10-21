@@ -68,7 +68,7 @@ repository `https://1robie.github.io/maven/`:
 
 ```kotlin
 repositories { maven("https://1robie.github.io/maven/") }
-dependencies { compileOnly("com.github.1robie.MachineEngine:machineengine-api:0.1.0") }
+dependencies { compileOnly("com.github.1robie.MachineEngine:machineengine-api:0.2.0") }
 ```
 
 See the [Developer API](https://1robie.github.io/plugins/machineengine/api) and the

@@ -112,12 +112,18 @@ client is checked on a dev server.
 
 ## Releases
 
+Before the tag: in [CHANGELOG.md](CHANGELOG.md), turn "Unreleased" into the version and date (with
+every API break listed, in a minor version only). After it: raise `version` in `gradle.properties`
+to the next `-SNAPSHOT` and `apiBaseline` in `api/build.gradle.kts` to the version just released.
+`:api:japicmp` fails a patch version that breaks the API of `apiBaseline`; its report is in
+`api/build/reports/japicmp`.
+
 Push a tag named like the version (`0.2.0`, `0.2.0-beta.1`):
 
-- `release.yml` builds with that version, makes a GitHub release with the jar, uploads it to
+- `release.yml` builds and tests with that version, checks the API with japicmp, makes a GitHub release with the jar, uploads it to
   [Hangar](https://hangar.papermc.io/1robie/MachineEngine) (a hyphenated tag goes to the Snapshot
   channel);
-- `maven.yml` publishes every module to the Maven repository `https://1robie.github.io/maven/`
+- `maven.yml` builds and tests, then publishes every module to the Maven repository `https://1robie.github.io/maven/`
   (repository `1robie/maven`), with the API Javadoc. It can also be run by hand for an existing tag.
 
 `hangar-page.yml` keeps the Hangar page equal to this README. Secrets: `HANGAR_API_TOKEN`,

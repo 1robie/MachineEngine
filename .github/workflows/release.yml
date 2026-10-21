@@ -1,8 +1,8 @@
 name: Release
 
 # Push a tag named like the version (0.1.0, 0.2.0-beta.1) to release it: the plugin jar is built with
-# that version, attached to a GitHub release, and uploaded to Hangar. JitPack builds the Maven
-# artifacts from the same tag by itself.
+# that version, attached to a GitHub release, and uploaded to Hangar. maven.yml publishes the Maven
+# artifacts from the same tag.
 on:
   push:
     tags:
@@ -31,6 +31,10 @@ jobs:
 
       - name: Build and test
         run: ./gradlew build -Pversion="$VERSION" --console=plain
+
+      # A patch release must not break the API (§5); a minor one before 1.0 may, listed in CHANGELOG.md.
+      - name: Check API binary compatibility
+        run: ./gradlew :api:japicmp -Pversion="$VERSION" --console=plain
 
       - name: GitHub release
         env:

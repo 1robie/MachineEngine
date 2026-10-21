@@ -42,9 +42,10 @@ jobs:
       - name: Build and test
         run: ./gradlew build ${CE_ARGS:-} --console=plain
 
-      # API compatibility (§5): enable once the first API version is released.
-      # - name: Check API binary compatibility
-      #   run: ./gradlew :api:japicmp
+      # API compatibility (§5): against the last released API; the report is in api/build/reports/japicmp.
+      - name: Check API binary compatibility
+        if: matrix.craftengine == 'pinned'
+        run: ./gradlew :api:japicmp --console=plain
 
       - name: Upload plugin jar
         if: matrix.craftengine == 'pinned'

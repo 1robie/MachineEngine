@@ -48,6 +48,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
+      # Nothing is published from a tag whose tests fail (this runs apart from release.yml's build).
+      - name: Build and test
+        run: ./gradlew build -Pversion="$VERSION" --console=plain
+
       # The repository is added by an init script, not by the build, so older tags publish too.
       - name: Publish the modules
         env:

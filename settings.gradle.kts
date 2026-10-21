@@ -27,6 +27,11 @@ dependencyResolutionManagement {
         maven("https://repo.momirealms.net/releases/") {
             mavenContent { releasesOnly() }
         }
+        // Released MachineEngine modules, for :api:japicmp (ARCHITECTURE §5). Only this repository serves them.
+        exclusiveContent {
+            forRepository { maven("https://1robie.github.io/maven/") }
+            filter { includeGroup("com.github.1robie.MachineEngine") }
+        }
         // JitPack (D35): Paper-Dispatch and MessageFlow, each in its own com.github.1robie.<repo> group.
         maven("https://jitpack.io") {
             mavenContent { includeGroupByRegex("""com\.github\.1robie\..+""") }
