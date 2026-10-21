@@ -60,6 +60,7 @@ final class MachineCodec {
     static final String UPGRADES = "upgrades";
     static final String ESCROW = "escrow";
     static final String SEQUENCE = "sequence";
+    static final String RANDOM = "random";
     static final String DEDUPE = "dedupe";
     /** Side configuration: port id to the sides it is on, for ports moved from the type's sides. */
     static final String SIDES = "sides";
@@ -123,6 +124,7 @@ final class MachineCodec {
         escrow.addAll(machine.unknownEscrow);
         builder.put(ESCROW, DataValue.list(escrow));
         builder.put(SEQUENCE, machine.sequence);
+        builder.put(RANDOM, machine.random.state());
 
         List<DataValue> dedupe = new ArrayList<>();
         for (DedupeEntry entry : Objects.requireNonNull(machine.dedupe.get())) {
@@ -244,6 +246,7 @@ final class MachineCodec {
         data.getList(ESCROW).ifOk(escrow -> decodeEscrow(machine, escrow, stacks, problems));
         // Never below firstSequence(now): older saves started at 0, maybe after another machine stood here.
         machine.sequence = Math.max(machine.sequence, data.getLong(SEQUENCE).orElse(0L));
+        data.getLong(RANDOM).ifOk(machine.random::setState); // older saves: the seed from creation
         machine.active = data.getBool("active").toOptional().orElse(false);
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
         data.getMap(SIDES).ifOk(sides -> sides.entries().forEach((port, raw) -> {

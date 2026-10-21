@@ -81,7 +81,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.SplittableRandom;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 import java.util.function.Predicate;
@@ -122,7 +121,7 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     final Map<UpgradeType, Integer> upgrades = new LinkedHashMap<>();
     private List<Modifier> modifiers = List.of();
     private final MachineBehavior behavior;
-    private final RandomGenerator random;
+    final MachineRandom random;
     private final Context context = new Context();
     private final Processes processes = new Processes();
 
@@ -155,7 +154,9 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.process = new TransactionalValue<>(null, this::markDirty);
         this.escrow = new TransactionalValue<>(Map.of(), this::markDirty);
         this.dedupe = new TransactionalValue<>(List.of(), this::markDirty);
-        this.random = new SplittableRandom(seed(position, type));
+        // The creation time too: a machine placed again at the same spot rolls differently (the codec
+        // replaces the state with the saved one).
+        this.random = new MachineRandom(seed(position, type) * 31 + this.lastTick);
         MachineSlot.Listener listener = new MachineSlot.Listener() {
             @Override
             public void inserted(@NotNull ResourceVariant variant, long amount) {

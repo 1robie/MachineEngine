@@ -28,6 +28,7 @@ import java.util.function.Consumer;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -222,6 +223,23 @@ class WorldApiTest {
             capacity[0] = context.storage("tank").views().getFirst().capacity();
         });
         assertEquals(100, capacity[0], "-1 goes back to the type's capacity");
+    }
+
+    @Test
+    void theMachineRandomContinuesAfterASaveInsteadOfReplaying() {
+        long[] rolls = new long[4];
+        FakeWorld reloaded = probe(context -> rolls[0] = context.random().nextLong());
+        var saved = reloaded.save(HERE);
+        reloaded.unload(HERE);
+        reloaded.load(HERE, saved);
+        run(reloaded, context -> rolls[1] = context.random().nextLong());
+
+        FakeWorld kept = probe(context -> rolls[2] = context.random().nextLong());
+        run(kept, context -> rolls[3] = context.random().nextLong());
+
+        assertEquals(rolls[2], rolls[0]);
+        assertEquals(rolls[3], rolls[1], "the same rolls as without the reload");
+        assertNotEquals(rolls[0], rolls[1], "not the first roll again");
     }
 
     @Test
