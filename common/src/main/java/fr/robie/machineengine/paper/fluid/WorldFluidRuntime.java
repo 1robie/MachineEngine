@@ -485,6 +485,12 @@ public final class WorldFluidRuntime implements Listener, WorldFluids.Access {
                 for (int dy = -rings; dy <= rings; dy++)
                     for (int dz = -rings; dz <= rings; dz++)
                         candidates.add(Cells.pack(cx + dx, cy + dy, cz + dz));
+            // Padding of other fluids close enough to blend with this one is dropped (FluidRules.OTHER_FLUID_REACH).
+            int reach = FluidRules.OTHER_FLUID_REACH;
+            for (int dx = -reach; dx <= reach; dx++)
+                for (int dy = -1; dy <= 1; dy++)
+                    for (int dz = -reach; dz <= reach; dz++)
+                        candidates.add(Cells.pack(cx + dx, cy + dy, cz + dz));
         }
         UUID id = world.getUID();
         Set<Long> retry = this.paddingRetry.get(id);

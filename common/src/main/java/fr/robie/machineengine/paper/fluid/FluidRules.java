@@ -51,6 +51,14 @@ public final class FluidRules {
     public record Settings(boolean conflictStop, int fluidGap, int padding, int dispersion) {
     }
 
+    /**
+     * Areas around another fluid that get no padding: a block's color blends the blocks a few around it
+     * (Biome Blend up to 15×15, and Sodium blends each corner from the blocks around), and two keys
+     * blended together are no fluid at all. 3 areas keep a padded area out of reach of the other fluid's
+     * blocks; next to it the fluid fades into plain water instead.
+     */
+    public static final int OTHER_FLUID_REACH = 3;
+
     private FluidRules() {
     }
 
@@ -102,7 +110,7 @@ public final class FluidRules {
      * The key entry an unowned cell gets from the fluids around it, or 0:
      * <ul>
      *   <li><b>padding:</b> where no water reads the cell, the nearest fluid's full key (shores and air
-     *   stay the fluid's color, cleaner corners);</li>
+     *   stay the fluid's color, cleaner corners), unless another fluid is within {@link #OTHER_FLUID_REACH};</li>
      *   <li><b>dispersion</b> (conflict allow): plain water beside a fluid shows it diluted with the
      *   neutral water, half in the first ring and a quarter in the second; sideways only.</li>
      * </ul>
@@ -112,7 +120,8 @@ public final class FluidRules {
         if (cells.owner(world, cell) != 0) return 0;
         if (!readersAreWater(cells, world, blocks, cell, Integer.MIN_VALUE, 0, 0, false)) {
             int[] near = cells.nearestOwner(world, cell, Math.min(settings.padding(), FluidKeys.MAX_RINGS), false);
-            return near[0] == 0 ? 0 : cells.keys().entry(near[0], 0);
+            if (near[0] == 0 || cells.otherOwnerNear(world, cell, OTHER_FLUID_REACH, near[0]) != 0) return 0;
+            return cells.keys().entry(near[0], 0);
         }
         if (!settings.conflictStop() && settings.dispersion() > 0) {
             int[] near = cells.nearestOwner(world, cell, Math.min(settings.dispersion(), FluidKeys.MAX_RINGS), true);

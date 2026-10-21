@@ -226,6 +226,24 @@ class WorldFluidRulesTest {
                 "allow: diluted by the distance");
     }
 
+    @Test
+    void noPaddingWithinBlendReachOfAnotherFluid() {
+        World world = world();
+        world.put(world.oil(), 0, 60, 0, 7, 63, 7);
+        world.put(world.brine(), 22, 60, 0, 29, 63, 7); // closer than the gap allows: the rule must hold anyway
+        java.util.function.LongPredicate dryBesideOil = cell -> world.cells().owner(WORLD, cell) == 0
+                && !FluidRules.readersAreWater(world.cells(), WORLD, world.blocks(), cell, Integer.MIN_VALUE, 0, 0, false)
+                && world.cells().nearestOwner(WORLD, cell, 1, false)[0] == world.oil();
+        long towardBrine = find(world, cell -> dryBesideOil.test(cell)
+                && world.cells().otherOwnerNear(WORLD, cell, FluidRules.OTHER_FLUID_REACH, world.oil()) == world.brine());
+        long awayFromBrine = find(world, cell -> dryBesideOil.test(cell)
+                && world.cells().otherOwnerNear(WORLD, cell, FluidRules.OTHER_FLUID_REACH, world.oil()) == 0);
+
+        assertEquals(0, FluidRules.surroundingEntry(world.cells(), WORLD, world.blocks(), towardBrine, STOP),
+                "two keys blended are no fluid: no oil padding where brine's blocks blend it in");
+        assertEquals(world.keys().entry(world.oil(), 0), FluidRules.surroundingEntry(world.cells(), WORLD, world.blocks(), awayFromBrine, STOP));
+    }
+
     /** A cell around the pool (blocks 0..7, 60..63, 0..7) that fits. */
     private static long find(World world, java.util.function.LongPredicate fits) {
         for (int x = -4; x <= 5; x++) for (int y = 13; y <= 18; y++) for (int z = -4; z <= 5; z++) {
