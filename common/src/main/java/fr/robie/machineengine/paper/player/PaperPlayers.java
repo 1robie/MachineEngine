@@ -53,7 +53,12 @@ public final class PaperPlayers implements Listener {
     private final PlayerDataStorage storage;
     private final Scheduler scheduler;
     /** Loaded before join, by UUID; removed at join. */
-    private final Map<UUID, DataMap> preloaded = new ConcurrentHashMap<>();
+    private final Map<UUID, Preloaded> preloaded = new ConcurrentHashMap<>();
+    /** How long data loaded at pre-login waits for its join. */
+    private static final long PRELOAD_KEPT = TimeUnit.MINUTES.toNanos(1);
+
+    private record Preloaded(DataMap data, long at) {
+    }
     private final Task saveTimer;
     private int secondsSinceSave;
 
@@ -103,7 +108,7 @@ public final class PaperPlayers implements Listener {
         UUID uuid = event.getUniqueId();
         int timeout = MachineEngine.config().get(EngineConfig.PLAYER_LOAD_TIMEOUT);
         try {
-            this.preloaded.put(uuid, this.storage.load(uuid, null).get(timeout, TimeUnit.SECONDS));
+            this.preloaded.put(uuid, new Preloaded(this.storage.load(uuid, null).get(timeout, TimeUnit.SECONDS), System.nanoTime()));
         } catch (Exception e) {
             Logger.warn("[players]", "Could not load the data of %player% (%uuid%); login refused", e,
                     Placeholder.of("player", event.getName(), "uuid", uuid.toString()));
@@ -120,7 +125,8 @@ public final class PaperPlayers implements Listener {
     private void join(Player player) {
         UUID uuid = player.getUniqueId();
         if (this.players.find(uuid).isPresent()) return;
-        DataMap saved = this.preloaded.remove(uuid);
+        Preloaded loaded = this.preloaded.remove(uuid);
+        DataMap saved = loaded == null ? null : loaded.data();
         if (saved == null) {
             try {
                 saved = this.storage.load(uuid, player).get(MachineEngine.config().get(EngineConfig.PLAYER_LOAD_TIMEOUT), TimeUnit.SECONDS);
@@ -175,6 +181,9 @@ public final class PaperPlayers implements Listener {
     // -- saving ----------------------------------------------------------------------------------------
 
     private void everySecond() {
+        // A login refused after pre-login (ban, whitelist, full) or dropped before joining never joins.
+        long now = System.nanoTime();
+        this.preloaded.values().removeIf(entry -> now - entry.at() > PRELOAD_KEPT);
         if (++this.secondsSinceSave < MachineEngine.config().get(EngineConfig.PLAYER_SAVE_INTERVAL)) return;
         this.secondsSinceSave = 0;
         for (MachinePlayer online : this.players.online()) {
