@@ -18,6 +18,17 @@ version may break the API (each break is listed here); a patch version never doe
   turned them into plain water); a fluid bucket can't be poured into a cauldron.
 - `/machineengine network`: inspecting a network no longer races with region threads on Folia.
 - `/machineengine fluid bucket` drops the bucket at your feet when your inventory is full.
+- Machine tools (wrench, upgrades, storage reader) and machine clicks (bins, personal storage) check
+  `machineengine.use` and claims, as opening the menu does: strangers could empty or take over
+  machines in a claim.
+- Contents above a capacity that shrank (an upgrade removed, a block config change) are kept on
+  load instead of being locked away and lost when the block breaks.
+- A failed tier replace no longer leaves a dead machine or loses its contents.
+- Cable side modes changed since the last autosave survive a shutdown.
+- Chance outputs no longer repeat after a chunk reload: the machine's random is saved.
+- A saved process bound to a storage renamed in YAML is kept as unknown data (purge frees the
+  machine) instead of failing on every tick.
+- Player data loaded for a login that never joins is dropped after a minute.
 
 ### Changed
 
