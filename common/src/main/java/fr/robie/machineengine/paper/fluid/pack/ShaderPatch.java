@@ -229,7 +229,9 @@ public final class ShaderPatch {
         out.append("const float ME_GLOW[").append(n).append("] = float[](").append(numbers(c.glow())).append(");\n");
         out.append("// Where a fluid meets water: ").append(c.sharp() ? "sharp (more than half decides)" : "soft (fades with its share)").append(".\n");
         out.append(c.sharp() ? "#define ME_EDGE(w) ((w) > 0.5 ? 1.0 : 0.0)\n"
-                : "#define ME_EDGE(w) clamp(((w) - ME_CUT) / (0.9 - ME_CUT), 0.0, 1.0)\n");
+                // Full from half: Sodium (Biome Blend above 1x1) blends each corner from the 4 blocks around, so
+                // a fluid's edge corners hold about half its key, a tip's a quarter; full at 0.9 showed them as water.
+                : "#define ME_EDGE(w) clamp(((w) - ME_CUT) / (0.5 - ME_CUT), 0.0, 1.0)\n");
         // Full resolution only: the tiles sit side by side in one sprite, and mipmaps (and RGSS) would
         // blend neighbouring tiles at a distance.
         out.append("#define ME_SAMPLE(uv) textureLod(Sampler0, uv, 0.0)\n");
@@ -445,14 +447,14 @@ public final class ShaderPatch {
 
     /**
      * {@code world-fluids.debug-colors}: water faces show how their color was read, instead of the fluid.
-     * Magenta: plain water (left as it is); orange: water, no key found; yellow to green: a key, partial to
-     * full. Water that still looks like water was not recognized as water at all.
+     * Magenta: plain water (left as it is); orange: water, no key found; yellow to green: a key, how much of
+     * the fluid is drawn (none to full). Water that still looks like water was not recognized as water at all.
      */
     private static final String DEBUG = """
 
                 vec3 meDebug = meWhy < 1.5 ? vec3(1.0, 0.0, 1.0)
                         : meWhy < 2.5 ? vec3(1.0, 0.5, 0.0)
-                        : mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), clamp((meShare - ME_CUT) / (0.9 - ME_CUT), 0.0, 1.0));
+                        : mix(vec3(1.0, 1.0, 0.0), vec3(0.0, 1.0, 0.0), ME_EDGE(meShare));
                 color = vec4(meDebug * max(meLight, vec3(0.3)), 1.0);""";
 
 }
