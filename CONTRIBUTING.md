@@ -51,7 +51,8 @@ The plugin jar is `plugin/build/libs/MachineEngine-<version>.jar`.
 ./gradlew :plugin:runPaper-26.3
 ```
 
-Also `runPaper-1.20.6`, `runFolia-1.20.6` and `runFolia-26.2`. Servers run in
+Also `runPaper-1.20.6`, `runPaper-1.21.4`, `runPaper-1.21.11`, `runFolia-1.20.6` and
+`runFolia-26.2`. Servers run in
 `run/<paper|folia>-<version>/`; on the first start, accept the Minecraft EULA in its `eula.txt`.
 Do not rebuild while a dev server runs: it loads the jars from `build/libs`.
 
@@ -86,6 +87,28 @@ networks in the world.
 `./gradlew test` runs the headless tests: a real engine with fake worlds, regions and clock
 (`test` module). New engine behavior comes with a test there; what needs vanilla blocks or a
 client is checked on a dev server.
+
+## A new Minecraft version
+
+1. **Compile and baseline.** Raise the Paper API in the version catalog if the new version needs
+   it; `./gradlew check` still enforces the 1.20.6 baseline (`verifyPaperBaseline`).
+2. **Version access.** A version without a module of its own uses `nms/common` (reflection). For
+   world fluids, check what `WorldFluidNms` does there: the key biomes injected into the registry
+   data, the biome section format (`BiomeSections`: the array length prefix went away in 1.21.5),
+   the biome update packet and the attribute names. A version that changed them gets a branch in
+   `ReflectiveWorldFluids` or its own `nms/v<version>` module.
+3. **Biome lookup.** `BiomeZoom` copies the client's `BiomeManager.getBiome`; compare it with the new
+   client's (unchanged from 1.20.6 to 26.3).
+4. **Shaders.** The pack builder patches the new client's water shader at runtime, and a shader that
+   fails to compile disables the whole resource pack. Add the version to
+   `tools/world-fluids/fetch_vanilla.py` (and `fetch_sodium.py` once a Sodium for it reads pack
+   shaders), then follow [tools/world-fluids/README.md](tools/world-fluids/README.md): patch every
+   version, compile every define set with glslang, 0 failures. A `ShaderPatch.MismatchException`
+   means the shader lost a line the patch relies on: extend `ShaderPatch` for it.
+5. **Dev server.** Add `registerDevServer("<version>", …)` in `plugin/build.gradle.kts`, run it,
+   accept the EULA, and check: the server checks above, a fluid poured from a bucket, its look in
+   game (with Sodium too on 26.2+), `/machineengine fluid info`.
+6. **Docs.** The supported versions in the README and on the documentation site.
 
 ## Releases
 

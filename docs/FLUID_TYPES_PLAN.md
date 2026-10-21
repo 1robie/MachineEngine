@@ -362,7 +362,12 @@ Three layers, each overriding the one before:
    - `fluids.txt` replaced by a definitions file with `fluid:` sections for the placeable fluids;
    - textures from Mekanism's fluid textures (MIT; the notice is already shipped);
    - bucket recipes; pump and plenisher checked with custom fluids.
-7. **Docs.** ARCHITECTURE decision entries, §9.5 and §29 updated, the docs site page "World fluids", CONTRIBUTING (what to do for a new Minecraft version: shaders, NMS, format checks).
+7. **Docs.** Done (2026-10-21).
+   - ARCHITECTURE: D46 gained the renderers (2026-10-17) and edges (2026-10-21, §5.2) decisions; new §9.6 World fluids; §29 has the `fluid:` section and `fluids.yml`.
+   - Docs site: page `plugins/machineengine/building/world-fluids` (site repo commit ed69b94, not pushed: the site deploys on push, and world fluids are not released yet).
+   - CONTRIBUTING: "A new Minecraft version" (baseline, version access, biome lookup, shaders, dev server, docs), and the 1.21.x dev servers.
+
+   The draft for this stage: ARCHITECTURE decision entries, §9.5 and §29 updated, the docs site page "World fluids", CONTRIBUTING (what to do for a new Minecraft version: shaders, NMS, format checks).
 
 Each stage ends with its tests and a dev server check, and with the owner's in-game check where something is visible (stages 4–6).
 
@@ -400,6 +405,25 @@ Each stage ends with its tests and a dev server check, and with the owner's in-g
     - a black neutral color no longer breaks the palette;
     - all listeners are unregistered at uninstall.
 - **Checked headless:** Mekanized on Paper 26.3 builds the grid at enable, then adds Sodium (downloaded in the background); Paper 1.21.4 uses tint mode, with alpha-179 water.
+
+### 5.2 Sodium edges (2026-10-17 to 2026-10-21, owner)
+
+With Sodium at Biome Blend 5×5, single blocks at the edge of a pool showed as plain water; vanilla was right, and Sodium at 1×1 too.
+
+- **Found in Sodium 0.9.2's code:**
+  - with Biome Blend above 1×1, each corner's color is the mix of the 4 blocks around it (`BlendedColorProvider`, `ColorMixer.mix2d`), each already box-blurred (`LevelColorCache`): the colors reach 3 blocks from a fluid, against vanilla's 2;
+  - the biome lookup is vanilla's (`LevelBiomeSlice`, in floats), and the blur is a plain average per channel;
+  - the corner brightness (ambient occlusion) is multiplied into the 8-bit vertex color (`CompactChunkVertex`); simulated, the decode survives it for every key down to 20% brightness;
+  - the vanilla client redraws only the chunk a biome update is for, while Sodium builds a section from the biomes of the chunks around it.
+- **Measured in game** with `world-fluids.debug-colors` (added for it): the blocks were orange, water with no key, so two keys blended. The padding had given the stone between two pools the nearer pool's key.
+- **Changes:**
+  - no padding within `FluidRules.OTHER_FLUID_REACH` (2 cells) of another fluid; simulated, no two-key mix up to Biome Blend 7×7 (3 cells gave more water at the edges: 1.3% of fluid faces against 0.4% at 5×5);
+  - the soft edge draws a fluid fully from half its key, not 0.9 (water on edge blocks at 5×5: 7.3% → 0.8%);
+  - a changed cell resends every chunk it can color;
+  - the padding computed one ring further when a chunk loads, and again later when it read a column of another region thread (Folia);
+  - `/machineengine fluid info` shows what the 8 blocks around carry.
+- **Left, accepted by the owner:** a tip pointing at another pool fades slightly; `fluid-gap: 3` removes it. Biome Blend 15×15 reaches the other fluid's own blocks: only a wider gap helps.
+- **Simulations:** throwaway scripts (not kept) modelled vanilla's and Sodium's blending over random pairs of pools, with `BiomeZoom`'s lookup and the shader's decode.
 
 ## 6. Decisions to record (after the owner's answers)
 
