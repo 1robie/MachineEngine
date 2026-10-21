@@ -157,6 +157,18 @@ public final class CraftEngineMachineHost implements MachineHost, MachineLocator
         return service.open(player, machine);
     }
 
+    /**
+     * Whether a player may act on the machine at {@code position} other than by breaking it (tools,
+     * the machine type's clicks): {@code machineengine.use} and the claim, as for opening its menu.
+     * CraftEngine leaves claims to each block behavior.
+     */
+    boolean mayUse(@NotNull Player player, @NotNull WorldPosition position) {
+        if (!player.hasPermission("machineengine.use")) return false;
+        World world = world(position.world());
+        return world == null || this.protection.canOpen(player, new Location(world,
+                position.position().x(), position.position().y(), position.position().z()));
+    }
+
     public static @NotNull CraftEngineMachineHost start(@NotNull Plugin plugin, @NotNull CoreMachineEngine engine) {
         CraftEngineMachineHost host = new CraftEngineMachineHost(plugin, engine);
         current = host;

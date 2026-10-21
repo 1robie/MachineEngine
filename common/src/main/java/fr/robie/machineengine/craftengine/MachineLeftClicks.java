@@ -28,11 +28,14 @@ final class MachineLeftClicks implements Listener {
     void onClick(CustomBlockInteractEvent event) {
         if (event.action() != CustomBlockInteractEvent.Action.LEFT_CLICK || event.hand() != InteractionHand.MAIN_HAND) return;
         Block block = event.bukkitBlock();
-        MachineInstance machine = this.host.machineAt(WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ()));
+        WorldPosition position = WorldPosition.of(block.getWorld().getKey(), block.getX(), block.getY(), block.getZ());
+        MachineInstance machine = this.host.machineAt(position);
         if (machine == null) return;
         List<MachineInteractions.Interaction> interactions = MachineInteractions.of(machine.inspect().type());
         if (interactions.isEmpty()) return;
         Player player = event.player();
+        // Outside the player's claim the click only breaks the block (BlockBreakEvent decides that).
+        if (!this.host.mayUse(player, position)) return;
         MachineInteractions.Click click = new MachineInteractions.Click(player, player.getInventory().getItemInMainHand(), machine,
                 block, event.clickedFace(), player.isSneaking());
         for (MachineInteractions.Interaction interaction : interactions) {

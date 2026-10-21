@@ -246,17 +246,24 @@ public final class MachineBlockBehavior extends BukkitBlockBehavior implements E
      */
     @Override
     public InteractionResult useOnBlock(UseOnContext context, ImmutableBlockState state) {
+        CraftEngineMachineHost host = CraftEngineMachineHost.current();
+        World world = (World) context.getLevel().platformWorld();
+        BlockPos pos = context.getClickedPos();
+        WorldPosition position = WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z());
+        // Tools and the type's clicks change or empty the machine: the claim decides, as for its menu
+        // (the empty-hand fallback reports a refusal). Breaking stays with BlockBreakEvent.
+        if (host != null && context.getPlayer() != null
+                && !host.mayUse((org.bukkit.entity.Player) context.getPlayer().platformPlayer(), position)) {
+            return InteractionResult.TRY_EMPTY_HAND;
+        }
         Item item = context.getItem();
         if (isMachineTool(item)) {
             InteractionResult result = item.getBehavior().orElseThrow().useOnBlock(context);
             if (result != InteractionResult.PASS) return result;
         }
         // Then what the machine type's block does on Paper (bins, personal storage...).
-        CraftEngineMachineHost host = CraftEngineMachineHost.current();
         if (host != null && context.getPlayer() != null && context.getHand() == InteractionHand.MAIN_HAND) {
-            World world = (World) context.getLevel().platformWorld();
-            BlockPos pos = context.getClickedPos();
-            MachineInstanceImpl machine = host.machineAt(WorldPosition.of(world.getKey(), pos.x(), pos.y(), pos.z()));
+            MachineInstanceImpl machine = host.machineAt(position);
             if (machine != null) {
                 org.bukkit.entity.Player player = (org.bukkit.entity.Player) context.getPlayer().platformPlayer();
                 MachineInteractions.Click click = new MachineInteractions.Click(player, player.getInventory().getItemInMainHand(),
