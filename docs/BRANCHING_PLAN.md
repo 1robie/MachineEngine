@@ -1,6 +1,6 @@
 # Branching plan: `develop` for work, `main` for releases
 
-Status: stage 1 done (2026-10-22). The owner took every recommended answer: dev builds as a
+Status: stages 1-2 done (2026-10-22). The owner took every recommended answer: dev builds as a
 rolling GitHub `dev` pre-release (Maven snapshots later), `develop` as the default branch, no
 bypass on `main`, tags by hand.
 
@@ -54,7 +54,11 @@ hotfix/* (from main) ──PR──▶ main, then main ─▶ develop
 3. Clean up old local branches while at it (`claude/charming-hodgkin-25db2b`,
    `worktree-agent-a02fdc4c2b77623c3`; `feature/fluid-types` is already released in 0.2.0).
 
-### Stage 2: protect `main` (ruleset)
+### Stage 2: protect `main` (ruleset) (done)
+
+Done: rulesets `main: releases only` (id 25622042) and `develop: no force push or delete`
+(id 25622049), both active, no bypass. `Release source` is not required yet: the check does not
+exist until stage 4, which adds it to the `main` ruleset.
 
 A repository ruleset on `main` (Settings → Rules → Rulesets), rather than classic branch protection:
 
