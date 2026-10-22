@@ -29,6 +29,15 @@ version may break the API (each break is listed here); a patch version never doe
 - A saved process bound to a storage renamed in YAML is kept as unknown data (purge frees the
   machine) instead of failing on every tick.
 - Player data loaded for a login that never joins is dropped after a minute.
+- Keep-contents keeps a machine that holds only unknown data or locked slots, and drops the
+  contents of a machine broken right before a shutdown.
+- A pushing machine with an undrained by-product waits for input instead of retrying.
+- Storage `slots` and `capacity` and `upgrade-slots` out of range skip the machine with a
+  diagnostic instead of crashing at placement.
+- `/machineengine reload tags` publishes item and resource tags together (or neither) and wakes
+  machines (`WakeReason.TAGS_RELOADED`).
+- Saved capacities and side settings of storages and ports a type lost are kept (D3).
+- zMenu: a machine menu closed right after opening ends the session.
 
 ### Changed
 
@@ -40,7 +49,8 @@ version may break the API (each break is listed here); a patch version never doe
 
 ### API
 
-- No breaking change.
+- No breaking change. Added `WakeReason.TAGS_RELOADED`. `StorageDefinition` and
+  `MachineType.Builder.upgradeSlots` refuse negative sizes.
 
 ## 0.2.0 (2026-10-21)
 
