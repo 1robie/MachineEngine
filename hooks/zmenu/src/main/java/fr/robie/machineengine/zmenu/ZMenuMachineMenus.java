@@ -72,8 +72,10 @@ public final class ZMenuMachineMenus implements MachineMenuService {
     private final Map<String, Inventory> menus = new LinkedHashMap<>();
     private final Map<UUID, WorldPosition> openMachines = new ConcurrentHashMap<>();
     private final InventoryListener listener;
-    /** Players being moved to another menu of the same machine: their close is not the end. */
-    private final Set<UUID> switching = ConcurrentHashMap.newKeySet();
+    /** Players a machine menu is being opened for, until zMenu has opened it. */
+    private final Set<UUID> opening = ConcurrentHashMap.newKeySet();
+    /** Per player, the machine menu zMenu opened: only its close ends the player's machine session. */
+    private final Map<UUID, BaseInventory> views = new ConcurrentHashMap<>();
     /** Per viewer of a machine menu: the timer redrawing its live buttons ({@link #isLive}). */
     private final Map<UUID, Task> tickers = new ConcurrentHashMap<>();
     private Map<Key, String> menuByType = Map.of();
@@ -87,10 +89,19 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.locator = locator;
         this.listener = new InventoryListener() {
             @Override
+            public void onInventoryPostOpen(Player player, BaseInventory baseInventory) {
+                UUID id = player.getUniqueId();
+                if (ZMenuMachineMenus.this.opening.remove(id)) ZMenuMachineMenus.this.views.put(id, baseInventory);
+            }
+
+            @Override
             public void onInventoryClose(Player player, BaseInventory baseInventory) {
-                // Going from one machine menu to another (machineengine_menu) closes the first one.
-                if (ZMenuMachineMenus.this.switching.contains(player.getUniqueId())) return;
-                ZMenuMachineMenus.this.openMachines.remove(player.getUniqueId());
+                UUID id = player.getUniqueId();
+                // Another menu's close changes nothing; so does the previous machine menu's, when it comes
+                // after the next one opened (machineengine_menu, on Folia a tick later).
+                if (!ZMenuMachineMenus.this.views.remove(id, baseInventory)) return;
+                // Closed while the next machine menu opens: that one keeps the session.
+                if (!ZMenuMachineMenus.this.opening.contains(id)) ZMenuMachineMenus.this.openMachines.remove(id);
             }
         };
     }
@@ -124,6 +135,8 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         this.inventories.deleteInventories(this.plugin);
         this.buttons.unregisters(this.plugin);
         this.openMachines.clear();
+        this.views.clear();
+        this.opening.clear();
         this.tickers.values().forEach(Task::cancel);
         this.tickers.clear();
     }
@@ -173,10 +186,11 @@ public final class ZMenuMachineMenus implements MachineMenuService {
         if (menu == null) return false;
         this.openMachines.put(player.getUniqueId(), machine.position());
         UUID id = player.getUniqueId();
-        this.switching.add(id);
+        this.opening.add(id);
         this.inventories.openInventory(player, menu);
-        // zMenu may open on the player's scheduler (Folia): the old menu's close can come a tick later.
-        this.scheduler.runLater(player, () -> this.switching.remove(id), () -> this.switching.remove(id), 2);
+        // zMenu may open on the player's scheduler (Folia), or refuse to: a menu never opened must not
+        // keep the next close from ending the session.
+        this.scheduler.runLater(player, () -> this.opening.remove(id), () -> this.opening.remove(id), 20);
         startTicker(player, menu);
         return true;
     }
