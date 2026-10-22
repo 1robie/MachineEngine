@@ -2,6 +2,8 @@ package fr.robie.machineengine.test;
 
 import fr.robie.machineengine.api.addon.AddonRegistration;
 import fr.robie.machineengine.api.capability.Capabilities;
+import fr.robie.machineengine.api.data.DataMap;
+import fr.robie.machineengine.api.data.DataValue;
 import fr.robie.machineengine.api.machine.MachineBehavior;
 import fr.robie.machineengine.api.machine.MachineContext;
 import fr.robie.machineengine.api.machine.MachineType;
@@ -21,6 +23,7 @@ import net.kyori.adventure.key.Key;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
@@ -223,6 +226,23 @@ class WorldApiTest {
             capacity[0] = context.storage("tank").views().getFirst().capacity();
         });
         assertEquals(100, capacity[0], "-1 goes back to the type's capacity");
+    }
+
+    @Test
+    void capacitiesAndSidesOfStoragesAndPortsTheTypeLostAreSavedBack() {
+        FakeWorld world = FakeWorld.singleRegion(this.engine);
+        world.place(PROBE, HERE, Direction.NORTH);
+        var saved = world.unload(HERE);
+        // Saved when the type still had a "gone" storage and a "gone_port" port (D3: kept as they were).
+        var capacities = DataMap.builder().put("gone", 7L).build();
+        var sides = DataMap.builder()
+                .put("gone_port", DataValue.list(List.of(DataValue.of("front"))))
+                .build();
+        world.load(HERE, saved.with("capacities", capacities).with("sides", sides));
+
+        var again = world.save(HERE);
+        assertEquals(capacities, again.getMap("capacities").value());
+        assertEquals(sides, again.getMap("sides").value());
     }
 
     @Test

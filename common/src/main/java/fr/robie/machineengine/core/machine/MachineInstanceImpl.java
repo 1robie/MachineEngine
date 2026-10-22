@@ -109,6 +109,9 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
     final Map<MachineDataKey<?>, Object> data = new LinkedHashMap<>();
     final Map<String, DataValue> unknownData = new LinkedHashMap<>();
     final Map<String, DataValue> unknownStorages = new LinkedHashMap<>();
+    /** Saved capacities and side settings of storages and ports the type no longer has (D3): saved back as they were. */
+    final Map<String, DataValue> unknownCapacities = new LinkedHashMap<>();
+    final Map<String, DataValue> unknownSides = new LinkedHashMap<>();
     final List<DataValue> unknownUpgrades = new ArrayList<>();
     final List<DataValue> unknownEscrow = new ArrayList<>();
     @Nullable DataValue unknownProcess;
@@ -351,6 +354,8 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
         this.unknownUpgrades.clear();
         this.unknownEscrow.clear();
         this.unknownProcess = null;
+        this.unknownCapacities.clear();
+        this.unknownSides.clear();
         for (MachineStorage storage : this.storages.values()) {
             for (MachineSlot slot : storage.slots()) {
                 if (slot.lockedData() != null) {
@@ -1317,6 +1322,10 @@ public final class MachineInstanceImpl implements MachineInstance, LoadedMachine
             if (!port.sides().equals(port.definition().sides())) configured.put(port.definition().id(), port.sides());
         }
         return configured;
+    }
+
+    boolean hasPort(String id) {
+        return this.ports.stream().anyMatch(port -> port.definition().id().equals(id));
     }
 
     /** Restores saved side configuration (load only: no wake, no save). Unknown ports are ignored. */

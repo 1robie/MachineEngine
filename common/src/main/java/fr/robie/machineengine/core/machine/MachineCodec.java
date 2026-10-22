@@ -135,14 +135,16 @@ final class MachineCodec {
         }
         builder.put(DEDUPE, DataValue.list(dedupe));
 
-        if (!machine.capacities.isEmpty()) {
+        if (!machine.capacities.isEmpty() || !machine.unknownCapacities.isEmpty()) {
             DataMap.Builder capacities = DataMap.builder();
+            machine.unknownCapacities.forEach(capacities::put);
             machine.capacities.forEach(capacities::put);
             builder.put(CAPACITIES, capacities.build());
         }
         var configured = machine.configuredSides();
-        if (!configured.isEmpty()) {
+        if (!configured.isEmpty() || !machine.unknownSides.isEmpty()) {
             DataMap.Builder sides = DataMap.builder();
+            machine.unknownSides.forEach(sides::put);
             configured.forEach((port, set) -> sides.put(port, DataValue.list(set.stream()
                     .map(side -> (DataValue) DataValue.of(side.name().toLowerCase(Locale.ROOT))).toList())));
             builder.put(SIDES, sides.build());
@@ -235,7 +237,8 @@ final class MachineCodec {
         // Upgrades and runtime capacities first: they size storages, which must fit what was saved in them.
         data.getList(UPGRADES).ifOk(upgrades -> decodeUpgrades(machine, upgrades, services));
         data.getMap(CAPACITIES).ifOk(capacities -> capacities.entries().forEach((storage, value) -> {
-            if (value instanceof DataValue.DataLong number && machine.storages.containsKey(storage)) machine.capacities.put(storage, number.value());
+            if (!machine.storages.containsKey(storage)) machine.unknownCapacities.put(storage, value);
+            else if (value instanceof DataValue.DataLong number) machine.capacities.put(storage, number.value());
         }));
         data.getMap(STORAGES).ifOk(storages -> decodeStorages(machine, storages, stacks));
         data.getMap(DATA).ifOk(values -> decodeData(machine, values, problems));
@@ -252,6 +255,10 @@ final class MachineCodec {
         machine.active = data.getBool("active").toOptional().orElse(false);
         data.getList(DEDUPE).ifOk(dedupe -> decodeDedupe(machine, dedupe));
         data.getMap(SIDES).ifOk(sides -> sides.entries().forEach((port, raw) -> {
+            if (!machine.hasPort(port)) {
+                machine.unknownSides.put(port, raw);
+                return;
+            }
             if (!(raw instanceof DataList list)) return;
             Set<RelativeSide> set = EnumSet.noneOf(RelativeSide.class);
             for (DataValue value : list.values()) {
