@@ -32,6 +32,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+
+      # Releases come from main only (docs/BRANCHING_PLAN.md): a tag pushed on develop publishes nothing.
+      - name: Check the tag is on main
+        run: |
+          git merge-base --is-ancestor HEAD origin/main \
+            || { echo "::error::Tag $VERSION is not on main. Merge develop into main first, then tag main."; exit 1; }
 
       - uses: actions/checkout@v4
         with:
