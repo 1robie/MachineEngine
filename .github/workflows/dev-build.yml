@@ -1,0 +1,65 @@
+name: Dev build
+
+# Every push to develop makes a dev build: version <next>-dev.<run> (0.2.1-dev.57, from the
+# -SNAPSHOT version in gradle.properties), built and tested, then
+# - the rolling GitHub pre-release "dev" (tag moved to the commit, jar replaced), and
+# - the Hangar Snapshot channel (a hyphenated version goes there).
+# The "dev" tag never matches the release tag pattern, so release.yml and maven.yml do not run.
+on:
+  push:
+    branches: [develop]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: dev-build
+  cancel-in-progress: false
+
+jobs:
+  dev-build:
+    if: github.repository == '1robie/MachineEngine'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version
+        run: |
+          base=$(grep -oP '^version=\K.+' gradle.properties)
+          echo "VERSION=${base%-SNAPSHOT}-dev.${{ github.run_number }}" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: |
+            21
+            25
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build and test
+        run: ./gradlew build -Pversion="$VERSION" --console=plain
+
+      - name: Check API binary compatibility
+        run: ./gradlew :api:japicmp -Pversion="$VERSION" --console=plain
+
+      - name: GitHub pre-release "dev"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete dev --cleanup-tag --yes || true
+          gh release create dev "plugin/build/libs/MachineEngine-$VERSION.jar" \
+            --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "MachineEngine dev build ($VERSION)" \
+            --notes "Unstable build of \`develop\` at $GITHUB_SHA, replaced on every push. Releases: https://github.com/1robie/MachineEngine/releases"
+
+      - name: Hangar Snapshot channel
+        env:
+          HANGAR_API_TOKEN: ${{ secrets.HANGAR_API_TOKEN }}
+        run: |
+          ./gradlew :plugin:publishPluginPublicationToHangar -Pversion="$VERSION" \
+            -Phangar_changelog="https://github.com/1robie/MachineEngine/commit/$GITHUB_SHA" --console=plain
