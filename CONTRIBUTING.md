@@ -122,7 +122,8 @@ Work happens on `develop` (the default branch); `main` holds releases only (D48)
 - **Dev builds:** every push to `develop` (not docs-only) runs `dev-build.yml`: version
   `<next>-dev.<run>` (`0.2.1-dev.3`), built and tested, then the rolling GitHub pre-release
   [`dev`](https://github.com/1robie/MachineEngine/releases/tag/dev) (replaced each time) and the
-  Hangar Snapshot channel.
+  Hangar Snapshot channel. A newer push cancels a dev build still building or testing, never one
+  already publishing.
 
 ## Releases
 

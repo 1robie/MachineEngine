@@ -81,7 +81,10 @@ Done: `.github/workflows/dev-build.yml`. The owner chose **A and B**: each push 
 (docs-only and `*.md` changes skipped) replaces the rolling `dev` pre-release and uploads the jar to
 the Hangar Snapshot channel. `plugin/build.gradle.kts` takes `-Phangar_changelog` so a dev build's
 Hangar changelog links its commit (a dev build has no release page). Maven snapshots (C) stay for
-later.
+later. Owner follow-up: a newer push cancels a run still in its `build` job (concurrency group
+`dev-build-build`, cancel in progress); the `publish` job (group `dev-build-publish`) is never
+cancelled, so the `dev` pre-release and Hangar are never left half done. Tested: the first run's
+build was cancelled and its publish skipped. Same in Mekanized.
 
 New workflow `dev-build.yml`, on push to `develop` (and by hand):
 
