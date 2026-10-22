@@ -20,6 +20,8 @@ public record WakeReason(@NotNull Key key) {
     public static final WakeReason NETWORK_CHANGED = builtIn("network_changed");
     public static final WakeReason UPGRADE_CHANGED = builtIn("upgrade_changed");
     public static final WakeReason RECIPES_RELOADED = builtIn("recipes_reloaded");
+    /** Item or resource tags were reloaded: inputs may match recipes now. */
+    public static final WakeReason TAGS_RELOADED = builtIn("tags_reloaded");
     public static final WakeReason CONFIG_CHANGED = builtIn("config_changed");
     public static final WakeReason TIMER = builtIn("timer");
     public static final WakeReason CHUNK_LOADED = builtIn("chunk_loaded");

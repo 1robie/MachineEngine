@@ -92,10 +92,7 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
         addSubCommand(SubCommand.builder(plugin, "reload")
                 .addSubCommand(simple("config", dispatch -> reloadConfig(dispatch.getSender())))
                 .addSubCommand(simple("recipes", dispatch -> reload(dispatch.getSender(), Registries.RECIPE)))
-                .addSubCommand(simple("tags", dispatch -> {
-                    reload(dispatch.getSender(), Registries.ITEM_TAG);
-                    return reload(dispatch.getSender(), Registries.RESOURCE_TAG);
-                }))
+                .addSubCommand(simple("tags", dispatch -> reloadTags(dispatch.getSender())))
                 .addSubCommand(simple("fluids", dispatch -> reloadFluids(dispatch.getSender())))
                 .executes(dispatch -> usage(dispatch, "Usage: /machineengine reload <config|recipes|tags|fluids>"))
                 .build());
@@ -448,6 +445,20 @@ public final class MachineEngineCommands extends BaseCommand<Plugin> {
             EngineMessages.send(sender, EngineMessage.ADMIN_RELOADED, Placeholder.of("type", String.valueOf(type)));
             if (type.equals(Registries.RECIPE)) this.locator.get().wakeAll(WakeReason.RECIPES_RELOADED);
         }
+        sendReport(sender, report);
+        return report.hasErrors() ? CommandResultType.FAILURE : CommandResultType.SUCCESS;
+    }
+
+    /** Item and resource tags as one change: both or neither (a recipe may use either). */
+    private CommandResultType reloadTags(CommandSender sender) {
+        CoreMachineEngine running = this.engine.get();
+        if (running == null) return CommandResultType.FAILURE;
+        List<RegistryType<?>> types = List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG);
+        ValidationReport report = running.reloadTogether(types);
+        EngineMessages.send(sender, report.hasErrors() ? EngineMessage.ADMIN_RELOAD_REJECTED : EngineMessage.ADMIN_RELOADED,
+                Placeholder.of("type", String.valueOf(types)));
+        // Waiting machines may match a recipe with the new tags.
+        if (!report.hasErrors()) this.locator.get().wakeAll(WakeReason.TAGS_RELOADED);
         sendReport(sender, report);
         return report.hasErrors() ? CommandResultType.FAILURE : CommandResultType.SUCCESS;
     }

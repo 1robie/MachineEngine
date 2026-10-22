@@ -75,6 +75,32 @@ class ItemTagTest {
     }
 
     @Test
+    void itemAndResourceTagsReloadTogetherOrNotAtAll() {
+        List<DefinitionFile> files = new ArrayList<>(List.of(new DefinitionFile("definitions/tags.yml", tags("pack:osmium_ore"))));
+        AtomicBoolean failResourceTags = new AtomicBoolean();
+        CoreMachineEngine engine = TestEngine.builder()
+                .addon(MachineFixtures.alpha())
+                .addon(fr.robie.machineengine.api.addon.AddonRegistration.builder("omega", "1.0.0").requires("alpha", "1.0")
+                        .register(ctx -> ctx.resourceTags(reload -> {
+                            if (failResourceTags.get()) throw new IllegalStateException("broken resource tags");
+                        })).build())
+                .definitions(files)
+                .start();
+        ResourcePredicate osmium = Items.inTag(Key.key("c", "ores/osmium"));
+        Key deepslate = Key.key("pack", "deepslate_osmium_ore");
+        List<fr.robie.machineengine.api.registry.RegistryType<?>> tagTypes = List.of(Registries.ITEM_TAG, Registries.RESOURCE_TAG);
+
+        files.set(0, new DefinitionFile("definitions/tags.yml", tags("pack:osmium_ore", "pack:deepslate_osmium_ore")));
+        failResourceTags.set(true);
+        assertTrue(engine.reloadTogether(tagTypes).hasErrors());
+        assertFalse(osmium.test(item(deepslate), engine.tags()), "the item tags were not published alone");
+
+        failResourceTags.set(false);
+        assertFalse(engine.reloadTogether(tagTypes).hasErrors());
+        assertTrue(osmium.test(item(deepslate), engine.tags()));
+    }
+
+    @Test
     void resourceTagsIncludeTagsOfTheSameFilesAndReportUnknownMembers() {
         CoreMachineEngine engine = TestEngine.builder()
                 .addon(MachineFixtures.alpha())

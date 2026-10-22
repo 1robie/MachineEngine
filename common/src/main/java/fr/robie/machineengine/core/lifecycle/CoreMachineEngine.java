@@ -484,6 +484,42 @@ public final class CoreMachineEngine implements MachineEngine {
         return reloadTyped(type);
     }
 
+    /**
+     * Reloads several registries as one change (item and resource tags): each is built and validated
+     * as by {@link #reload}, then all are published, or none when one is rejected.
+     */
+    public synchronized @NotNull ValidationReport reloadTogether(@NotNull List<RegistryType<?>> types) {
+        for (RegistryType<?> type : types) {
+            if (!type.isReloadable() || !this.registries.exists(type)) {
+                throw new IllegalArgumentException(type + " is not a reloadable registry");
+            }
+        }
+        List<Runnable> publishes = new ArrayList<>();
+        ValidationReport report = ValidationReport.of(List.of());
+        for (RegistryType<?> type : types) report = report.merge(prepare(type, publishes));
+        if (report.hasErrors()) {
+            this.logger.logWarn("[core]", "Reload of %type% rejected; the previous snapshots stay live\n%report%",
+                    Placeholder.of("type", String.valueOf(types), "report", report.format()));
+            ValidationReport rejected = report.merge(new ValidationReport(List.of(Diagnostic.error(DiagnosticCodes.RELOAD_FAILED,
+                    "Reload of " + types + " was rejected; the previous snapshots stay live").build())));
+            for (RegistryType<?> type : types) {
+                this.events.post(EngineEvents.REGISTRY_RELOADED, EventPhase.POST, new EngineEvents.Reloaded(type, false, rejected));
+            }
+            return rejected;
+        }
+        publishes.forEach(Runnable::run);
+        for (RegistryType<?> type : types) {
+            this.events.post(EngineEvents.REGISTRY_RELOADED, EventPhase.POST, new EngineEvents.Reloaded(type, true, report));
+        }
+        return report;
+    }
+
+    private <T extends Keyed> ValidationReport prepare(RegistryType<T> type, List<Runnable> publishes) {
+        SnapshotBuild<T> build = buildSnapshot(type, Set.of());
+        publishes.add(() -> publish(type, build.snapshot));
+        return ValidationReport.of(build.diagnostics);
+    }
+
     private <T extends Keyed> ValidationReport reloadTyped(RegistryType<T> type) {
         SnapshotBuild<T> build = buildSnapshot(type, Set.of());
         ValidationReport report = ValidationReport.of(build.diagnostics);
