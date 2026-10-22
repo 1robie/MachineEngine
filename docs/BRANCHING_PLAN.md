@@ -134,7 +134,10 @@ PR) and a job on PR merge that tags automatically.
 ### Stage 6: docs and tooling (done)
 
 Done: README "Dev builds" paragraph, D48 in docs/ARCHITECTURE.md, the memory note for Claude Code
-sessions. Left: the documentation site's install page (its own repository) and Mekanized.
+sessions. Follow-up (2026-10-22): Mekanized has the same model (develop default, rulesets 25622958 and
+25622960, `Release source`, `dev-build.yml`, tag guard in `release.yml`, README "Branches and
+releases"; its version raised to 0.2.0-SNAPSHOT, 0.1.0 being out), and the documentation site's
+install pages link the dev builds of both.
 
 - CONTRIBUTING.md: the branch model, "PRs target `develop`", the release steps above.
 - README: where dev builds are (the `dev` pre-release / Hangar Snapshot channel), marked unstable.
