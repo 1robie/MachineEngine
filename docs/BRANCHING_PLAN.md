@@ -1,0 +1,123 @@
+# Branching plan: `develop` for work, `main` for releases
+
+Status: proposed (2026-10-22). Nothing is done yet.
+
+## Goal
+
+- **`develop`**: where the work happens. Every push makes a **dev build**.
+- **`main`**: protected. It only moves by a pull request from `develop` (or a hotfix branch), and
+  every merge into it is a **release**: tagged, then published by the existing `release.yml` and
+  `maven.yml`.
+
+## Where things stand
+
+- `main` has no protection and no rulesets; the repository is public.
+- `build.yml` runs on every push and pull request on any branch, plus a daily run (on the default
+  branch) against the newest CraftEngine snapshot. Jobs: `Build (CraftEngine pinned)` and
+  `Build (CraftEngine latest)`.
+- `release.yml` and `maven.yml` run on a version tag (`0.2.0`, `0.2.0-beta.1`). They do not check
+  which branch the tagged commit is on.
+- `hangar-page.yml` syncs the README to Hangar on a push to `main`.
+- `gradle.properties` has `version=0.2.1-SNAPSHOT`; a release passes `-Pversion=<tag>`.
+- CONTRIBUTING.md "Releases" describes tagging, with no branch model.
+
+## The model
+
+```
+feature/* ──PR or merge──▶ develop ──PR (merge commit)──▶ main ──tag 0.x.y──▶ release.yml, maven.yml
+                              ▲                            │
+                              └──────── back-merge ────────┘   (only after a hotfix)
+hotfix/* (from main) ──PR──▶ main, then main ─▶ develop
+```
+
+- Daily work: commit on `develop`, or on `feature/*` branches merged into `develop`.
+- A release: a pull request `develop` → `main`, merged with a **merge commit** (not squash, not
+  rebase), so `main` stays an ancestor of `develop` and the two never diverge.
+- A hotfix: branch `hotfix/0.2.2` from `main`, PR into `main`, release, then merge `main` back into
+  `develop`.
+
+## Stages
+
+### Stage 1: create `develop`
+
+1. `git switch -c develop main` and `git push -u origin develop`.
+2. Make `develop` the **default branch** on GitHub (Settings → General). Then contributors' PRs
+   target it by default, clones get the current code, and the daily CraftEngine-snapshot run in
+   `build.yml` watches `develop`, where breakage matters first.
+3. Clean up old local branches while at it (`claude/charming-hodgkin-25db2b`,
+   `worktree-agent-a02fdc4c2b77623c3`; `feature/fluid-types` is already released in 0.2.0).
+
+### Stage 2: protect `main` (ruleset)
+
+A repository ruleset on `main` (Settings → Rules → Rulesets), rather than classic branch protection:
+
+- Require a pull request before merging; **0 required approvals** (a solo owner cannot approve their
+  own PR); allowed merge method: **merge commit** only.
+- Require status checks: `Build (CraftEngine pinned)` and a new `Release source` check (stage 4).
+  `Build (CraftEngine latest)` stays optional: an upstream snapshot break must not block a release.
+- Require the branch to be up to date before merging.
+- Block force pushes and deletion.
+- Bypass list: empty, or the owner only "for pull requests" (an emergency escape that still leaves
+  a PR on record). Recommended: empty.
+
+A lighter ruleset on `develop`: block force pushes and deletion only. Direct pushes stay allowed.
+
+### Stage 3: dev builds from `develop`
+
+New workflow `dev-build.yml`, on push to `develop` (and by hand):
+
+- Version: `<next>-dev.<run number>` taken from `gradle.properties` (e.g. `0.2.1-dev.57`), passed as
+  `-Pversion`. It never matches a release tag, so it never triggers `release.yml`.
+- Build and test, `:api:japicmp`.
+- Publish to (owner picks, see open questions):
+  - **A. Rolling GitHub pre-release** `dev`: the tag `dev` is moved to the commit and the jar
+    replaced on each push. One stable download link, no clutter. (Recommended.)
+  - **B. Hangar Snapshot channel**: a hyphenated version already goes there. Good for server owners
+    who want dev builds, but one Hangar version per push is noisy; could be limited to a
+    `workflow_dispatch` or a daily run.
+  - **C. Maven snapshots**: publish `0.2.1-SNAPSHOT` to `1robie/maven` so addon authors (Mekanized)
+    can build against unreleased API. The repository grows with every push; would need pruning.
+- The existing artifact upload in `build.yml` stays (every branch, 90-day retention).
+
+### Stage 4: guard releases
+
+- **`Release source` check**: a small job in `build.yml` (or its own workflow) on `pull_request`
+  to `main` that fails unless the head branch is `develop` or `hotfix/*`. GitHub rulesets cannot
+  restrict the source branch on their own.
+- **`release.yml` and `maven.yml`**: a first step that fails unless the tagged commit is on `main`
+  (`git merge-base --is-ancestor "$GITHUB_SHA" origin/main`, after fetching `main`). A tag pushed
+  from `develop` by mistake then publishes nothing.
+- Optional: a tag ruleset so only the owner can create tags matching `[0-9]*`.
+
+### Stage 5: release procedure (CONTRIBUTING.md)
+
+Replace "Releases" with:
+
+1. On `develop`: in CHANGELOG.md turn "Unreleased" into the version and date.
+2. Open the PR `develop` → `main` titled `Release 0.2.1`; wait for the checks; merge (merge commit).
+3. Tag the merge commit on `main`: `git tag 0.2.1 origin/main && git push origin 0.2.1`.
+   `release.yml` and `maven.yml` do the rest, as today.
+4. On `develop`: raise `version` to the next `-SNAPSHOT` and `apiBaseline` in
+   `api/build.gradle.kts` to the version just released.
+
+Hotfix: same, from a `hotfix/x.y.z` branch cut from `main`, then merge `main` into `develop`.
+
+Optional later: a `workflow_dispatch` "Prepare release" workflow that does steps 1-2 (changelog,
+PR) and a job on PR merge that tags automatically.
+
+### Stage 6: docs and tooling
+
+- CONTRIBUTING.md: the branch model, "PRs target `develop`", the release steps above.
+- README: where dev builds are (the `dev` pre-release / Hangar Snapshot channel), marked unstable.
+- `hangar-page.yml` stays on `main`, so the Hangar page follows released READMEs only.
+- Decision log: a D48 entry in docs/ARCHITECTURE.md once the owner confirms the choices.
+- Claude Code sessions: worktrees and PRs should be cut from and target `develop`.
+- Mekanized (own repo): same model later, as a separate step.
+
+## Open questions for the owner
+
+1. Dev builds go where? A (rolling GitHub `dev` pre-release), B (Hangar Snapshot), C (Maven
+   snapshots), or a mix. Recommended: A now, C when Mekanized needs unreleased API.
+2. `develop` as the GitHub default branch? Recommended: yes.
+3. Bypass on the `main` ruleset: none, or owner-only via PR? Recommended: none.
+4. Automatic tagging on merge to `main`, or keep tagging by hand? Recommended: by hand first.
