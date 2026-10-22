@@ -1,6 +1,13 @@
 # Branching plan: `develop` for work, `main` for releases
 
-Status: proposed (2026-10-22). Nothing is done yet.
+Status: stage 1 done (2026-10-22). The owner took every recommended answer: dev builds as a
+rolling GitHub `dev` pre-release (Maven snapshots later), `develop` as the default branch, no
+bypass on `main`, tags by hand.
+
+Stage 1 notes: `develop` was cut from local `main`, which held 16 unpushed post-0.2.0 fixes; they
+are on `develop` only and reach `main` with the next release. `origin/main` stays at `a8c910e`.
+`feature/fluid-types` and `worktree-agent-a02fdc4c2b77623c3` were merged and are deleted;
+`spike/world-fluids` (unmerged) and the `claude/charming-hodgkin-25db2b` worktree stay.
 
 ## Goal
 
@@ -38,7 +45,7 @@ hotfix/* (from main) ──PR──▶ main, then main ─▶ develop
 
 ## Stages
 
-### Stage 1: create `develop`
+### Stage 1: create `develop` (done)
 
 1. `git switch -c develop main` and `git push -u origin develop`.
 2. Make `develop` the **default branch** on GitHub (Settings → General). Then contributors' PRs
