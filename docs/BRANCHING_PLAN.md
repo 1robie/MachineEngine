@@ -1,7 +1,8 @@
 # Branching plan: `develop` for work, `main` for releases
 
-Status: stages 1-2 done (2026-10-22). The owner took every recommended answer: dev builds as a
-rolling GitHub `dev` pre-release (Maven snapshots later), `develop` as the default branch, no
+Status: stages 1-3 done (2026-10-22). The owner took every recommended answer, plus Hangar: dev
+builds as a rolling GitHub `dev` pre-release and on the Hangar Snapshot channel (Maven snapshots
+later), `develop` as the default branch, no
 bypass on `main`, tags by hand.
 
 Stage 1 notes: `develop` was cut from local `main`, which held 16 unpushed post-0.2.0 fixes; they
@@ -73,7 +74,13 @@ A repository ruleset on `main` (Settings → Rules → Rulesets), rather than cl
 
 A lighter ruleset on `develop`: block force pushes and deletion only. Direct pushes stay allowed.
 
-### Stage 3: dev builds from `develop`
+### Stage 3: dev builds from `develop` (done)
+
+Done: `.github/workflows/dev-build.yml`. The owner chose **A and B**: each push to `develop`
+(docs-only and `*.md` changes skipped) replaces the rolling `dev` pre-release and uploads the jar to
+the Hangar Snapshot channel. `plugin/build.gradle.kts` takes `-Phangar_changelog` so a dev build's
+Hangar changelog links its commit (a dev build has no release page). Maven snapshots (C) stay for
+later.
 
 New workflow `dev-build.yml`, on push to `develop` (and by hand):
 
