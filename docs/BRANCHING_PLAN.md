@@ -1,6 +1,6 @@
 # Branching plan: `develop` for work, `main` for releases
 
-Status: stages 1-3 done (2026-10-22). The owner took every recommended answer, plus Hangar: dev
+Status: stages 1-4 done (2026-10-22). The owner took every recommended answer, plus Hangar: dev
 builds as a rolling GitHub `dev` pre-release and on the Hangar Snapshot channel (Maven snapshots
 later), `develop` as the default branch, no
 bypass on `main`, tags by hand.
@@ -97,7 +97,12 @@ New workflow `dev-build.yml`, on push to `develop` (and by hand):
     can build against unreleased API. The repository grows with every push; would need pruning.
 - The existing artifact upload in `build.yml` stays (every branch, 90-day retention).
 
-### Stage 4: guard releases
+### Stage 4: guard releases (done)
+
+Done: `.github/workflows/release-source.yml` (job `Release source`, also rejects PRs from forks),
+now required by the `main` ruleset next to `Build (CraftEngine pinned)`; `release.yml` and
+`maven.yml` check out full history and stop unless the tagged commit is on `origin/main` (0.1.0 and
+0.2.0 pass). No tag ruleset: tags stay by hand, owner only in practice.
 
 - **`Release source` check**: a small job in `build.yml` (or its own workflow) on `pull_request`
   to `main` that fails unless the head branch is `develop` or `hotfix/*`. GitHub rulesets cannot
