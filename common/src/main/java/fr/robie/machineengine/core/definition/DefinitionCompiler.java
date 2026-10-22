@@ -230,14 +230,19 @@ public final class DefinitionCompiler {
         }
     }
 
+    /** Slots of a storage, or upgrade slots: more would be a typo (and past int, wrap around). */
+    static final int MAX_SLOTS = 4096;
+
     private static Result<MachineType> machine(Key key, DataMap map, Context context) {
         MachineType.Builder builder = MachineType.builder(key);
         DataMap storages = map.getMap("storages").toOptional().orElse(DataMap.EMPTY);
         for (Map.Entry<String, DataValue> entry : storages.entries().entrySet()) {
             if (!(entry.getValue() instanceof DataMap storage)) return invalid("storages." + entry.getKey() + " must be a map");
             long slots = storage.getLong("slots").toOptional().orElse(1L);
+            if (slots < 0 || slots > MAX_SLOTS) return invalid("storages." + entry.getKey() + ".slots must be within 0.." + MAX_SLOTS);
             Result<Long> capacity = storage.getLong("capacity");
             if (capacity.isErr()) return invalid("storages." + entry.getKey() + ".capacity is required");
+            if (capacity.value() < 0) return invalid("storages." + entry.getKey() + ".capacity must be 0 or more");
             ResourcePredicate filter = ResourcePredicate.any();
             if (storage.has("filter")) {
                 Result<ResourcePredicate> parsed = context.predicate(storage.get("filter").orElseThrow());
@@ -254,6 +259,7 @@ public final class DefinitionCompiler {
             builder.port(parsed.value());
         }
         long upgradeSlots = map.getLong("upgrade-slots").toOptional().orElse(0L);
+        if (upgradeSlots < 0 || upgradeSlots > MAX_SLOTS) return invalid("upgrade-slots must be within 0.." + MAX_SLOTS);
         builder.upgradeSlots((int) upgradeSlots, upgrade -> true);
         long catchUp = map.getLong("catch-up").toOptional().orElse(0L);
         if (catchUp > 0) builder.catchUp(CatchUpPolicy.bounded(catchUp));

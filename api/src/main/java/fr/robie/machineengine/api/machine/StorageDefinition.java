@@ -20,6 +20,8 @@ public record StorageDefinition(@NotNull String id, int slots, long capacity, @N
     public StorageDefinition {
         Objects.requireNonNull(id);
         Objects.requireNonNull(filter);
+        if (slots < 0) throw new IllegalArgumentException("Storage " + id + ": slots must be 0 or more, not " + slots);
+        if (capacity < 0) throw new IllegalArgumentException("Storage " + id + ": capacity must be 0 or more, not " + capacity);
     }
 
     public StorageDefinition(@NotNull String id, int slots, long capacity, @NotNull ResourcePredicate filter) {

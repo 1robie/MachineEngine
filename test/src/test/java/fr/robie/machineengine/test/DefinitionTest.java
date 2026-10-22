@@ -91,6 +91,30 @@ class DefinitionTest {
     }
 
     @Test
+    void storageSizesOutOfRangeAreSkippedNotCrashingAtPlacement() {
+        DataMap sizes = map("machines", map(
+                "pack:negative_slots", map("storages", map("tank", map("capacity", 10, "slots", -1)),
+                        "behavior", map("type", "machineengine:storage")),
+                "pack:huge_slots", map("storages", map("tank", map("capacity", 10, "slots", 5_000_000_000L)),
+                        "behavior", map("type", "machineengine:storage")),
+                "pack:negative_capacity", map("storages", map("tank", map("capacity", -5)),
+                        "behavior", map("type", "machineengine:storage")),
+                "pack:negative_upgrades", map("storages", map("tank", map("capacity", 10)), "upgrade-slots", -2,
+                        "behavior", map("type", "machineengine:storage"))));
+        CoreMachineEngine engine = TestEngine.builder()
+                .definitions(List.of(new DefinitionFile("definitions/sizes.yml", sizes)))
+                .start();
+
+        List<String> skipped = engine.startupReport().warnings().stream()
+                .filter(d -> d.code().equals(DiagnosticCodes.DEFINITION_SKIPPED)).map(Diagnostic::location).toList();
+        assertEquals(List.of(
+                "definitions/sizes.yml > machines.pack:negative_slots",
+                "definitions/sizes.yml > machines.pack:huge_slots",
+                "definitions/sizes.yml > machines.pack:negative_capacity",
+                "definitions/sizes.yml > machines.pack:negative_upgrades"), skipped);
+    }
+
+    @Test
     void invalidEntriesAreSkippedWithTheirLocationAndTheRestLoads() {
         DataMap broken = map(
                 "resource-types", map(

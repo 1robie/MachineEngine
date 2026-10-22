@@ -162,6 +162,7 @@ public final class MachineType implements Keyed {
         }
 
         public @NotNull Builder upgradeSlots(int slots, @NotNull Predicate<UpgradeType> accepts) {
+            if (slots < 0) throw new IllegalArgumentException("upgrade slots must be 0 or more, not " + slots);
             this.upgradeSlots = slots;
             this.acceptsUpgrade = Objects.requireNonNull(accepts);
             return this;
