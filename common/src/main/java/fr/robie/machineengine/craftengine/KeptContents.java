@@ -80,6 +80,22 @@ public final class KeptContents {
     }
 
     /**
+     * The engine stops: contents of machines broken this tick that no drop claimed yet are dropped now,
+     * since the task that would drop them next tick is cancelled.
+     */
+    void flush() {
+        for (Map.Entry<WorldPosition, Pending> entry : Map.copyOf(this.pending).entrySet()) {
+            if (!this.pending.remove(entry.getKey(), entry.getValue())) continue;
+            try {
+                this.host.dropResources(entry.getKey(), entry.getValue().packed().contents());
+            } catch (RuntimeException e) {
+                Logger.error("[craftengine]", "Lost the contents of a machine broken at %position% during shutdown", e,
+                        Placeholder.of("position", String.valueOf(entry.getKey())));
+            }
+        }
+    }
+
+    /**
      * The block item dropped where a machine was just broken: the same item with the machine's state,
      * or {@code null} if nothing waits there for this item (the drop stays as it is).
      */
