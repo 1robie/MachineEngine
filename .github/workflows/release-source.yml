@@ -1,8 +1,9 @@
 name: Release source
 
-# main only takes releases (docs/BRANCHING_PLAN.md): a pull request into it must come from develop or
-# a hotfix/* branch of this repository. The main ruleset requires this check; a ruleset cannot
-# restrict the source branch on its own.
+# main only takes releases (docs/BRANCHING_PLAN.md): a pull request into it must be opened by the
+# repository owner, from develop or a hotfix/* branch of this repository. Everyone else targets
+# develop. The main ruleset requires this check; a ruleset cannot restrict the author or the source
+# branch on its own.
 on:
   pull_request:
     branches: [main]
@@ -19,7 +20,13 @@ jobs:
         env:
           HEAD_REF: ${{ github.head_ref }}
           HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+          OWNER: ${{ github.repository_owner }}
         run: |
+          if [ "$AUTHOR" != "$OWNER" ]; then
+            echo "::error::Only $OWNER opens pull requests into main (releases). Target develop instead."
+            exit 1
+          fi
           if [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
             echo "::error::A pull request into main must come from this repository, not $HEAD_REPO."
             exit 1

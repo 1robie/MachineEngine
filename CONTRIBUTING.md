@@ -110,15 +110,38 @@ client is checked on a dev server.
    game (with Sodium too on 26.2+), `/machineengine fluid info`.
 6. **Docs.** The supported versions in the README and on the documentation site.
 
+## Branches
+
+Work happens on `develop` (the default branch); `main` holds releases only (D48).
+
+- **Pull requests target `develop`**, from a branch of your own (`feature/…`, a fork).
+- **Only the owner opens pull requests into `main`**, from `develop` (a release) or a `hotfix/*`
+  branch. The `Release source` check fails any other, and the `main` ruleset requires it and
+  `Build (CraftEngine pinned)`, takes merge commits only, and blocks force pushes and deletion.
+  `develop` blocks force pushes and deletion.
+- **Dev builds:** every push to `develop` (not docs-only) runs `dev-build.yml`: version
+  `<next>-dev.<run>` (`0.2.1-dev.3`), built and tested, then the rolling GitHub pre-release
+  [`dev`](https://github.com/1robie/MachineEngine/releases/tag/dev) (replaced each time) and the
+  Hangar Snapshot channel.
+
 ## Releases
 
-Before the tag: in [CHANGELOG.md](CHANGELOG.md), turn "Unreleased" into the version and date (with
-every API break listed, in a minor version only). After it: raise `version` in `gradle.properties`
-to the next `-SNAPSHOT` and `apiBaseline` in `api/build.gradle.kts` to the version just released.
+1. On `develop`: in [CHANGELOG.md](CHANGELOG.md), turn "Unreleased" into the version and date (with
+   every API break listed, in a minor version only).
+2. Open the pull request `develop` → `main` titled `Release <version>`, wait for the checks, merge it
+   (merge commit).
+3. Tag the merge commit on `main` with the version (`0.2.1`, `0.2.1-beta.1`) and push the tag:
+   `git fetch origin && git tag 0.2.1 origin/main && git push origin 0.2.1`.
+4. On `develop`: raise `version` in `gradle.properties` to the next `-SNAPSHOT` and `apiBaseline` in
+   `api/build.gradle.kts` to the version just released.
+
 `:api:japicmp` fails a patch version that breaks the API of `apiBaseline`; its report is in
 `api/build/reports/japicmp`.
 
-Push a tag named like the version (`0.2.0`, `0.2.0-beta.1`):
+A hotfix: branch `hotfix/<version>` from `main`, fix and update the changelog there, pull request
+into `main`, tag as above, then merge `main` into `develop`.
+
+The tag runs two workflows. Both stop, publishing nothing, if the tagged commit is not on `main`:
 
 - `release.yml` builds and tests with that version, checks the API with japicmp, makes a GitHub release with the jar, uploads it to
   [Hangar](https://hangar.papermc.io/1robie/MachineEngine) (a hyphenated tag goes to the Snapshot
@@ -126,5 +149,5 @@ Push a tag named like the version (`0.2.0`, `0.2.0-beta.1`):
 - `maven.yml` builds and tests, then publishes every module to the Maven repository `https://1robie.github.io/maven/`
   (repository `1robie/maven`), with the API Javadoc. It can also be run by hand for an existing tag.
 
-`hangar-page.yml` keeps the Hangar page equal to this README. Secrets: `HANGAR_API_TOKEN`,
+`hangar-page.yml` keeps the Hangar page equal to the README on `main`, so it changes with releases. Secrets: `HANGAR_API_TOKEN`,
 `MAVEN_REPO_TOKEN`. Release MachineEngine before a Mekanized release that needs it.

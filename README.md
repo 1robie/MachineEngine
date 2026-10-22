@@ -29,6 +29,11 @@ resource pack; menus are [zMenu](https://modrinth.com/plugin/zmenu) inventories.
 
 Details: [installing](https://1robie.github.io/plugins/machineengine/installation/installing).
 
+**Dev builds** of the next version (unstable, not for production servers) are on the Hangar
+Snapshot channel and the GitHub pre-release
+[`dev`](https://github.com/1robie/MachineEngine/releases/tag/dev), rebuilt on every change to
+`develop`.
+
 ## Features
 
 - **Machines** that sleep when there is nothing to do, and keep their state with their block in the

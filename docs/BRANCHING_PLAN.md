@@ -1,6 +1,7 @@
 # Branching plan: `develop` for work, `main` for releases
 
-Status: stages 1-4 done (2026-10-22). The owner took every recommended answer, plus Hangar: dev
+Status: all stages done (2026-10-22), D48. The owner added: only the owner opens pull requests into
+`main` (the `Release source` check), everyone else targets `develop`. Earlier: stages 1-4 done (2026-10-22). The owner took every recommended answer, plus Hangar: dev
 builds as a rolling GitHub `dev` pre-release and on the Hangar Snapshot channel (Maven snapshots
 later), `develop` as the default branch, no
 bypass on `main`, tags by hand.
@@ -112,7 +113,9 @@ now required by the `main` ruleset next to `Build (CraftEngine pinned)`; `releas
   from `develop` by mistake then publishes nothing.
 - Optional: a tag ruleset so only the owner can create tags matching `[0-9]*`.
 
-### Stage 5: release procedure (CONTRIBUTING.md)
+### Stage 5: release procedure (CONTRIBUTING.md) (done)
+
+Done: CONTRIBUTING.md has a "Branches" section and the release and hotfix steps below.
 
 Replace "Releases" with:
 
@@ -128,7 +131,10 @@ Hotfix: same, from a `hotfix/x.y.z` branch cut from `main`, then merge `main` in
 Optional later: a `workflow_dispatch` "Prepare release" workflow that does steps 1-2 (changelog,
 PR) and a job on PR merge that tags automatically.
 
-### Stage 6: docs and tooling
+### Stage 6: docs and tooling (done)
+
+Done: README "Dev builds" paragraph, D48 in docs/ARCHITECTURE.md, the memory note for Claude Code
+sessions. Left: the documentation site's install page (its own repository) and Mekanized.
 
 - CONTRIBUTING.md: the branch model, "PRs target `develop`", the release steps above.
 - README: where dev builds are (the `dev` pre-release / Hangar Snapshot channel), marked unstable.
