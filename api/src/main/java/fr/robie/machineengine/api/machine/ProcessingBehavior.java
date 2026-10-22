@@ -136,7 +136,11 @@ public final class ProcessingBehavior implements MachineBehavior {
         return !isEmpty(context);
     }
 
+    /**
+     * Whether the pushed storage is empty. Only that one: extra outputs (by-products) are not pushed, so
+     * one nobody drains would keep the machine retrying instead of waiting for input.
+     */
     private boolean isEmpty(MachineContext context) {
-        return this.binding.outputs().stream().allMatch(id -> context.storage(id).views().stream().allMatch(view -> view.isEmpty()));
+        return context.storage(this.binding.output()).views().stream().allMatch(view -> view.isEmpty());
     }
 }
